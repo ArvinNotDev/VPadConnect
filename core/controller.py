@@ -93,34 +93,48 @@ def is_preferred_sony_gamepad_interface(device_info):
 
 
 def resolve_sony_input_report_index(controller_type, configured_index, report=None, transport=None):
-    """Resolve profile indexes for the DualSense USB and Bluetooth report layouts.
-
-    DualSense profile indexes use the Bluetooth 0x31 layout (two-byte prefix).
-    USB report 0x01 has a one-byte prefix, so every configured field is one
-    byte earlier. DualShock 4's existing profile offsets are not changed.
-    """
-    if configured_index is None or controller_type != "Dualsense":
+    """Resolve profile indexes against the native Sony USB/Bluetooth layouts."""
+    if configured_index is None or controller_type not in ("Dualsense", "Dualshock4"):
         return configured_index
-
     try:
         index = int(configured_index)
     except (TypeError, ValueError):
         return configured_index
 
-    if report:
-        report_id = report[0]
+    report_id = report[0] if report else None
+    transport_text = str(transport or "").strip().upper()
+    is_bluetooth = (
+        transport == 2 or str(transport) == "2"
+        or "BLUETOOTH" in transport_text or transport_text in {"BT", "BTH"}
+    )
+    if controller_type == "Dualsense":
         if report_id == 0x01:
             return max(0, index - 1)
         if report_id == 0x31:
             return index
+        is_usb = transport == 1 or str(transport) == "1" or "USB" in transport_text
+        return max(0, index - 1) if is_usb else index
 
-    transport_text = str(transport or "").strip().upper()
-    is_usb = (
-        transport == 1
-        or str(transport) == "1"
-        or "USB" in transport_text
-    )
-    return max(0, index - 1) if is_usb else index
+    # DS4 full BT 0x11 adds two reserved bytes after report ID.
+    # USB 0x01 and minimal Bluetooth 0x01 use the USB profile offsets.
+    if report_id == 0x11:
+        return index + 2
+    if report_id == 0x01:
+        return index
+    return index + 2 if is_bluetooth else index
+
+
+def interpret_dualshock4_battery(status_byte):
+    """Decode DS4 capacity using the cable-state-dependent status nibble."""
+    value = int(status_byte) & 0xFF
+    level = value & 0x0F
+    if value & 0x10:
+        if level <= 10:
+            return min(100, level * 10 + 5), True
+        if level == 11:
+            return 100, False
+        return None, False
+    return (level * 10 + 5, False) if level <= 9 else (100, False)
 
 
 class PlayerType:
