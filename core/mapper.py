@@ -11,9 +11,13 @@ except Exception:
 
 from core.emulator import EmulateX360, EmulateKeyboard
 from core.emulator import media_functions, custom_commands
-from core.controller import resolve_sony_input_report_index
+from core.controller import resolve_sony_input_report_index, interpret_dualshock4_battery
 from core.dualsense_lightbar import resolve_lightbar_color
-from core.dualsense_gyro import DualSenseGyroSteering, decode_dualsense_motion, is_dualsense
+from core.dualsense_gyro import (
+    DualSenseGyroSteering, DualShock4GyroSteering,
+    decode_dualsense_motion, decode_dualshock4_motion,
+    is_dualsense, is_dualshock4,
+)
 from core.mouse import Mouse, MouseMotion
 from core.utils.controller_monitor import controllerMonitor
 from core.utils.hotkey_commander import HotkeyCommander
@@ -85,19 +89,19 @@ class Mapper:
                 controller.device_path,
                 controller.name,
                 hotkey_page.hotkey,
-                rumble_enabled=(controller_type == "Dualsense"),
+                rumble_enabled=(controller_type in ("Dualsense", "Dualshock4")),
                 rumble_transport=controller.transport,
                 rumble_controller_key=controller.stable_id,
                 vibration_enabled=settings.get_vibration_enabled(),
+                rumble_controller_type=controller_type,
             )
-            if is_dualsense(controller.vendor_id, controller.product_id):
+            if is_dualsense(controller.vendor_id, controller.product_id) or is_dualshock4(controller.vendor_id, controller.product_id):
                 try:
-                    gyro_settings = settings.get_controller_gyro_settings(
-                        controller.stable_id
-                    )
+                    gyro_settings = settings.get_controller_gyro_settings(controller.stable_id)
                 except (AttributeError, TypeError):
                     gyro_settings = {}
-                self.gyro_steering = DualSenseGyroSteering(
+                gyro_class = DualShock4GyroSteering if controller_type == "Dualshock4" else DualSenseGyroSteering
+                self.gyro_steering = gyro_class(
                     enabled=gyro_settings.get("enabled", False),
                     sensitivity=gyro_settings.get("sensitivity", 1.0),
                     deadzone_degrees=gyro_settings.get("deadzone_degrees", 2.0),
@@ -248,9 +252,15 @@ class Mapper:
             # Preserve the original stick path exactly and skip sensor work
             # entirely while this optional feature is disabled.
             return analog_x
-        motion = decode_dualsense_motion(report)
-        if motion is None:
-            return 0
+        if self.controller_type == "Dualshock4":
+            motion = decode_dualshock4_motion(report)
+            if motion is None:
+                # Bluetooth minimal report 0x01 has buttons but no sensor data.
+                return analog_x
+        else:
+            motion = decode_dualsense_motion(report)
+            if motion is None:
+                return 0
         return steering.update(motion)
 
     @staticmethod
@@ -362,14 +372,13 @@ class Mapper:
         charging_state = (battery_byte >> 4) & 0x0F  # Upper 4 bits
 
         if self.controller_type == "Dualsense":
-            # hid-playstation's DualSense status nibble is 0=discharging,
-            # 1=charging, 2=full. Each capacity unit represents a 10% band.
             if charging_state == 0x02:
                 return 100, False
             if charging_state in (0x00, 0x01):
-                percent = min(100, battery_level * 10 + 5)
-                return percent, charging_state == 0x01
+                return min(100, battery_level * 10 + 5), charging_state == 0x01
             return 0, False
+        if self.controller_type == "Dualshock4":
+            return interpret_dualshock4_battery(battery_byte)
 
         is_charging = (charging_state == 0x02)
 
@@ -435,16 +444,22 @@ class Mapper:
         is_charging = False
         battery_percent_cfg = battery_cfg.get("percent", {})
         if battery_percent_cfg.get("byte") is not None:
-            raw_battery = self._read_byte_safe(
-                report,
-                self._battery_report_index(battery_percent_cfg.get("byte"), report=report),
+            battery_index = self._battery_report_index(battery_percent_cfg.get("byte"), report=report)
+            # The 10-byte DS4 Bluetooth minimal report has no battery field.
+            battery_available = (
+                self.controller_type != "Dualshock4"
+                or battery_index is None
+                or battery_index < len(report)
             )
-            battery_percent, is_charging = self._interpret_battery(raw_battery)
-            self._publish_battery(battery_percent, is_charging)
-            state = (int(battery_percent), bool(is_charging))
-            if state != self._battery_state:
-                self._battery_state = state
-                self._apply_lightbar()
+            if battery_available and battery_index is not None:
+                raw_battery = self._read_byte_safe(report, battery_index)
+                battery_percent, is_charging = self._interpret_battery(raw_battery)
+                if battery_percent is not None:
+                    self._publish_battery(battery_percent, is_charging)
+                    state = (int(battery_percent), bool(is_charging))
+                    if state != self._battery_state:
+                        self._battery_state = state
+                        self._apply_lightbar()
 
 
         left_deadzone, right_deadzone = self.settings.get_deadzones()
