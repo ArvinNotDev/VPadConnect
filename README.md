@@ -12,9 +12,9 @@
 
 **VPadConnect** is a Windows desktop app that maps physical HID controllers to virtual Xbox/XInput output, mouse controls, and hotkeys. It also includes a browser-based companion for mobile gamepad and PC remote controls.
 
-## Download Beta 2
+## Download Beta 3
 
-**[Download VPadConnect 0.2.1 Beta 2](https://github.com/ArvinNotDev/VPadConnect/releases/latest)** · [All releases](https://github.com/ArvinNotDev/VPadConnect/releases)
+**[Download VPadConnect 0.2.1 Beta 3](https://github.com/ArvinNotDev/VPadConnect/releases/latest)** · [All releases](https://github.com/ArvinNotDev/VPadConnect/releases)
 
 Download and run `VPadConnect-Setup.exe`. This self-contained Windows x64 installer includes the application and the original ViGEmBus 1.22.0 installer. Python and an internet connection during installation are not required. `SHA256SUMS.txt` contains the installer checksum.
 
@@ -28,7 +28,7 @@ Setup lets you choose the installation folder, creates a Start Menu shortcut, an
 
 ViGEmBus is installed automatically when a working compatible driver is not found. Existing working installations are left in place. Mouse controls, hotkeys, and Web Companion features that do not use virtual XInput remain available if driver setup fails. Uninstalling VPadConnect preserves user data and never removes the shared ViGEmBus driver.
 
-For a quick tour, see [Quick start](#quick-start). Read [What's new in this beta](.github/release-notes/0.2.1-beta.2.md) and the [full changelog](CHANGELOG.md).
+For a quick tour, see [Quick start](#quick-start). Read [What's new in this beta](.github/release-notes/0.2.1-beta.3.md) and the [full changelog](CHANGELOG.md).
 
 > **Beta:** Controller and Windows compatibility can vary. Back up important profiles before testing and report reproducible problems. Automated checks do not mean every controller has been manually tested.
 
@@ -93,13 +93,13 @@ The one-file build is written to `dist\VPadConnect.exe` and is retained as an in
 - Physical-controller-to-keyboard mapping is not currently available. Web Companion keyboard input is a separate, permission-controlled remote feature.
 - ViGEmBus is retired and no longer receives upstream updates. Virtual XInput output requires the bundled v1.22.0 driver to install and work on the PC; compatibility with future Windows releases is not guaranteed.
 - If driver installation fails, virtual XInput output is unavailable until it is repaired. Mouse control, hotkeys, and Web Companion features that do not use XInput remain available.
-- HID interfaces and behavior vary between controller models; check the [beta notes](.github/release-notes/0.2.1-beta.2.md) for validation details and current limitations.
+- HID interfaces and behavior vary between controller models; check the [beta notes](.github/release-notes/0.2.1-beta.3.md) for validation details and current limitations.
 
 ## Links
 
 - [Download Beta](https://github.com/ArvinNotDev/VPadConnect/releases/latest)
 - [Full changelog](CHANGELOG.md)
-- [Beta release notes](.github/release-notes/0.2.1-beta.2.md)
+- [Beta release notes](.github/release-notes/0.2.1-beta.3.md)
 - [GitHub repository](https://github.com/ArvinNotDev/VPadConnect)
 
 ## License

@@ -3,6 +3,27 @@
 All notable user-facing changes to VPadConnect are documented
 here. Version numbers follow semantic-versioning conventions where practical.
 
+## [0.2.1-beta.3] — 2026-11-04
+
+### New features
+
+- Added DualShock 4 gyro steering and vibration/rumble support.
+- Improved DualShock 4 battery percentage and charging status detection.
+
+### Improvements and compatibility
+
+- Improved Sony controller HID report handling and added DualShock 4-specific
+  calibration and motion processing.
+- Preserved existing DualSense gyro, vibration, and Lightbar functionality.
+- Preserved wired DualShock 4 controls.
+- Continued bundling the official ViGEmBus 1.22.0 installer with the existing
+  Inno Setup flow, including detection of an already working driver and
+  installation only when required.
+
+### Validation
+
+See the release notes for build results and environment-specific test limits.
+
 ## [0.2.1-beta.2] — 2026-10-30
 
 ### Windows installer
@@ -144,6 +165,7 @@ _No unreleased changes._
 - Added live vibration settings and XInput vibration testing.
 
 [0.2.1-beta.1]: https://github.com/ArvinNotDev/VPadConnect/releases/tag/v0.2.1-beta.1
+[0.2.1-beta.3]: https://github.com/ArvinNotDev/VPadConnect/releases/tag/v0.2.1-beta.3
 [2.0.8]: https://github.com/ArvinNotDev/VPadConnect/tree/3d4b900c1725c762c184bdd638288e07ebbcd906
 [2.0.7]: https://github.com/ArvinNotDev/VPadConnect/tree/58d071976700fab8bd41c7e1a3b8ecf098c29c4d
 [2.0.6]: https://github.com/ArvinNotDev/VPadConnect/tree/f66e8f601f74bb27e0f149e615f17d93c03d4223
