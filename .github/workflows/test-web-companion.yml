@@ -6,7 +6,10 @@ on:
     paths:
       - "core/mouse.py"
       - "core/mapper.py"
+      - "core/dualsense_gyro.py"
+      - "core/hid.py"
       - "core/raw_hid.py"
+      - "tests/test_dualsense_gyro_realtime.py"
       - "core/settings.py"
       - "core/dev_logging.py"
       - "core/web_remote.py"
@@ -36,7 +39,10 @@ on:
     paths:
       - "core/mouse.py"
       - "core/mapper.py"
+      - "core/dualsense_gyro.py"
+      - "core/hid.py"
       - "core/settings.py"
+      - "tests/test_dualsense_gyro_realtime.py"
       - "core/dev_logging.py"
       - "core/web_remote.py"
       - "core/remote_protocol.py"
@@ -85,7 +91,10 @@ jobs:
 
       - name: Compile changed Python modules
         run: |
-          python -m compileall -q core/mouse.py core/mapper.py core/raw_hid.py core/settings.py core/dev_logging.py core/vigem.py tests/test_mouse_failsafe.py tests/test_dev_logging.py tests/test_settings_runtime.py tests/test_raw_hid_format.py core/web_remote.py core/remote_protocol.py ui/animations.py ui/vigem_gate.py ui/pages/settings.py ui/pages/raw_hid_terminal.py ui/pages/controller_emulation.py ui/pages/controllers.py ui/pages/web_remote.py ui/main_window.py tests/test_web_remote.py tests/test_remote_protocol.py
+          python -m compileall -q core/mouse.py core/mapper.py core/dualsense_gyro.py core/hid.py core/raw_hid.py core/settings.py core/dev_logging.py core/vigem.py tests/test_mouse_failsafe.py tests/test_dev_logging.py tests/test_settings_runtime.py tests/test_raw_hid_format.py core/web_remote.py core/remote_protocol.py ui/animations.py ui/vigem_gate.py ui/pages/settings.py ui/pages/raw_hid_terminal.py ui/pages/controller_emulation.py ui/pages/controllers.py ui/pages/web_remote.py ui/main_window.py tests/test_web_remote.py tests/test_remote_protocol.py
+
+      - name: Run low-latency DualSense gyro tests
+        run: python -m pytest -q tests/test_dualsense_gyro_realtime.py
 
       - name: Test settings persistence and developer logging
         run: python -m pytest -q tests/test_dev_logging.py tests/test_settings_runtime.py tests/test_raw_hid_format.py

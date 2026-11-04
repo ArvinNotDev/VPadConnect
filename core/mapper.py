@@ -243,13 +243,14 @@ class Mapper:
     def _steering_x_input(self, analog_x: int, report: bytes) -> int:
         """Use gyro only for DualSense left-stick X when the feature is enabled."""
         steering = self.gyro_steering
-        if steering is None:
+        if steering is None or not steering.enabled:
+            # Preserve the original stick path exactly and skip sensor work
+            # entirely while this optional feature is disabled.
             return analog_x
         motion = decode_dualsense_motion(report)
         if motion is None:
-            return 0 if steering.enabled else analog_x
-        value = steering.update(motion)
-        return value if steering.enabled else analog_x
+            return 0
+        return steering.update(motion)
 
     @staticmethod
     def _mouse_response(value: float) -> float:

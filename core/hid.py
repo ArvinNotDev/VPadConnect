@@ -71,7 +71,23 @@ class HIDManager(QObject):
             )
 
         self._workers[path] = (thread, worker, controller)
-        thread.start()
+
+        # Keep the existing HID reader/mapper execution path on one thread.
+        # Give DualSense input reports a higher scheduling priority so the
+        # worker is less likely to be delayed under ordinary desktop load.
+        try:
+            vid = int(vendor_id, 0) if isinstance(vendor_id, str) else int(vendor_id)
+            pid = int(product_id, 0) if isinstance(product_id, str) else int(product_id)
+            is_dualsense = vid == 0x054C and pid in (0x0CE6, 0x0DF2)
+        except (TypeError, ValueError):
+            is_dualsense = False
+
+        priority = (
+            QThread.Priority.HighPriority
+            if is_dualsense
+            else QThread.Priority.InheritPriority
+        )
+        thread.start(priority)
         return controller
 
     def _on_worker_error(self, device_path, message: str) -> None:

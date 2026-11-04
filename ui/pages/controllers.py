@@ -585,7 +585,10 @@ class X360TestCard(QFrame):
         self.gyro_live_label = QLabel("OFF  ·  ROLL +0.0°  ·  STEER +0%")
         self.gyro_live_label.setObjectName("gyroLiveStatus")
         self.gyro_live_label.setAlignment(Qt.AlignCenter)
-        self.gyro_live_label.setMinimumWidth(205)
+        self.gyro_live_label.setMinimumWidth(265)
+        self.gyro_live_label.setToolTip(
+            "Live roll angle, steering output, and the measured DualSense sensor report rate."
+        )
         self.gyro_live_label.setStyleSheet(
             "QLabel#gyroLiveStatus { background:#102b30; color:#83e6c5; "
             "border:1px solid #2d665f; border-radius:8px; padding:6px 9px; "
@@ -809,7 +812,12 @@ class X360TestCard(QFrame):
                 output = self._gyro.steering_value
                 state = "ON" if self._gyro.enabled else "OFF"
                 percent = int(round(output * 100.0 / 32767.0))
-                status = f"{state}  ·  ROLL {angle:+.1f}°  ·  STEER {percent:+d}%"
+                rate = self._gyro.sample_rate_hz
+                rate_text = f"{rate:.0f}Hz" if rate is not None else "--Hz"
+                status = (
+                    f"{state}  ·  ROLL {angle:+.1f}°  ·  "
+                    f"STEER {percent:+d}%  ·  {rate_text}"
+                )
                 if self.gyro_live_label.text() != status:
                     self.gyro_live_label.setText(status)
             except Exception:

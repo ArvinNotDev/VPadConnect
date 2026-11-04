@@ -134,9 +134,11 @@ class DualSenseGyroSteering:
     hard-coded assumption that a sensor axis named X/Y/Z is the steering axis.
     """
 
-    # Keep the gravity correction responsive without aggressively filtering
-    # the high-rate gyroscope signal.
-    complementary_time_constant = 0.12
+    # A short correction time constant keeps the gravity reference responsive.
+    # The gyroscope still supplies the immediate rotation estimate.
+    complementary_time_constant = 0.025
+    min_gravity_magnitude_g = 0.80
+    max_gravity_magnitude_g = 1.20
     max_sample_interval = 0.05
     full_steer_angle_degrees = 20.0
 
@@ -161,6 +163,7 @@ class DualSenseGyroSteering:
         self._last_sensor_timestamp: int | None = None
         self._last_accel_g: tuple[float, float, float] | None = None
         self._last_accel_magnitude = 0.0
+        self._sample_rate_hz: float | None = None
         self._factory_calibration = DualSenseFactoryCalibration.from_feature_report(
             factory_calibration
         ) if factory_calibration else None
@@ -174,10 +177,11 @@ class DualSenseGyroSteering:
     def set_enabled(self, enabled: bool) -> None:
         with self._lock:
             enabled = bool(enabled)
-            if enabled and not self.enabled:
+            if enabled != self.enabled:
                 self._angle_radians = None
                 self._last_host_time = None
                 self._last_sensor_timestamp = None
+                self._sample_rate_hz = None
             self.enabled = enabled
 
     def set_parameters(self, sensitivity: float, deadzone_degrees: float) -> None:
@@ -222,6 +226,12 @@ class DualSenseGyroSteering:
     def current_angle_degrees(self) -> float:
         with self._lock:
             return math.degrees(self._angle_radians or 0.0)
+
+    @property
+    def sample_rate_hz(self) -> float | None:
+        """Smoothed rate of valid hardware-timestamped sensor reports."""
+        with self._lock:
+            return self._sample_rate_hz
 
     def _steering_value_locked(self) -> int:
         """Return the current XInput value while the state lock is held."""
@@ -284,6 +294,19 @@ class DualSenseGyroSteering:
                 self.max_sample_interval,
             )
 
+            # Expose the real device report rate for diagnostics. This is based
+            # only on the controller clock, not on GUI refresh or Python timing.
+            if sensor_dt is not None and sensor_dt > 0.0:
+                measured_rate = 1.0 / sensor_dt
+                if 1.0 <= measured_rate <= 5000.0:
+                    if self._sample_rate_hz is None:
+                        self._sample_rate_hz = measured_rate
+                    else:
+                        rate_alpha = 1.0 - math.exp(-dt / 0.12)
+                        self._sample_rate_hz += rate_alpha * (
+                            measured_rate - self._sample_rate_hz
+                        )
+
             if self._steering_axis is None:
                 return self._steering_value_locked()
 
@@ -305,7 +328,11 @@ class DualSenseGyroSteering:
             )
             if self._angle_radians is None:
                 self._angle_radians = accel_angle
-            elif 0.70 <= accel_magnitude <= 1.30:
+            elif (
+                self.min_gravity_magnitude_g
+                <= accel_magnitude
+                <= self.max_gravity_magnitude_g
+            ):
                 correction = 1.0 - math.exp(-dt / self.complementary_time_constant)
                 self._angle_radians = predicted + correction * _wrap_radians(
                     accel_angle - predicted
@@ -320,7 +347,12 @@ class DualSenseGyroSteering:
         with self._lock:
             gravity = (
                 _unit(self._last_accel_g)
-                if self._last_accel_g and 0.70 <= self._last_accel_magnitude <= 1.30
+                if (
+                    self._last_accel_g
+                    and self.min_gravity_magnitude_g
+                    <= self._last_accel_magnitude
+                    <= self.max_gravity_magnitude_g
+                )
                 else None
             )
             if gravity is None:
@@ -330,6 +362,7 @@ class DualSenseGyroSteering:
             self._angle_radians = 0.0
             self._last_host_time = None
             self._last_sensor_timestamp = None
+            self._sample_rate_hz = None
             return gravity
 
     def reset(self) -> None:
@@ -340,3 +373,4 @@ class DualSenseGyroSteering:
             self._last_sensor_timestamp = None
             self._last_accel_g = None
             self._last_accel_magnitude = 0.0
+            self._sample_rate_hz = None
