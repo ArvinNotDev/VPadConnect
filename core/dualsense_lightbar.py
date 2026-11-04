@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import threading
+import time
 import hid
 
 from core.dualsense_output import (
@@ -25,6 +26,15 @@ LIGHTBAR_SETUP_LIGHT_OUT = 0x02
 
 DEFAULT_LIGHTBAR_COLOR = "#8B5CF6"
 CHARGING_LIGHTBAR_COLOR = (56, 189, 248)
+
+# Saturated status colors remain easy to distinguish on the controller LEDs.
+BATTERY_HIGH_COLOR = (0, 255, 0)       # 70–100%: green
+BATTERY_MEDIUM_COLOR = (255, 200, 0)   # 40–69%: yellow
+BATTERY_LOW_COLOR = (255, 80, 0)       # 20–39%: orange
+BATTERY_CRITICAL_COLOR = (255, 0, 0)  # 0–19%: red
+
+# Let the DualSense finish handing the startup lightbar back to host control.
+LIGHTBAR_STARTUP_SETTLE_SECONDS = 0.08
 
 
 def is_dualsense_device(vendor_id, product_id) -> bool:
@@ -110,12 +120,12 @@ def resolve_lightbar_color(settings: dict, battery_state=None) -> tuple[tuple[in
         if settings.get("battery_mode", False):
             percent = max(0, min(100, int(percent)))
             if percent >= 70:
-                return (34, 197, 94), True       # green
+                return BATTERY_HIGH_COLOR, True
             if percent >= 40:
-                return (234, 179, 8), True       # yellow
+                return BATTERY_MEDIUM_COLOR, True
             if percent >= 20:
-                return (249, 115, 22), True      # orange
-            return (239, 68, 68), True           # critical red
+                return BATTERY_LOW_COLOR, True
+            return BATTERY_CRITICAL_COLOR, True
 
     color = str(settings.get("color", DEFAULT_LIGHTBAR_COLOR)).strip()
     if not re.fullmatch(r"#[0-9a-fA-F]{6}", color):
@@ -149,6 +159,7 @@ class DualSenseLightbar:
         self._device = None
         self._initialized = False
         self._last_sent = None
+        self._last_error_message = None
         self._in_flight = None
         self._thread = threading.Thread(
             target=self._run,
@@ -199,6 +210,7 @@ class DualSenseLightbar:
             self._close_device()
 
     def _run(self) -> None:
+        retry_delay = 0.25
         while True:
             with self._condition:
                 while self._pending is None and not self._stopping:
@@ -211,10 +223,28 @@ class DualSenseLightbar:
 
             sent = command == self._last_sent or self._send(command)
             with self._condition:
+                self._in_flight = None
                 if sent:
                     self._last_sent = command
-                self._in_flight = None
+                    self._last_error_message = None
+                    retry_delay = 0.25
+                elif self._stopping:
+                    self._pending = None
+                else:
+                    # Keep the latest requested color alive across transient
+                    # HID-open/write failures during controller startup.
+                    if self._pending is None:
+                        self._pending = command
+                    if self._pending == command:
+                        self._condition.wait(timeout=retry_delay)
+                    retry_delay = min(retry_delay * 2.0, 2.0)
         self._close_device()
+
+    def _log_output_error(self, operation: str, exc: Exception) -> None:
+        message = f"{operation}: {exc}"
+        if message != self._last_error_message:
+            print(f"[DualSenseLightbar] {message}")
+            self._last_error_message = message
 
     def _ensure_device(self) -> bool:
         if self._device is not None:
@@ -248,7 +278,7 @@ class DualSenseLightbar:
                 )
             return True
         except Exception as exc:
-            print(f"[DualSenseLightbar] Failed to open device: {exc}")
+            self._log_output_error("Failed to open device", exc)
             self._close_device()
             return False
 
@@ -306,6 +336,7 @@ class DualSenseLightbar:
             with dualsense_output_lock(self._controller_key):
                 if not self._initialized:
                     self._send_lightbar_reset()
+                    time.sleep(LIGHTBAR_STARTUP_SETTLE_SECONDS)
                     self._initialized = True
 
                 if self._bluetooth:
@@ -317,7 +348,7 @@ class DualSenseLightbar:
                 self._write_report("color", report)
             return True
         except Exception as exc:
-            print(f"[DualSenseLightbar] Output report failed: {exc}")
+            self._log_output_error("Output report failed", exc)
             self._close_device()
             return False
 
