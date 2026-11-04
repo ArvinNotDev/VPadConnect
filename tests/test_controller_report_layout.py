@@ -86,8 +86,28 @@ def test_transport_fallback_and_dualshock4_offsets_remain_unchanged():
     usb_report = bytes([0x01]) + bytes(63)
     bluetooth_report = bytes([0x11]) + bytes(77)
 
-    # The DualShock 4 profile already matches its native USB report layout.
-    # Its Bluetooth input path is deliberately not altered in this fix.
+    # DS4 USB keeps its profile offsets. Full Bluetooth 0x11 adds two bytes.
     assert resolve_sony_input_report_index("Dualshock4", 1, usb_report, 1) == 1
     assert resolve_sony_input_report_index("Dualshock4", 5, usb_report, 1) == 5
-    assert resolve_sony_input_report_index("Dualshock4", 1, bluetooth_report, 2) == 1
+    assert resolve_sony_input_report_index("Dualshock4", 1, bluetooth_report, 2) == 3
+
+
+
+def test_dualshock4_report_offsets_and_battery_status():
+    from core.controller import interpret_dualshock4_battery
+
+    bluetooth = bytes([0x11]) + bytes(77)
+    usb = bytes([0x01]) + bytes(63)
+    minimal = bytes([0x01]) + bytes(9)
+    assert resolve_sony_input_report_index("Dualshock4", 1, usb, 2) == 1
+    assert resolve_sony_input_report_index("Dualshock4", 1, bluetooth, 1) == 3
+    assert resolve_sony_input_report_index("Dualshock4", 30, bluetooth, 1) == 32
+    assert resolve_sony_input_report_index("Dualshock4", 1, minimal, 2) == 1
+
+    assert interpret_dualshock4_battery(0x00) == (5, False)
+    assert interpret_dualshock4_battery(0x09) == (95, False)
+    assert interpret_dualshock4_battery(0x0A) == (100, False)
+    assert interpret_dualshock4_battery(0x10) == (5, True)
+    assert interpret_dualshock4_battery(0x1A) == (100, True)
+    assert interpret_dualshock4_battery(0x1B) == (100, False)
+    assert interpret_dualshock4_battery(0x1E) == (None, False)
