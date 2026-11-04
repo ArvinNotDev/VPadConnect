@@ -532,12 +532,37 @@ class X360TestCard(QFrame):
         root.addLayout(header)
 
         self.gyro_settings_row = QWidget()
+        self.gyro_settings_row.setObjectName("gyroSettingsRow")
+        self.gyro_settings_row.setStyleSheet("""
+            QWidget#gyroSettingsRow {
+                background: #142136;
+                border: 1px solid #304461;
+                border-radius: 10px;
+            }
+            QWidget#gyroSettingsRow QLabel {
+                color: #aec0d9;
+                font-size: 11px;
+                font-weight: 600;
+            }
+            QWidget#gyroSettingsRow QSlider::groove:horizontal {
+                height: 4px;
+                background: #334761;
+                border-radius: 2px;
+            }
+            QWidget#gyroSettingsRow QSlider::handle:horizontal {
+                width: 13px;
+                margin: -5px 0;
+                border-radius: 6px;
+                background: #79c9ff;
+                border: 1px solid #c8eaff;
+            }
+        """)
         gyro_settings = QHBoxLayout(self.gyro_settings_row)
-        gyro_settings.setContentsMargins(0, 0, 0, 0)
+        gyro_settings.setContentsMargins(10, 6, 10, 6)
         gyro_settings.setSpacing(8)
         gyro_settings.addWidget(QLabel("Sensitivity"))
         self.gyro_sensitivity_slider = QSlider(Qt.Horizontal)
-        self.gyro_sensitivity_slider.setRange(25, 250)
+        self.gyro_sensitivity_slider.setRange(25, 400)
         self.gyro_sensitivity_slider.setSingleStep(5)
         self.gyro_sensitivity_slider.setPageStep(25)
         self.gyro_sensitivity_slider.setFixedWidth(145)
@@ -556,6 +581,17 @@ class X360TestCard(QFrame):
         self.gyro_deadzone_value.setMinimumWidth(42)
         gyro_settings.addWidget(self.gyro_deadzone_slider)
         gyro_settings.addWidget(self.gyro_deadzone_value)
+        gyro_settings.addSpacing(10)
+        self.gyro_live_label = QLabel("OFF  ·  ROLL +0.0°  ·  STEER +0%")
+        self.gyro_live_label.setObjectName("gyroLiveStatus")
+        self.gyro_live_label.setAlignment(Qt.AlignCenter)
+        self.gyro_live_label.setMinimumWidth(205)
+        self.gyro_live_label.setStyleSheet(
+            "QLabel#gyroLiveStatus { background:#102b30; color:#83e6c5; "
+            "border:1px solid #2d665f; border-radius:8px; padding:6px 9px; "
+            "font-family:Consolas; font-size:10px; font-weight:700; }"
+        )
+        gyro_settings.addWidget(self.gyro_live_label)
         gyro_settings.addStretch(1)
         self.gyro_settings_row.setVisible(self._gyro is not None)
         if self._gyro is not None:
@@ -767,6 +803,18 @@ class X360TestCard(QFrame):
         self._vibration_dialog.activateWindow()
 
     def update_view(self) -> None:
+        if self._gyro is not None:
+            try:
+                angle = self._gyro.current_angle_degrees
+                output = self._gyro.steering_value
+                state = "ON" if self._gyro.enabled else "OFF"
+                percent = int(round(output * 100.0 / 32767.0))
+                status = f"{state}  ·  ROLL {angle:+.1f}°  ·  STEER {percent:+d}%"
+                if self.gyro_live_label.text() != status:
+                    self.gyro_live_label.setText(status)
+            except Exception:
+                pass
+
         data = getattr(self.instance, "_last_monitor", None)
         if not data:
             return

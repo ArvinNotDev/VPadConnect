@@ -253,7 +253,7 @@ class SettingsManager:
         return {
             "enabled": self.config.getboolean(section, "enabled", fallback=False),
             "sensitivity": max(
-                0.25, min(2.5, self.config.getfloat(section, "sensitivity", fallback=1.0))
+                0.25, min(4.0, self.config.getfloat(section, "sensitivity", fallback=1.0))
             ),
             "deadzone_degrees": max(
                 0.0, min(15.0, self.config.getfloat(section, "deadzone_degrees", fallback=2.0))
@@ -266,7 +266,7 @@ class SettingsManager:
         if not self.config.has_section(section):
             self.config.add_section(section)
         self.config.set(section, "enabled", str(bool(settings.get("enabled", False))).lower())
-        sensitivity = max(0.25, min(2.5, float(settings.get("sensitivity", 1.0))))
+        sensitivity = max(0.25, min(4.0, float(settings.get("sensitivity", 1.0))))
         deadzone = max(0.0, min(15.0, float(settings.get("deadzone_degrees", 2.0))))
         self.config.set(section, "sensitivity", f"{sensitivity:.3f}")
         self.config.set(section, "deadzone_degrees", f"{deadzone:.3f}")

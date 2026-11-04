@@ -116,6 +116,34 @@ class DualSenseMotionTests(unittest.TestCase):
         self.assertAlmostEqual(filter_.current_angle_degrees, 15.0, delta=1.0)
         self.assertGreater(filter_.steering_value, 0)
 
+    def test_sensor_timestamp_drives_integration_across_32_bit_wrap(self):
+        filter_ = DualSenseGyroSteering(
+            enabled=True, center_gravity=(0, 0, 1), deadzone_degrees=0,
+            factory_calibration=_factory_calibration(),
+        )
+        start_timestamp = 0xFFFFFF00
+        for tick in range(100):
+            timestamp = (start_timestamp + tick * 30_000) & 0xFFFFFFFF
+            filter_.update(
+                DualSenseMotion(
+                    (0, -10 * 1024, 0),
+                    (0, 0, 2 * ACCEL_COUNTS_PER_G),
+                    timestamp,
+                ),
+                now=5.0 + tick * 0.001,
+            )
+        # Hardware time advances by 10 ms per sample despite 1 ms host deltas.
+        self.assertAlmostEqual(filter_.current_angle_degrees, 9.9, delta=0.2)
+
+    def test_default_tilt_reaches_full_steering_at_twenty_degrees(self):
+        filter_ = DualSenseGyroSteering(
+            enabled=True, center_gravity=(0, 0, 1), deadzone_degrees=0,
+            factory_calibration=_factory_calibration(),
+        )
+        motion = decode_dualsense_motion(_report(angle_degrees=20, timestamp=30_000))
+        filter_.update(motion, now=1.0)
+        self.assertEqual(filter_.steering_value, 32767)
+
     def test_center_calibration_recenters_and_deadzone_suppresses_small_tilt(self):
         filter_ = DualSenseGyroSteering(
             enabled=True, center_gravity=(0, 0, 1), deadzone_degrees=2,
@@ -228,6 +256,17 @@ class PerControllerGyroSettingsTests(unittest.TestCase):
         self.assertFalse(b["enabled"])
         self.assertAlmostEqual(b["sensitivity"], 0.75)
         self.assertIsNone(b["center_gravity"])
+
+        settings.set_controller_gyro_settings("controller-c", {
+            "enabled": True,
+            "sensitivity": 3.75,
+            "deadzone_degrees": 0.5,
+            "center_gravity": None,
+        })
+        self.assertAlmostEqual(
+            settings.get_controller_gyro_settings("controller-c")["sensitivity"],
+            3.75,
+        )
 
     def test_shortcut_toggles_only_the_selected_controller(self):
         app = QApplication.instance() or QApplication([])
