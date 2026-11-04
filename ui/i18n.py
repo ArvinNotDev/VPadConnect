@@ -25,6 +25,7 @@ _TRANSLATIONS = {
     "fa": {
         "Remote Controllers": "کنترلرهای راه دور",
         "Input Test": "تست ورودی",
+        "Gyroscope Test": "تست ژیروسکوپ",
         "Controller Emulation": "شبیه‌سازی دسته",
         "Remote Gamepad": "📱 دستهٔ راه دور",
         "Hotkeys": "میانبرها",
@@ -215,6 +216,7 @@ _TRANSLATIONS = {
     "es": {
         "Remote Controllers": "Mandos remotos",
         "Input Test": "Prueba de entrada",
+        "Gyroscope Test": "Prueba del giroscopio",
         "Controller Emulation": "Emulación de mandos",
         "Remote Gamepad": "📱 Gamepad remoto",
         "Hotkeys": "Atajos",

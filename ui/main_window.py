@@ -22,6 +22,7 @@ from ui.theme_manager import ThemeManager
 from ui.animations import AnimatedStackedWidget, AnimatedTabBar, ButtonHoverAnimations
 from ui.pages.controller_emulation import ControllerEmulation
 from ui.pages.controllers import ControllersPage
+from ui.pages.gyro_test import GyroTestPage
 from ui.pages.settings import SettingsPage
 from ui.pages.web_remote import WebRemotePage
 from ui.pages.hotkey import HotkeyPage
@@ -44,13 +45,14 @@ class MainWindow(QMainWindow):
     WINDOW_TITLE = APP_NAME
     WINDOW_WIDTH = 1180
     WINDOW_HEIGHT = 760
-    NAV_PAGE_INDICES = (0, 1, 2, 4)
+    NAV_PAGE_INDICES = (0, 1, 2, 4, 6)
     IDX_CONTROLLER_EMULATION = 0
     IDX_WEB_REMOTE = 1
     IDX_HOTKEY = 2
     IDX_INPUT_TEST = 3
     IDX_PROFILES_PAGE = 3
     IDX_SETTINGS_PAGE = 5
+    IDX_GYRO_TEST_PAGE = 6
 
     def __init__(self, app: QApplication) -> None:
         super().__init__()
@@ -206,6 +208,7 @@ class MainWindow(QMainWindow):
         self.menu.addTab("Web Companion")
         self.menu.addTab("Hotkeys")
         self.menu.addTab("Input Test")
+        self.menu.addTab("Gyroscope Test")
         self.menu.setMinimumHeight(38)
         self.menu.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
 
@@ -276,6 +279,11 @@ class MainWindow(QMainWindow):
             self.controller_emulation_page.set_raw_hid_monitor_active
         )
         self.pages.addWidget(self.settings_page)
+        self.gyro_test_page = GyroTestPage()
+        self.controller_emulation_page.gyro_report.connect(
+            self.gyro_test_page.receive_report
+        )
+        self.pages.addWidget(self.gyro_test_page)
         self.settings_page.combo_lang.currentIndexChanged.connect(
             lambda _index: self._apply_language()
         )
