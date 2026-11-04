@@ -125,6 +125,88 @@ def _wrap_radians(value: float) -> float:
     return (value + math.pi) % (2.0 * math.pi) - math.pi
 
 
+
+DUALSHOCK4_GYRO_FALLBACK_DPS_PER_COUNT = 2048.0 / 32767.0
+DUALSHOCK4_SENSOR_TICKS_PER_SECOND = 187_500.0
+
+
+def is_dualshock4(vendor_id, product_id) -> bool:
+    try:
+        vendor = int(vendor_id, 0) if isinstance(vendor_id, str) else int(vendor_id)
+        product = int(product_id, 0) if isinstance(product_id, str) else int(product_id)
+    except (TypeError, ValueError):
+        return False
+    return vendor == 0x054C and product in (0x05C4, 0x09CC)
+
+
+@dataclass(frozen=True)
+class DualShock4FactoryCalibration:
+    gyro_bias: tuple[int, int, int]
+    gyro_dps_per_count: tuple[float, float, float]
+    accel_bias: tuple[float, float, float]
+    accel_g_per_count: tuple[float, float, float]
+
+    @classmethod
+    def from_feature_report(cls, report: bytes) -> "DualShock4FactoryCalibration | None":
+        report = bytes(report)
+        if not report or report[0] not in (0x02, 0x05):
+            return None
+        if (report[0] == 0x02 and len(report) < 37) or (report[0] == 0x05 and len(report) < 41):
+            return None
+        s16 = lambda offset: struct.unpack_from("<h", report, offset)[0]
+        gyro_bias = tuple(s16(offset) for offset in (1, 3, 5))
+        if report[0] == 0x02:
+            gyro_plus = tuple(s16(offset) for offset in (7, 11, 15))
+            gyro_minus = tuple(s16(offset) for offset in (9, 13, 17))
+        else:
+            gyro_plus = tuple(s16(offset) for offset in (7, 9, 11))
+            gyro_minus = tuple(s16(offset) for offset in (13, 15, 17))
+        speed_sum = s16(19) + s16(21)
+        gyro_scale = tuple(
+            speed_sum / (abs(plus - bias) + abs(minus - bias))
+            if abs(plus - bias) + abs(minus - bias) and speed_sum > 0
+            else DUALSHOCK4_GYRO_FALLBACK_DPS_PER_COUNT
+            for bias, plus, minus in zip(gyro_bias, gyro_plus, gyro_minus)
+        )
+        accel_plus = tuple(s16(offset) for offset in (23, 27, 31))
+        accel_minus = tuple(s16(offset) for offset in (25, 29, 33))
+        accel_bias = tuple(plus - (plus - minus) / 2.0 for plus, minus in zip(accel_plus, accel_minus))
+        accel_scale = tuple(
+            2.0 / (plus - minus) if plus != minus else 4.0 / 32767.0
+            for plus, minus in zip(accel_plus, accel_minus)
+        )
+        return cls(gyro_bias, gyro_scale, accel_bias, accel_scale)
+
+    def gyro_rate_radians_per_second(self, raw):
+        return tuple(math.radians((v - b) * s) for v, b, s in zip(raw, self.gyro_bias, self.gyro_dps_per_count))
+
+    def accel_g(self, raw):
+        return tuple((v - b) * s for v, b, s in zip(raw, self.accel_bias, self.accel_g_per_count))
+
+
+def decode_dualshock4_motion(report: bytes) -> DualSenseMotion | None:
+    report = bytes(report)
+    if not report:
+        return None
+    if report[0] == 0x01:
+        if len(report) < 64:
+            return None
+        timestamp_offset, gyro_offset = 10, 13
+    elif report[0] == 0x11:
+        if len(report) < 78:
+            return None
+        timestamp_offset, gyro_offset = 12, 15
+    else:
+        return None
+    accel_offset = gyro_offset + 6
+    gyro = struct.unpack_from("<hhh", report, gyro_offset)
+    accel = struct.unpack_from("<hhh", report, accel_offset)
+    timestamp = struct.unpack_from("<H", report, timestamp_offset)[0]
+    return DualSenseMotion(gyro, accel, timestamp)
+
+
+
+
 class DualSenseGyroSteering:
     """Estimate lateral tilt with gyro integration corrected by gravity.
 
@@ -150,6 +232,9 @@ class DualSenseGyroSteering:
         deadzone_degrees: float = 2.0,
         center_gravity: tuple[float, float, float] | None = None,
         factory_calibration: bytes | None = None,
+        sensor_timestamp_bits: int = 32,
+        sensor_ticks_per_second: float = SENSOR_TICKS_PER_SECOND,
+        fallback_gyro_dps_per_count: float = 2048.0 / 32767.0,
     ):
         self._lock = threading.RLock()
         self.enabled = bool(enabled)
@@ -164,6 +249,9 @@ class DualSenseGyroSteering:
         self._last_accel_g: tuple[float, float, float] | None = None
         self._last_accel_magnitude = 0.0
         self._sample_rate_hz: float | None = None
+        self._sensor_timestamp_mask = (1 << max(1, min(32, int(sensor_timestamp_bits)))) - 1
+        self._sensor_ticks_per_second = max(1.0, float(sensor_ticks_per_second))
+        self._fallback_gyro_dps_per_count = max(1e-9, float(fallback_gyro_dps_per_count))
         self._factory_calibration = DualSenseFactoryCalibration.from_feature_report(
             factory_calibration
         ) if factory_calibration else None
@@ -281,12 +369,13 @@ class DualSenseGyroSteering:
             self._last_host_time = now
             sensor_dt = None
             previous_timestamp = self._last_sensor_timestamp
-            sensor_timestamp = int(motion.sensor_timestamp) & 0xFFFFFFFF
+            timestamp_mask = self._sensor_timestamp_mask
+            sensor_timestamp = int(motion.sensor_timestamp) & timestamp_mask
             if previous_timestamp is not None:
-                delta_ticks = (sensor_timestamp - int(previous_timestamp)) & 0xFFFFFFFF
-                max_ticks = int(self.max_sample_interval * SENSOR_TICKS_PER_SECOND)
+                delta_ticks = (sensor_timestamp - int(previous_timestamp)) & timestamp_mask
+                max_ticks = int(self.max_sample_interval * self._sensor_ticks_per_second)
                 if 0 < delta_ticks <= max_ticks:
-                    sensor_dt = delta_ticks / SENSOR_TICKS_PER_SECOND
+                    sensor_dt = delta_ticks / self._sensor_ticks_per_second
             self._last_sensor_timestamp = sensor_timestamp
             dt = self._clamp(
                 sensor_dt if sensor_dt is not None else host_dt,
@@ -314,7 +403,7 @@ class DualSenseGyroSteering:
                 calibration.gyro_rate_radians_per_second(motion.gyro)
                 if calibration is not None
                 else tuple(
-                    math.radians(value * (2048.0 / 32767.0))
+                    math.radians(value * self._fallback_gyro_dps_per_count)
                     for value in motion.gyro
                 )
             )
@@ -374,3 +463,30 @@ class DualSenseGyroSteering:
             self._last_accel_g = None
             self._last_accel_magnitude = 0.0
             self._sample_rate_hz = None
+
+
+class DualShock4GyroSteering(DualSenseGyroSteering):
+    """DS4 gyro steering with its factory calibration and 16-bit device clock."""
+
+    def __init__(self, *, enabled=False, sensitivity=1.0, deadzone_degrees=2.0,
+                 center_gravity=None, factory_calibration=None):
+        super().__init__(
+            enabled=enabled,
+            sensitivity=sensitivity,
+            deadzone_degrees=deadzone_degrees,
+            center_gravity=center_gravity,
+            factory_calibration=None,
+            sensor_timestamp_bits=16,
+            sensor_ticks_per_second=DUALSHOCK4_SENSOR_TICKS_PER_SECOND,
+            fallback_gyro_dps_per_count=DUALSHOCK4_GYRO_FALLBACK_DPS_PER_COUNT,
+        )
+        self._factory_calibration = (
+            DualShock4FactoryCalibration.from_feature_report(factory_calibration)
+            if factory_calibration else None
+        )
+
+    def set_factory_calibration(self, report: bytes) -> None:
+        calibration = DualShock4FactoryCalibration.from_feature_report(report)
+        if calibration is not None:
+            with self._lock:
+                self._factory_calibration = calibration
