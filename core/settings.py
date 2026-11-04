@@ -226,6 +226,58 @@ class SettingsManager:
             str(bool(settings.get("charging_indication", False))).lower(),
         )
 
+    # -------- per-controller DualSense Gyro Steering --------
+    @staticmethod
+    def _gyro_section(controller_id: str) -> str:
+        digest = hashlib.sha256(str(controller_id).encode("utf-8")).hexdigest()[:20]
+        return f"gyro_{digest}"
+
+    def get_controller_gyro_settings(self, controller_id: str) -> dict:
+        section = self._gyro_section(controller_id)
+        if not self.config.has_section(section):
+            return {
+                "enabled": False,
+                "sensitivity": 1.0,
+                "deadzone_degrees": 2.0,
+                "center_gravity": None,
+            }
+        try:
+            center = tuple(
+                float(self.config.get(section, f"center_{axis}"))
+                for axis in ("x", "y", "z")
+            )
+            if not all(-1.05 <= value <= 1.05 for value in center):
+                center = None
+        except (configparser.Error, ValueError):
+            center = None
+        return {
+            "enabled": self.config.getboolean(section, "enabled", fallback=False),
+            "sensitivity": max(
+                0.25, min(2.5, self.config.getfloat(section, "sensitivity", fallback=1.0))
+            ),
+            "deadzone_degrees": max(
+                0.0, min(15.0, self.config.getfloat(section, "deadzone_degrees", fallback=2.0))
+            ),
+            "center_gravity": center,
+        }
+
+    def set_controller_gyro_settings(self, controller_id: str, settings: dict) -> None:
+        section = self._gyro_section(controller_id)
+        if not self.config.has_section(section):
+            self.config.add_section(section)
+        self.config.set(section, "enabled", str(bool(settings.get("enabled", False))).lower())
+        sensitivity = max(0.25, min(2.5, float(settings.get("sensitivity", 1.0))))
+        deadzone = max(0.0, min(15.0, float(settings.get("deadzone_degrees", 2.0))))
+        self.config.set(section, "sensitivity", f"{sensitivity:.3f}")
+        self.config.set(section, "deadzone_degrees", f"{deadzone:.3f}")
+        center = settings.get("center_gravity")
+        if center is not None and len(center) == 3:
+            for axis, value in zip(("x", "y", "z"), center):
+                self.config.set(section, f"center_{axis}", f"{float(value):.6f}")
+        elif self.config.has_option(section, "center_x"):
+            for axis in ("x", "y", "z"):
+                self.config.remove_option(section, f"center_{axis}")
+
     # -------- ui --------
     def get_ui_language(self):
         return self.config.get("ui", "language", fallback="eng")

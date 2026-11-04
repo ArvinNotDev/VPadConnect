@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QListWidget,
     QListWidgetItem, QDialog, QGridLayout, QFrame, QPushButton, QSpinBox,
-    QScrollArea, QSlider
+    QScrollArea, QSlider, QCheckBox, QComboBox
 )
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QPainter, QPen
@@ -485,12 +485,16 @@ class VibrationTestDialog(QDialog):
 class X360TestCard(QFrame):
     """Xbox-style live controller surface with a separate vibration menu."""
 
-    def __init__(self, instance, name: str, vibration_enabled: bool, parent=None):
+    gyro_state_changed = Signal(object, bool)
+
+    def __init__(self, instance, name: str, vibration_enabled: bool, settings=None, parent=None):
         super().__init__(parent)
         self.instance = instance
+        self._settings = settings
         self.controller_name = name
         self._vibration_enabled = vibration_enabled
         self._vibration_dialog = None
+        self._gyro = getattr(instance, "gyro_steering", None)
         self.setStyleSheet(
             "QFrame { background:#1a2538; border:1px solid #344866; border-radius:16px; } "
             "QLabel { color:#dce8f8; } QPushButton { min-height:30px; }"
@@ -507,10 +511,61 @@ class X360TestCard(QFrame):
         self.battery_label = QLabel("Battery: —")
         self.battery_label.setStyleSheet("color:#aabbd2;")
         header.addWidget(self.battery_label)
+        self.gyro_toggle = QCheckBox("Gyro Steering")
+        self.gyro_toggle.setToolTip(
+            "When enabled, gyro controls left-stick horizontal steering. "
+            "Left-stick vertical and other controls are unchanged."
+        )
+        self.gyro_toggle.setVisible(self._gyro is not None)
+        if self._gyro is not None:
+            self.gyro_toggle.setChecked(self._gyro.enabled)
+        self.gyro_toggle.toggled.connect(self._set_gyro_enabled)
+        header.addWidget(self.gyro_toggle)
+        self.gyro_calibrate_button = QPushButton("Calibrate Center")
+        self.gyro_calibrate_button.setToolTip("Hold the controller in its neutral pose, then calibrate.")
+        self.gyro_calibrate_button.setVisible(self._gyro is not None)
+        self.gyro_calibrate_button.clicked.connect(self._calibrate_gyro_center)
+        header.addWidget(self.gyro_calibrate_button)
         self.vibration_button = QPushButton("Vibration Test")
         self.vibration_button.clicked.connect(self.open_vibration_test)
         header.addWidget(self.vibration_button)
         root.addLayout(header)
+
+        self.gyro_settings_row = QWidget()
+        gyro_settings = QHBoxLayout(self.gyro_settings_row)
+        gyro_settings.setContentsMargins(0, 0, 0, 0)
+        gyro_settings.setSpacing(8)
+        gyro_settings.addWidget(QLabel("Sensitivity"))
+        self.gyro_sensitivity_slider = QSlider(Qt.Horizontal)
+        self.gyro_sensitivity_slider.setRange(25, 250)
+        self.gyro_sensitivity_slider.setSingleStep(5)
+        self.gyro_sensitivity_slider.setPageStep(25)
+        self.gyro_sensitivity_slider.setFixedWidth(145)
+        self.gyro_sensitivity_value = QLabel("1.00×")
+        self.gyro_sensitivity_value.setMinimumWidth(44)
+        gyro_settings.addWidget(self.gyro_sensitivity_slider)
+        gyro_settings.addWidget(self.gyro_sensitivity_value)
+        gyro_settings.addSpacing(8)
+        gyro_settings.addWidget(QLabel("Deadzone"))
+        self.gyro_deadzone_slider = QSlider(Qt.Horizontal)
+        self.gyro_deadzone_slider.setRange(0, 150)
+        self.gyro_deadzone_slider.setSingleStep(1)
+        self.gyro_deadzone_slider.setPageStep(10)
+        self.gyro_deadzone_slider.setFixedWidth(125)
+        self.gyro_deadzone_value = QLabel("2.0°")
+        self.gyro_deadzone_value.setMinimumWidth(42)
+        gyro_settings.addWidget(self.gyro_deadzone_slider)
+        gyro_settings.addWidget(self.gyro_deadzone_value)
+        gyro_settings.addStretch(1)
+        self.gyro_settings_row.setVisible(self._gyro is not None)
+        if self._gyro is not None:
+            self.gyro_sensitivity_slider.setValue(round(self._gyro.sensitivity * 100))
+            self.gyro_deadzone_slider.setValue(round(self._gyro.deadzone_degrees * 10))
+        self.gyro_sensitivity_slider.valueChanged.connect(self._update_gyro_parameters)
+        self.gyro_deadzone_slider.valueChanged.connect(self._update_gyro_parameters)
+        self.gyro_sensitivity_slider.sliderReleased.connect(self._save_gyro_settings)
+        self.gyro_deadzone_slider.sliderReleased.connect(self._save_gyro_settings)
+        root.addWidget(self.gyro_settings_row)
 
         surface = QFrame()
         surface.setStyleSheet("background:#111a29; border:1px solid #2b3e5b; border-radius:28px;")
@@ -581,6 +636,59 @@ class X360TestCard(QFrame):
         self.view_timer.timeout.connect(self.update_view)
         self.view_timer.start(30)
 
+    def _set_gyro_enabled(self, enabled: bool) -> None:
+        if self._gyro is None:
+            return
+        self._gyro.set_enabled(enabled)
+        self._save_gyro_settings()
+        self.gyro_state_changed.emit(self.instance.device_path, bool(enabled))
+
+    def set_gyro_enabled(self, enabled: bool) -> None:
+        if self._gyro is None:
+            return
+        self.gyro_toggle.setChecked(bool(enabled))
+
+    def toggle_gyro(self) -> bool | None:
+        if self._gyro is None:
+            return None
+        self.set_gyro_enabled(not self._gyro.enabled)
+        return self._gyro.enabled
+
+    def _update_gyro_parameters(self, _value: int) -> None:
+        if self._gyro is None:
+            return
+        sensitivity = self.gyro_sensitivity_slider.value() / 100.0
+        deadzone = self.gyro_deadzone_slider.value() / 10.0
+        self.gyro_sensitivity_value.setText(f"{sensitivity:.2f}×")
+        self.gyro_deadzone_value.setText(f"{deadzone:.1f}°")
+        self._gyro.set_parameters(sensitivity, deadzone)
+
+    def _calibrate_gyro_center(self) -> None:
+        if self._gyro is None:
+            return
+        center = self._gyro.calibrate_center()
+        if center is not None:
+            self._save_gyro_settings()
+            self.gyro_calibrate_button.setText("Center Calibrated")
+            QTimer.singleShot(1600, lambda: self.gyro_calibrate_button.setText("Calibrate Center"))
+        else:
+            self.gyro_calibrate_button.setText("Waiting for Sensor")
+            QTimer.singleShot(1600, lambda: self.gyro_calibrate_button.setText("Calibrate Center"))
+
+    def _save_gyro_settings(self) -> None:
+        if self._gyro is None or self._settings is None:
+            return
+        controller_id = getattr(self.instance, "gyro_controller_id", None)
+        if not controller_id:
+            return
+        self._settings.set_controller_gyro_settings(controller_id, {
+            "enabled": self._gyro.enabled,
+            "sensitivity": self._gyro.sensitivity,
+            "deadzone_degrees": self._gyro.deadzone_degrees,
+            "center_gravity": self._gyro.calibrated_center,
+        })
+        self._settings.save()
+
     @staticmethod
     def _status_label(text: str) -> QLabel:
         label = QLabel(text)
@@ -600,6 +708,27 @@ class X360TestCard(QFrame):
     def set_name(self, name: str) -> None:
         self.controller_name = name
         self.name_label.setText(name)
+
+    def set_instance(self, instance) -> None:
+        """Replace a reconnecting emulator and its per-connection gyro state."""
+        self.instance = instance
+        self._gyro = getattr(instance, "gyro_steering", None)
+        available = self._gyro is not None
+        self.gyro_toggle.setVisible(available)
+        self.gyro_calibrate_button.setVisible(available)
+        self.gyro_settings_row.setVisible(available)
+        if not available:
+            return
+        self.gyro_toggle.blockSignals(True)
+        self.gyro_toggle.setChecked(self._gyro.enabled)
+        self.gyro_toggle.blockSignals(False)
+        self.gyro_sensitivity_slider.blockSignals(True)
+        self.gyro_sensitivity_slider.setValue(round(self._gyro.sensitivity * 100))
+        self.gyro_sensitivity_slider.blockSignals(False)
+        self.gyro_deadzone_slider.blockSignals(True)
+        self.gyro_deadzone_slider.setValue(round(self._gyro.deadzone_degrees * 10))
+        self.gyro_deadzone_slider.blockSignals(False)
+        self._update_gyro_parameters(0)
 
     def set_battery(self, percent: int | None, charging: bool = False) -> None:
         if percent is None:
@@ -695,6 +824,18 @@ class ControllersPage(QWidget):
 
         layout.addWidget(title)
         layout.addWidget(subtitle)
+        shortcut_row = QHBoxLayout()
+        shortcut_row.addWidget(QLabel("Gyro shortcut target"))
+        self.gyro_target_combo = QComboBox()
+        self.gyro_target_combo.setMinimumWidth(210)
+        self.gyro_target_combo.setEnabled(False)
+        shortcut_row.addWidget(self.gyro_target_combo)
+        self.gyro_shortcut_status = QLabel("Ctrl+Shift+G · no DualSense selected")
+        self.gyro_shortcut_status.setStyleSheet("color:#91a2bc;")
+        shortcut_row.addWidget(self.gyro_shortcut_status)
+        shortcut_row.addStretch(1)
+        layout.addLayout(shortcut_row)
+        self.gyro_target_combo.currentIndexChanged.connect(self._update_gyro_shortcut_status)
         layout.addWidget(self.scroll, 1)
 
         self.vigem_gate = VigemGate(content)
@@ -715,6 +856,7 @@ class ControllersPage(QWidget):
         self.battery_states = {}
         self._cards = {}
         self.battery_updated.connect(self._store_battery)
+        self._gyro_shortcut_available = False
 
         self.refresh_timer = QTimer(self)
         self.refresh_timer.timeout.connect(self.refresh_list)
@@ -778,11 +920,13 @@ class ControllersPage(QWidget):
 
             card = self._cards.get(path)
             if card is None:
-                card = X360TestCard(instance, name, self._vibration_enabled)
+                card = X360TestCard(instance, name, self._vibration_enabled, settings=self.settings)
+                card.gyro_state_changed.connect(self._on_gyro_state_changed)
                 self.cards_layout.insertWidget(self.cards_layout.count() - 1, card)
                 self._cards[path] = card
             else:
-                card.instance = instance
+                if card.instance is not instance:
+                    card.set_instance(instance)
                 card.set_name(name)
                 card.set_vibration_enabled(self._vibration_enabled)
 
@@ -793,3 +937,50 @@ class ControllersPage(QWidget):
                 card.set_battery(*battery)
 
         self.empty_label.setVisible(not self._cards)
+        self._refresh_gyro_targets(active)
+
+    def _refresh_gyro_targets(self, active: dict) -> None:
+        previous = self.gyro_target_combo.currentData()
+        targets = [
+            (path, active[path])
+            for path in active
+            if path in self.x360_instances
+            and getattr(self.x360_instances[path], "gyro_steering", None) is not None
+        ]
+        existing = [self.gyro_target_combo.itemData(i) for i in range(self.gyro_target_combo.count())]
+        desired = [path for path, _name in targets]
+        if existing != desired:
+            self.gyro_target_combo.blockSignals(True)
+            self.gyro_target_combo.clear()
+            for path, name in targets:
+                self.gyro_target_combo.addItem(name, path)
+            selected = self.gyro_target_combo.findData(previous)
+            self.gyro_target_combo.setCurrentIndex(selected if selected >= 0 else (0 if targets else -1))
+            self.gyro_target_combo.blockSignals(False)
+        self.gyro_target_combo.setEnabled(bool(targets))
+        self._update_gyro_shortcut_status()
+
+    def _update_gyro_shortcut_status(self, _index: int = -1) -> None:
+        path = self.gyro_target_combo.currentData()
+        card = self._cards.get(path)
+        shortcut = "Ctrl+Shift+G" if self._gyro_shortcut_available else "Gyro shortcut unavailable"
+        if card is None or card._gyro is None:
+            self.gyro_shortcut_status.setText(f"{shortcut} · no DualSense selected")
+            return
+        state = "ON" if card._gyro.enabled else "OFF"
+        self.gyro_shortcut_status.setText(f"{shortcut} · {card.controller_name}: {state}")
+
+    def set_gyro_shortcut_available(self, available: bool) -> None:
+        self._gyro_shortcut_available = bool(available)
+        self._update_gyro_shortcut_status()
+
+    def _on_gyro_state_changed(self, _path, _enabled: bool) -> None:
+        self._update_gyro_shortcut_status()
+
+    def toggle_selected_gyro(self) -> bool:
+        path = self.gyro_target_combo.currentData()
+        card = self._cards.get(path)
+        if card is None:
+            return False
+        card.toggle_gyro()
+        return True

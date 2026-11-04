@@ -23,7 +23,6 @@ from core.dualsense_lightbar import (
     is_dualsense_device,
     resolve_lightbar_color,
 )
-from core.dualsense_gyro import decode_dualsense_gyro, is_dualsense
 from ui.i18n import tr
 from core.vigem import is_vigem_installed
 from ui.vigem_gate import VigemGate
@@ -714,7 +713,6 @@ class EmuListItemWidget(QWidget):
 class ControllerEmulation(QWidget):
     vigem_recheck_requested = Signal()
     raw_hid_report = Signal(str, bytes)
-    gyro_report = Signal(str, bytes)
 
     def __init__(
         self, settings, controllers_page, hotkey_page, *,
@@ -724,7 +722,6 @@ class ControllerEmulation(QWidget):
         self._raw_hid_report_lock = threading.Lock()
         self._last_raw_hid_emit_at = 0.0
         self._raw_hid_monitor_active = False
-        self._last_gyro_emit_at: dict[str, float] = {}
         layout_dashboard = QVBoxLayout(self)
         self.controllers_page = controllers_page
         hid.hid_manager = HIDManager(settings.get_poll_interval_ms() / 1000.0)
@@ -1076,23 +1073,6 @@ class ControllerEmulation(QWidget):
         # queued signal on their own thread; this method never touches widgets.
         self.raw_hid_report.emit(str(controller_name), bytes(report))
 
-    def _publish_gyro_report(self, device_path, controller, report: bytes) -> None:
-        """Forward genuine DualSense sensor reports to the optional diagnostic page."""
-        if not is_dualsense(controller.vendor_id, controller.product_id):
-            return
-        if decode_dualsense_gyro(report) is None:
-            return
-        path = (
-            bytes(device_path).decode(errors="replace")
-            if isinstance(device_path, (bytes, bytearray))
-            else str(device_path)
-        )
-        now = time.monotonic()
-        if now - self._last_gyro_emit_at.get(path, 0.0) < (1.0 / 60.0):
-            return
-        self._last_gyro_emit_at[path] = now
-        self.gyro_report.emit(path, bytes(report))
-
     def _start_mapping(
         self,
         item: QListWidgetItem,
@@ -1159,10 +1139,11 @@ class ControllerEmulation(QWidget):
             _, worker, _ = wtuple
             try:
                 worker.data_received.connect(mapper.handle_hid_data)
-                worker.data_received.connect(
-                    lambda report, device_path=path, physical=controller:
-                    self._publish_gyro_report(device_path, physical, report)
-                )
+                if mapper.gyro_steering is not None:
+                    worker.sensor_calibration.connect(mapper.set_gyro_factory_calibration)
+                    calibration = getattr(controller, "sensor_calibration", None)
+                    if calibration:
+                        mapper.set_gyro_factory_calibration(calibration)
             except RuntimeError:
                 logger.warning("HID worker for %s was deleted before connecting signals", path)
 

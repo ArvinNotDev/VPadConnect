@@ -12,6 +12,7 @@ except Exception:
 from core.emulator import EmulateX360, EmulateKeyboard
 from core.emulator import media_functions, custom_commands
 from core.dualsense_lightbar import resolve_lightbar_color
+from core.dualsense_gyro import DualSenseGyroSteering, decode_dualsense_motion, is_dualsense
 from core.mouse import Mouse, MouseMotion
 from core.utils.controller_monitor import controllerMonitor
 from core.utils.hotkey_commander import HotkeyCommander
@@ -65,6 +66,7 @@ class Mapper:
         self._last_battery = None
         self._battery_state = None
         self.lightbar_output = lightbar_output
+        self.gyro_steering = None
         try:
             self.lightbar_settings = settings.get_controller_lightbar_settings(
                 controller.stable_id
@@ -87,6 +89,22 @@ class Mapper:
                 rumble_controller_key=controller.stable_id,
                 vibration_enabled=settings.get_vibration_enabled(),
             )
+            if is_dualsense(controller.vendor_id, controller.product_id):
+                try:
+                    gyro_settings = settings.get_controller_gyro_settings(
+                        controller.stable_id
+                    )
+                except (AttributeError, TypeError):
+                    gyro_settings = {}
+                self.gyro_steering = DualSenseGyroSteering(
+                    enabled=gyro_settings.get("enabled", False),
+                    sensitivity=gyro_settings.get("sensitivity", 1.0),
+                    deadzone_degrees=gyro_settings.get("deadzone_degrees", 2.0),
+                    center_gravity=gyro_settings.get("center_gravity"),
+                    factory_calibration=getattr(controller, "sensor_calibration", None),
+                )
+                self.emulator.gyro_steering = self.gyro_steering
+                self.emulator.gyro_controller_id = controller.stable_id
             controllers_page.add_x360_instance(self.emulator)
             hotkey_page.add_x360_instance(self.emulator)
         elif emulate_to == "keyboard":
@@ -132,6 +150,8 @@ class Mapper:
             logger.info("Stopped mapping for %s", self.controller.name)
         self._connected = False
         self._mouse_motion.reset()
+        if self.gyro_steering is not None:
+            self.gyro_steering.reset()
 
         clear_battery = getattr(self.controllers_page, "clear_battery", None)
         if clear_battery is not None:
@@ -192,6 +212,10 @@ class Mapper:
         logger.error("Device error from %s: %s", self.controller.name, msg)
         self.stop()
 
+    def set_gyro_factory_calibration(self, report: bytes) -> None:
+        if self.gyro_steering is not None:
+            self.gyro_steering.set_factory_calibration(report)
+
     def _debug_enabled(self) -> bool:
         try:
             return bool(self.settings.get_developer_debug())
@@ -215,6 +239,17 @@ class Mapper:
         normalized = -centered / 127.0 if invert_y else centered / 127.0
         scaled = int(round(normalized * 32767.0))
         return int(Mapper._clamp(scaled, -32768, 32767))
+
+    def _steering_x_input(self, analog_x: int, report: bytes) -> int:
+        """Use gyro only for DualSense left-stick X when the feature is enabled."""
+        steering = self.gyro_steering
+        if steering is None:
+            return analog_x
+        motion = decode_dualsense_motion(report)
+        if motion is None:
+            return 0 if steering.enabled else analog_x
+        value = steering.update(motion)
+        return value if steering.enabled else analog_x
 
     @staticmethod
     def _mouse_response(value: float) -> float:
@@ -428,6 +463,9 @@ class Mapper:
 
         ljx, ljy = self._apply_deadzone(raw_ljx, raw_ljy, left_deadzone, left_inv)
         rjx, rjy = self._apply_deadzone(raw_rjx, raw_rjy, right_deadzone, right_inv)
+        # Only the left horizontal axis changes; vertical stick and all other
+        # controls continue through the original mapping path.
+        ljx = self._steering_x_input(ljx, data)
 
         lt = int(raw_lt)
         rt = int(raw_rt)

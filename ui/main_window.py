@@ -15,14 +15,13 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QSizeGrip,
 )
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtCore import Qt, QUrl, Signal
 from PySide6.QtGui import QDesktopServices, QIcon, QAction, QPixmap, QPainter, QBrush, QPen, QColor, QFont
 
 from ui.theme_manager import ThemeManager
 from ui.animations import AnimatedStackedWidget, AnimatedTabBar, ButtonHoverAnimations
 from ui.pages.controller_emulation import ControllerEmulation
 from ui.pages.controllers import ControllersPage
-from ui.pages.gyro_test import GyroTestPage
 from ui.pages.settings import SettingsPage
 from ui.pages.web_remote import WebRemotePage
 from ui.pages.hotkey import HotkeyPage
@@ -41,18 +40,18 @@ logger = logging.getLogger("vpadconnect.main_window")
 
 
 class MainWindow(QMainWindow):
+    gyro_shortcut_requested = Signal()
 
     WINDOW_TITLE = APP_NAME
     WINDOW_WIDTH = 1180
     WINDOW_HEIGHT = 760
-    NAV_PAGE_INDICES = (0, 1, 2, 4, 6)
+    NAV_PAGE_INDICES = (0, 1, 2, 4)
     IDX_CONTROLLER_EMULATION = 0
     IDX_WEB_REMOTE = 1
     IDX_HOTKEY = 2
     IDX_INPUT_TEST = 3
     IDX_PROFILES_PAGE = 3
     IDX_SETTINGS_PAGE = 5
-    IDX_GYRO_TEST_PAGE = 6
 
     def __init__(self, app: QApplication) -> None:
         super().__init__()
@@ -208,7 +207,6 @@ class MainWindow(QMainWindow):
         self.menu.addTab("Web Companion")
         self.menu.addTab("Hotkeys")
         self.menu.addTab("Input Test")
-        self.menu.addTab("Gyroscope Test")
         self.menu.setMinimumHeight(38)
         self.menu.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
 
@@ -236,6 +234,8 @@ class MainWindow(QMainWindow):
             self.settings, vigem_available=self.vigem_available
         )
         self.controllers_page = controllers_page
+        self._keyboard_module = None
+        self._gyro_shortcut_handle = None
         hotkey_page = HotkeyPage(self.hotkey)
         self.hotkey_page = hotkey_page
 
@@ -279,11 +279,6 @@ class MainWindow(QMainWindow):
             self.controller_emulation_page.set_raw_hid_monitor_active
         )
         self.pages.addWidget(self.settings_page)
-        self.gyro_test_page = GyroTestPage()
-        self.controller_emulation_page.gyro_report.connect(
-            self.gyro_test_page.receive_report
-        )
-        self.pages.addWidget(self.gyro_test_page)
         self.settings_page.combo_lang.currentIndexChanged.connect(
             lambda _index: self._apply_language()
         )
@@ -313,6 +308,9 @@ class MainWindow(QMainWindow):
         # Initialize sidebar avatar
         self._refresh_sidebar_avatar()
         self._apply_language()
+
+        self.gyro_shortcut_requested.connect(self.controllers_page.toggle_selected_gyro)
+        self._register_gyro_shortcut()
 
         # Add quiet, animated hover feedback to the finished desktop interface.
         # The controller/input logic and button click handlers remain unchanged.
@@ -353,6 +351,23 @@ class MainWindow(QMainWindow):
         self.controllers_page.set_vigem_available(available)
         self.web_remote_page.set_vigem_available(available)
         self._refresh_tray_menu()
+
+    def _register_gyro_shortcut(self) -> None:
+        """Install the global Ctrl+Shift+G toggle for the selected DualSense."""
+        try:
+            import keyboard
+
+            self._keyboard_module = keyboard
+            self._gyro_shortcut_handle = keyboard.add_hotkey(
+                "ctrl+shift+g",
+                self.gyro_shortcut_requested.emit,
+                suppress=False,
+                trigger_on_release=True,
+            )
+            self.controllers_page.set_gyro_shortcut_available(True)
+        except Exception as exc:
+            self.controllers_page.set_gyro_shortcut_available(False)
+            logger.warning("Could not register Ctrl+Shift+G gyro shortcut: %s", exc)
 
     # --------------------
     # Menu
@@ -547,6 +562,12 @@ class MainWindow(QMainWindow):
         if getattr(self, "_shutdown_complete", False):
             return
         self._shutdown_complete = True
+        if self._keyboard_module is not None and self._gyro_shortcut_handle is not None:
+            try:
+                self._keyboard_module.remove_hotkey(self._gyro_shortcut_handle)
+            except Exception:
+                logger.debug("Could not unregister gyro keyboard shortcut", exc_info=True)
+            self._gyro_shortcut_handle = None
         try:
             self.web_remote_page.shutdown()
         except Exception as exc:

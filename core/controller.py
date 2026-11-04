@@ -70,6 +70,7 @@ class Controller:
         self.name = name or f"Controller-{Controller.NUMBER_OF_CONTROLLERS}"
         self.transport = transport
         self.serial_number = serial_number
+        self.sensor_calibration = None
         self.stable_id = stable_id or stable_controller_id(
             vendor_id, product_id, device_path, serial_number
         )

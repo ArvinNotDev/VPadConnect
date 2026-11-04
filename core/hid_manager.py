@@ -5,6 +5,7 @@ import threading
 
 class HIDWorker(QObject):
     data_received = Signal(bytes)
+    sensor_calibration = Signal(bytes)
     error = Signal(str)
     finished = Signal()
 
@@ -46,7 +47,11 @@ class HIDWorker(QObject):
             # DualSense. Sending it to a DualShock 4 can leave the controller
             # stuck in its yellow light state, so keep it strictly PS5-only.
             if self._is_dualsense():
-                ds.get_feature_report(0x05, 65)
+                calibration = ds.get_feature_report(0x05, 65)
+                if calibration:
+                    calibration = bytes(calibration)
+                    self.controller.sensor_calibration = calibration
+                    self.sensor_calibration.emit(calibration)
         except Exception as e:
             self.error.emit(f"Failed to open {self.controller}: {e}")
             self.finished.emit()
