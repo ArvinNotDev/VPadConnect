@@ -11,6 +11,7 @@ except Exception:
 
 from core.emulator import EmulateX360, EmulateKeyboard
 from core.emulator import media_functions, custom_commands
+from core.controller import resolve_sony_input_report_index
 from core.dualsense_lightbar import resolve_lightbar_color
 from core.dualsense_gyro import DualSenseGyroSteering, decode_dualsense_motion, is_dualsense
 from core.mouse import Mouse, MouseMotion
@@ -286,6 +287,7 @@ class Mapper:
             return False
 
         byte_idx = cfg.get("index", cfg.get("byte"))
+        byte_idx = self._input_report_index(byte_idx, report)
         val = self._read_byte_safe(report, byte_idx)
 
         mask = cfg.get("mask")
@@ -305,6 +307,7 @@ class Mapper:
             return False, False, False, False
 
         byte_idx = cfg.get("byte")
+        byte_idx = self._input_report_index(byte_idx, report)
         raw_val = self._read_byte_safe(report, byte_idx)
 
         mask = cfg.get("mask", 0x0F)
@@ -383,32 +386,18 @@ class Mapper:
 
         return percent, is_charging
 
+    def _input_report_index(self, configured_index, report=None):
+        """Resolve a profile index against this controller's actual input report."""
+        return resolve_sony_input_report_index(
+            self.controller_type,
+            configured_index,
+            report,
+            getattr(self.controller, "transport", None),
+        )
+
     def _battery_report_index(self, configured_index, report=None):
-        """Resolve the battery byte using the report ID before transport metadata."""
-        if self.controller_type != "Dualsense":
-            return configured_index
-
-        # Use the actual HID input report when available: DualSense USB uses
-        # report ID 0x01 (one-byte header), while Bluetooth uses 0x31 (two-byte
-        # header). Transport metadata can be missing or stale when the cable is
-        # connected, so it should only be a fallback.
-        if report:
-            report_id = report[0]
-            if report_id == 0x01:
-                return max(0, configured_index - 1)
-            if report_id == 0x31:
-                return configured_index
-
-        transport = getattr(self.controller, "transport", None)
-        if transport == 1 or str(transport) == "1":  # HIDAPI USB bus type
-            return 53 if configured_index == 54 else max(0, configured_index - 1)
-        if transport == 2 or str(transport) == "2":  # HIDAPI Bluetooth bus type
-            return configured_index
-
-        text = str(transport or "").upper()
-        if "USB" in text:
-            return 53 if configured_index == 54 else max(0, configured_index - 1)
-        return configured_index
+        """Resolve the battery byte using the same transport-aware layout as input."""
+        return self._input_report_index(configured_index, report)
 
     def configure_lightbar(self, settings: dict) -> None:
         """Apply updated per-controller Lightbar preferences from the UI."""
@@ -436,12 +425,12 @@ class Mapper:
         dpad_cfg = self.controller_config.get("dpad_hat", {})
         battery_cfg = self.controller_config.get("battery_status", {})
 
-        raw_ljx = self._read_byte_safe(report, axes_cfg.get("left_stick_x", {}).get("byte"))
-        raw_ljy = self._read_byte_safe(report, axes_cfg.get("left_stick_y", {}).get("byte"))
-        raw_rjx = self._read_byte_safe(report, axes_cfg.get("right_stick_x", {}).get("byte"))
-        raw_rjy = self._read_byte_safe(report, axes_cfg.get("right_stick_y", {}).get("byte"))
-        raw_lt = self._read_byte_safe(report, axes_cfg.get("left_trigger", {}).get("byte"))
-        raw_rt = self._read_byte_safe(report, axes_cfg.get("right_trigger", {}).get("byte"))
+        raw_ljx = self._read_byte_safe(report, self._input_report_index(axes_cfg.get("left_stick_x", {}).get("byte"), report))
+        raw_ljy = self._read_byte_safe(report, self._input_report_index(axes_cfg.get("left_stick_y", {}).get("byte"), report))
+        raw_rjx = self._read_byte_safe(report, self._input_report_index(axes_cfg.get("right_stick_x", {}).get("byte"), report))
+        raw_rjy = self._read_byte_safe(report, self._input_report_index(axes_cfg.get("right_stick_y", {}).get("byte"), report))
+        raw_lt = self._read_byte_safe(report, self._input_report_index(axes_cfg.get("left_trigger", {}).get("byte"), report))
+        raw_rt = self._read_byte_safe(report, self._input_report_index(axes_cfg.get("right_trigger", {}).get("byte"), report))
         battery_percent = None
         is_charging = False
         battery_percent_cfg = battery_cfg.get("percent", {})

@@ -34,6 +34,95 @@ def stable_controller_id(vendor_id, product_id, device_path, serial_number=None)
     return f"{vendor:04x}:{product:04x}:{identity}"
 
 
+
+def _device_number(value):
+    """Parse HID enumeration numbers represented as ints or numeric strings."""
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        return int(value, 0) if isinstance(value, str) else int(value)
+    except (TypeError, ValueError):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+
+def is_preferred_sony_gamepad_interface(device_info):
+    """Reject non-gamepad HID collections for wired Sony controllers on USB.
+
+    Windows can expose separate top-level HID collections for one physical
+    controller. Only the Generic Desktop / Game Pad collection carries the
+    input report consumed by the mapper. Bluetooth and HIDAPI backends without
+    collection metadata keep the existing selection path.
+    """
+    if not isinstance(device_info, dict):
+        return True
+
+    vendor_id = _device_number(device_info.get("vendor_id"))
+    product_id = _device_number(device_info.get("product_id"))
+    if vendor_id != 0x054C or product_id not in (0x05C4, 0x09CC, 0x0CE6, 0x0DF2):
+        return True
+
+    transport = device_info.get("transport")
+    if transport in (None, "", 0, "0"):
+        transport = device_info.get("bus_type")
+    transport_text = str(transport or "").strip().upper()
+    if transport == 1 or transport_text == "1" or "USB" in transport_text:
+        is_usb = True
+    elif transport == 2 or transport_text == "2" or "BLUETOOTH" in transport_text or transport_text in {"BT", "BTH"}:
+        is_usb = False
+    else:
+        # HIDAPI commonly marks Bluetooth with interface_number=-1; USB
+        # interfaces normally have a non-negative interface number.
+        interface_number = _device_number(device_info.get("interface_number"))
+        if interface_number is None:
+            return True
+        is_usb = interface_number != -1
+
+    if not is_usb:
+        return True
+
+    usage_page = _device_number(device_info.get("usage_page"))
+    usage = _device_number(device_info.get("usage"))
+    if usage_page is None or usage is None:
+        # Some HIDAPI backends do not expose top-level collection metadata.
+        return True
+
+    return usage_page == 0x01 and usage == 0x05
+
+
+def resolve_sony_input_report_index(controller_type, configured_index, report=None, transport=None):
+    """Resolve profile indexes for the DualSense USB and Bluetooth report layouts.
+
+    DualSense profile indexes use the Bluetooth 0x31 layout (two-byte prefix).
+    USB report 0x01 has a one-byte prefix, so every configured field is one
+    byte earlier. DualShock 4's existing profile offsets are not changed.
+    """
+    if configured_index is None or controller_type != "Dualsense":
+        return configured_index
+
+    try:
+        index = int(configured_index)
+    except (TypeError, ValueError):
+        return configured_index
+
+    if report:
+        report_id = report[0]
+        if report_id == 0x01:
+            return max(0, index - 1)
+        if report_id == 0x31:
+            return index
+
+    transport_text = str(transport or "").strip().upper()
+    is_usb = (
+        transport == 1
+        or str(transport) == "1"
+        or "USB" in transport_text
+    )
+    return max(0, index - 1) if is_usb else index
+
+
 class PlayerType:
     def __init__(self, type: str = None):
         self.type = type if type else "CPU"

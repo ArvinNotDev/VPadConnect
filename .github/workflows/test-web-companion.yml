@@ -6,6 +6,8 @@ on:
     paths:
       - "core/mouse.py"
       - "core/mapper.py"
+      - "core/controller.py"
+      - "tests/test_controller_report_layout.py"
       - "core/dualsense_gyro.py"
       - "core/dualsense_lightbar.py"
       - "tests/test_dualsense_lightbar_startup.py"
@@ -41,6 +43,8 @@ on:
     paths:
       - "core/mouse.py"
       - "core/mapper.py"
+      - "core/controller.py"
+      - "tests/test_controller_report_layout.py"
       - "core/dualsense_gyro.py"
       - "core/dualsense_lightbar.py"
       - "tests/test_dualsense_lightbar_startup.py"
@@ -95,7 +99,10 @@ jobs:
 
       - name: Compile changed Python modules
         run: |
-          python -m compileall -q core/mouse.py core/mapper.py core/dualsense_gyro.py core/dualsense_lightbar.py tests/test_dualsense_lightbar_startup.py core/hid.py core/raw_hid.py core/settings.py core/dev_logging.py core/vigem.py tests/test_mouse_failsafe.py tests/test_dev_logging.py tests/test_settings_runtime.py tests/test_raw_hid_format.py core/web_remote.py core/remote_protocol.py ui/animations.py ui/vigem_gate.py ui/pages/settings.py ui/pages/raw_hid_terminal.py ui/pages/controller_emulation.py ui/pages/controllers.py ui/pages/web_remote.py ui/main_window.py tests/test_web_remote.py tests/test_remote_protocol.py
+          python -m compileall -q core/controller.py tests/test_controller_report_layout.py core/mouse.py core/mapper.py core/dualsense_gyro.py core/dualsense_lightbar.py tests/test_dualsense_lightbar_startup.py core/hid.py core/raw_hid.py core/settings.py core/dev_logging.py core/vigem.py tests/test_mouse_failsafe.py tests/test_dev_logging.py tests/test_settings_runtime.py tests/test_raw_hid_format.py core/web_remote.py core/remote_protocol.py ui/animations.py ui/vigem_gate.py ui/pages/settings.py ui/pages/raw_hid_terminal.py ui/pages/controller_emulation.py ui/pages/controllers.py ui/pages/web_remote.py ui/main_window.py tests/test_web_remote.py tests/test_remote_protocol.py
+
+      - name: Run wired Sony HID report-layout tests
+        run: python -m pytest -q tests/test_controller_report_layout.py
 
       - name: Run DualSense Lightbar startup and battery-color tests
         run: python -m pytest -q tests/test_dualsense_lightbar_startup.py

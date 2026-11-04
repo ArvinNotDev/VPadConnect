@@ -16,7 +16,7 @@ from core.mapper import Mapper
 from core.settings import SettingsManager
 from core.hid import HIDManager
 from core import hid
-from core.controller import stable_controller_id
+from core.controller import stable_controller_id, is_preferred_sony_gamepad_interface
 from core.dualsense_lightbar import (
     DEFAULT_LIGHTBAR_COLOR,
     DualSenseLightbar,
@@ -827,6 +827,16 @@ class ControllerEmulation(QWidget):
 
         name_counts = {}
         for dev in devices:
+            if not is_preferred_sony_gamepad_interface(dev):
+                logger.debug(
+                    "Skipping non-gamepad Sony USB HID collection: "
+                    "usage_page=%s usage=%s interface=%s",
+                    dev.get("usage_page"),
+                    dev.get("usage"),
+                    dev.get("interface_number"),
+                )
+                continue
+
             vid = dev.get("vendor_id")
             pid = dev.get("product_id")
 
@@ -947,6 +957,8 @@ class ControllerEmulation(QWidget):
         devices = getattr(hid.hid_manager, "devices", None) or hid.hid_manager.scan_devices() or []
         base_name = display_name.split(" (")[0]
         for dev in devices:
+            if not is_preferred_sony_gamepad_interface(dev):
+                continue
             name = dev.get("product_string") or f"VID_{dev.get('vendor_id')}_PID_{dev.get('product_id')}"
             if base_name == name:
                 return dev
@@ -1277,6 +1289,7 @@ class ControllerEmulation(QWidget):
                 (
                     dev for dev in devices
                     if dev.get("path") not in occupied_paths
+                    and is_preferred_sony_gamepad_interface(dev)
                     and self._is_matching_device(expected, dev)
                 ),
                 None,
