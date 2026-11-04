@@ -5,6 +5,7 @@ from core.utils.controller_monitor import controllerMonitor
 from core.utils.hotkeys import Hotkey
 from core.utils.hotkey_commander import HotkeyCommander
 from core.dualsense_rumble import DualSenseRumble
+from core.dualshock4_rumble import DualShock4Rumble
 
 
 media_functions = {
@@ -25,7 +26,7 @@ class ListOfAllControllers:
 class EmulateX360:
     def __init__(self, device_path, controller_name, hotkey, rumble_enabled=False,
                  rumble_transport=None, vibration_enabled=True,
-                 rumble_controller_key=None):
+                 rumble_controller_key=None, rumble_controller_type="Dualsense"):
         self.device_path = device_path
         self.controller_name = controller_name
         self.hotkey = hotkey
@@ -34,7 +35,8 @@ class EmulateX360:
         self.could_instantiate = False
         self.rumble = None
         if rumble_enabled:
-            self.rumble = DualSenseRumble(
+            rumble_class = DualShock4Rumble if rumble_controller_type == "Dualshock4" else DualSenseRumble
+            self.rumble = rumble_class(
                 device_path,
                 transport=rumble_transport,
                 controller_key=rumble_controller_key,
