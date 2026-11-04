@@ -587,7 +587,7 @@ class X360TestCard(QFrame):
         self.gyro_live_label.setAlignment(Qt.AlignCenter)
         self.gyro_live_label.setMinimumWidth(265)
         self.gyro_live_label.setToolTip(
-            "Live roll angle, steering output, and the measured DualSense sensor report rate."
+            "Live roll angle, steering output, and the measured controller sensor report rate."
         )
         self.gyro_live_label.setStyleSheet(
             "QLabel#gyroLiveStatus { background:#102b30; color:#83e6c5; "
@@ -886,7 +886,7 @@ class ControllersPage(QWidget):
         self.gyro_target_combo.setMinimumWidth(210)
         self.gyro_target_combo.setEnabled(False)
         shortcut_row.addWidget(self.gyro_target_combo)
-        self.gyro_shortcut_status = QLabel("Ctrl+Shift+G · no DualSense selected")
+        self.gyro_shortcut_status = QLabel("Ctrl+Shift+G · no supported controller selected")
         self.gyro_shortcut_status.setStyleSheet("color:#91a2bc;")
         shortcut_row.addWidget(self.gyro_shortcut_status)
         shortcut_row.addStretch(1)
