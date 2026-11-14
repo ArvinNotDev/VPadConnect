@@ -795,11 +795,24 @@ class ControllerEmulation(QWidget):
         gamepad_layout.setContentsMargins(0, 0, 0, 0)
         gamepad_layout.setSpacing(8)
 
-        lbl_dashboard = QLabel("Controller Emulation Page\nPress {Share/Select/⚙️ + R3} to switch between mouse mode and controller mode")
-        lbl_dashboard.setAlignment(Qt.AlignCenter)
+        lbl_dashboard = QLabel("Controller Emulation")
+        lbl_dashboard.setObjectName("controllerPageTitle")
+        lbl_dashboard.setStyleSheet(
+            "font-size:22px; font-weight:800; color:#eaf1ff; padding:4px 2px;"
+        )
+        lbl_dashboard.setAlignment(Qt.AlignLeft)
 
-        emu_label = QLabel("List of Emulated Devices")
-        emu_label.setAlignment(Qt.AlignCenter)
+        page_subtitle = QLabel(
+            "Manage physical controllers and mobile devices from one place."
+        )
+        page_subtitle.setStyleSheet("color:#91a2bc; font-size:12px;")
+        page_subtitle.setWordWrap(True)
+
+        emu_label = QLabel("Connected and configured devices")
+        emu_label.setStyleSheet(
+            "font-size:14px; font-weight:750; color:#dce8f8; padding:6px 2px 2px;"
+        )
+        emu_label.setAlignment(Qt.AlignLeft)
 
         self.emu_list = QListWidget()
         self.emu_list.setStyleSheet("""
@@ -812,40 +825,104 @@ class ControllerEmulation(QWidget):
 
         self.hidhide_card = HidHideCard(self)
 
-        add_btn = QPushButton("Add Controller")
+        add_btn = QPushButton("＋   Add Controller")
+        add_btn.setObjectName("addControllerAction")
+        add_btn.setToolTip("Add a physical HID controller and configure its virtual output.")
+        add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        add_btn.setMinimumHeight(62)
+        add_btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         add_btn.clicked.connect(self.open_add_controller_dialog)
         add_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #5390ff;
-                color: #000000;
-                border: 2px solid #000000;
-                border-radius: 6px;
-                padding: 6px 12px;
+            QPushButton#addControllerAction {
+                background:#286fd0;
+                color:#ffffff;
+                border:1px solid #4b91ed;
+                border-radius:12px;
+                padding:10px 20px;
+                font-size:15px;
+                font-weight:800;
+                text-align:left;
             }
-            QPushButton:hover {
-                background-color: #f0f0f0;  /* same as normal to remove hover effect */
+            QPushButton#addControllerAction:hover {
+                background:#347fdf;
+                border-color:#6aa7f5;
             }
-            QPushButton:pressed {
-                background-color: #e0e0e0;
+            QPushButton#addControllerAction:pressed {
+                background:#205cae;
             }
         """)
 
+        mobile_btn = QPushButton("📱   Mobile Companion")
+        mobile_btn.setObjectName("mobileCompanionAction")
+        mobile_btn.setToolTip(
+            "Connect a phone or tablet using a secure QR-code pairing session."
+        )
+        mobile_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        mobile_btn.setMinimumHeight(62)
+        mobile_btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        mobile_btn.clicked.connect(self._start_mobile_pairing)
+        mobile_btn.setStyleSheet("""
+            QPushButton#mobileCompanionAction {
+                background:#174b52;
+                color:#e4fffb;
+                border:1px solid #2e7f83;
+                border-radius:12px;
+                padding:10px 20px;
+                font-size:15px;
+                font-weight:800;
+                text-align:left;
+            }
+            QPushButton#mobileCompanionAction:hover {
+                background:#1d6268;
+                border-color:#4aa5a1;
+            }
+            QPushButton#mobileCompanionAction:pressed {
+                background:#123d43;
+            }
+        """)
 
         gamepad_layout.addWidget(lbl_dashboard)
-        gamepad_layout.addWidget(emu_label)
-        gamepad_layout.addWidget(self.emu_list)
+        gamepad_layout.addWidget(page_subtitle)
+        gamepad_layout.addSpacing(8)
 
         controller_actions = QHBoxLayout()
-        controller_actions.setSpacing(8)
+        controller_actions.setSpacing(12)
         controller_actions.addWidget(add_btn, 1)
-        self.remote_permissions_button = QPushButton("Remote Permissions")
+        controller_actions.addWidget(mobile_btn, 1)
+        gamepad_layout.addLayout(controller_actions)
+
+        permissions_row = QHBoxLayout()
+        permissions_row.addStretch(1)
+        self.remote_permissions_button = QPushButton("Remote Permissions  ›")
+        self.remote_permissions_button.setObjectName("remotePermissionsAction")
         self.remote_permissions_button.setToolTip(
             "Manage which Windows actions connected phones are allowed to perform."
         )
+        self.remote_permissions_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.remote_permissions_button.setEnabled(False)
+        self.remote_permissions_button.setMinimumHeight(32)
+        self.remote_permissions_button.setStyleSheet("""
+            QPushButton#remotePermissionsAction {
+                background:transparent;
+                color:#9eb7d5;
+                border:1px solid #30435f;
+                border-radius:8px;
+                padding:4px 12px;
+                font-size:11px;
+                font-weight:650;
+            }
+            QPushButton#remotePermissionsAction:hover:enabled {
+                background:#1a2a40;
+                color:#dceaff;
+                border-color:#4b6688;
+            }
+        """)
         self.remote_permissions_button.clicked.connect(self._open_remote_permissions)
-        controller_actions.addWidget(self.remote_permissions_button)
-        gamepad_layout.addLayout(controller_actions)
+        permissions_row.addWidget(self.remote_permissions_button)
+        gamepad_layout.addLayout(permissions_row)
+
+        gamepad_layout.addWidget(emu_label)
+        gamepad_layout.addWidget(self.emu_list)
 
         self.vigem_gate = VigemGate(gamepad_content)
         self.vigem_gate.recheck_requested.connect(self.vigem_recheck_requested.emit)
@@ -945,13 +1022,10 @@ class ControllerEmulation(QWidget):
         hid_path_list.reverse()
         dialog.hid_list.addItems(hid_list_display)
         dialog.emu_list.addItems(["Emulate Xbox"])
-        dialog.add_mobile_device_option()
+        if dialog.emu_list.count():
+            dialog.emu_list.setCurrentRow(0)
 
         if dialog.exec() != QDialog.DialogCode.Accepted:
-            return
-
-        if dialog.is_mobile_selected():
-            self._start_mobile_pairing()
             return
 
         hid_choice, emu_choice = dialog.get_selections()
