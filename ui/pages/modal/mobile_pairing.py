@@ -35,7 +35,7 @@ class MobilePairingDialog(QDialog):
 
         self.setWindowTitle("Connect your phone")
         self.setModal(True)
-        self.setMinimumSize(560, 460)
+        self.setMinimumSize(650, 480)
         self.setStyleSheet(
             """
             QDialog { background:#101827; color:#eaf1ff; }
@@ -44,6 +44,7 @@ class MobilePairingDialog(QDialog):
             QLabel#pairMuted { color:#9aabc4; font-size:12px; }
             QLabel#pairStatus { color:#9ac6ff; font-size:12px; font-weight:700; }
             QLabel#pairCode { color:#8ab8ff; font-family:Consolas; font-size:25px; font-weight:900; letter-spacing:4px; }
+            QLabel#pairFingerprint { color:#8298b8; font-family:Consolas; font-size:9px; }
             QLabel#pairQr { background:#ffffff; border:7px solid #ffffff; border-radius:12px; }
             QFrame#pairCard { background:#172338; border:1px solid #30435f; border-radius:15px; }
             QPushButton { min-height:34px; padding:6px 13px; border-radius:8px; border:1px solid #3b5272; background:#22334c; color:#edf4ff; font-weight:650; }
@@ -123,13 +124,29 @@ class MobilePairingDialog(QDialog):
         self.url.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         details.addWidget(self.url)
 
+        fingerprint_caption = QLabel("TLS CERTIFICATE FINGERPRINT · SHA-256")
+        fingerprint_caption.setStyleSheet(
+            "color:#8296b4; font-size:9px; font-weight:800;"
+        )
+        details.addWidget(fingerprint_caption)
+        self.fingerprint = QLabel("—")
+        self.fingerprint.setObjectName("pairFingerprint")
+        self.fingerprint.setWordWrap(True)
+        self.fingerprint.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
+        details.addWidget(self.fingerprint)
+
         actions = QHBoxLayout()
         self.copy_url = QPushButton("Copy pairing link")
         self.copy_url.clicked.connect(self._copy_url)
         self.copy_code = QPushButton("Copy code")
         self.copy_code.clicked.connect(self._copy_code)
+        self.copy_fingerprint = QPushButton("Copy fingerprint")
+        self.copy_fingerprint.clicked.connect(self._copy_fingerprint)
         actions.addWidget(self.copy_url)
         actions.addWidget(self.copy_code)
+        actions.addWidget(self.copy_fingerprint)
         details.addLayout(actions)
 
         self.new_code = QPushButton("Generate new QR code")
@@ -221,6 +238,7 @@ class MobilePairingDialog(QDialog):
             )
             self.code.setText(server.pairing_code)
             self.url.setText(server.local_url)
+            self.fingerprint.setText(server.fingerprint or "Fingerprint unavailable")
         except Exception as exc:
             self.error.setText(f"Could not generate the pairing QR code: {exc}")
             self.error.show()
@@ -262,6 +280,16 @@ class MobilePairingDialog(QDialog):
             QApplication.clipboard().setText(self.service.web_server.pairing_code)
             self.copy_code.setText("Copied")
             QTimer.singleShot(1200, lambda: self.copy_code.setText("Copy code"))
+
+    def _copy_fingerprint(self) -> None:
+        if self.service.web_server.running:
+            from PySide6.QtWidgets import QApplication
+            QApplication.clipboard().setText(self.service.web_server.fingerprint)
+            self.copy_fingerprint.setText("Copied")
+            QTimer.singleShot(
+                1200,
+                lambda: self.copy_fingerprint.setText("Copy fingerprint"),
+            )
 
     def _retry_server(self) -> None:
         self.error.hide()
