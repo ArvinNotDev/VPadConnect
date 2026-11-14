@@ -664,3 +664,45 @@ def test_pairing_without_vigem_keeps_mouse_and_pc_remote_available(monkeypatch):
         json={"request_id": "remote-status", "action": "pc_status", "payload": {}},
     )
     assert action.status_code == 200
+
+
+def test_desktop_mobile_session_events_and_targeted_disconnect(monkeypatch):
+    from core.web_remote import WebRemoteServer
+
+    mappers = _install_mock_mappers(monkeypatch)
+    added = []
+    removed = []
+    registered = []
+    server = WebRemoteServer(
+        object(),
+        object(),
+        object(),
+        mapper_added=registered.append,
+        session_added=added.append,
+        session_removed=removed.append,
+    )
+
+    token_a = _pair_browser(server, "Phone A")
+    token_b = _pair_browser(server, "Phone B")
+    session_a = server._sessions[token_a]
+    session_b = server._sessions[token_b]
+
+    assert len(added) == 2
+    assert added[0]["session_id"] == session_a["uuid"]
+    assert added[0]["name"] == "Phone A"
+    assert "Touch mouse" in added[0]["capabilities"]
+    assert "Keyboard / PC Remote" in added[0]["capabilities"]
+    assert added[0]["gamepad_available"] is True
+    assert {item["session_id"] for item in server.sessions_snapshot()} == {
+        session_a["uuid"], session_b["uuid"]
+    }
+
+    assert server.disconnect_session(session_a["uuid"]) is True
+    assert server.disconnect_session(session_a["uuid"]) is False
+    assert token_a not in server._sessions
+    assert token_b in server._sessions
+    assert removed == [added[0]]
+    assert mappers[0].calls[-3:] == [
+        "reset_gamepad", "release_mouse_buttons", "shutdown"
+    ]
+    assert "shutdown" not in mappers[1].calls

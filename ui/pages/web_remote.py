@@ -4,6 +4,7 @@ from __future__ import annotations
 import io
 import json
 import threading
+import time
 
 import qrcode
 from PySide6.QtCore import Qt, QTimer, QObject, Signal, QUrl
@@ -35,6 +36,8 @@ class _WebRemoteSignals(QObject):
     start_failed = Signal(str)
     stopped = Signal()
     mapper_added = Signal(object)
+    session_added = Signal(object)
+    session_removed = Signal(object)
 
 
 class WebRemotePage(QWidget):
@@ -42,12 +45,15 @@ class WebRemotePage(QWidget):
 
     FIXED_PORT = 8765
     vigem_recheck_requested = Signal()
+    server_state_changed = Signal(bool, str)
+    mobile_session_added = Signal(object)
+    mobile_session_removed = Signal(str)
 
     def __init__(
         self, settings, controllers_page, hotkey_page, status_changed=None, *,
-        vigem_available: bool | None = None,
+        vigem_available: bool | None = None, parent=None,
     ):
-        super().__init__()
+        super().__init__(parent)
         self._vigem_available = (
             is_vigem_installed() if vigem_available is None else bool(vigem_available)
         )
@@ -56,16 +62,23 @@ class WebRemotePage(QWidget):
         self._last_client_count = -1
         self._last_clients = ()
         self._server_busy = False
+        self._mobile_sessions: dict[str, dict] = {}
+        self._mobile_pairing_flows = 0
+        self._auto_started_by_mobile = False
         self._signals = _WebRemoteSignals(self)
         self._signals.started.connect(self._on_server_started)
         self._signals.start_failed.connect(self._on_server_start_failed)
         self._signals.stopped.connect(self._on_server_stopped)
         self._signals.mapper_added.connect(self._register_mapper)
+        self._signals.session_added.connect(self._on_mobile_session_added)
+        self._signals.session_removed.connect(self._on_mobile_session_removed)
         self.web_server = WebRemoteServer(
             settings,
             controllers_page,
             hotkey_page,
             mapper_added=self._signals.mapper_added.emit,
+            session_added=self._signals.session_added.emit,
+            session_removed=self._signals.session_removed.emit,
             port=self.FIXED_PORT,
         )
         self._build_ui()
@@ -314,19 +327,25 @@ class WebRemotePage(QWidget):
         self._set_running(True)
         self._render_qr()
         self._refresh_countdown()
+        self.server_state_changed.emit(True, "")
         self._notify_status_changed()
+        self._maybe_stop_auto_server()
 
     def _on_server_start_failed(self, message: str) -> None:
         self._server_busy = False
+        self._auto_started_by_mobile = False
         self._set_running(False)
-        QMessageBox.critical(
-            self, "Could not start Web Companion",
-            f"Could not start the local server on port {self.FIXED_PORT}.\n\n{message}",
-        )
+        self.server_state_changed.emit(False, message)
+        if self.isVisible():
+            QMessageBox.critical(
+                self, "Could not start Web Companion",
+                f"Could not start the local server on port {self.FIXED_PORT}.\n\n{message}",
+            )
 
     def _on_server_stopped(self) -> None:
         self._server_busy = False
         self._set_running(False)
+        self.server_state_changed.emit(False, "")
         self._notify_status_changed()
 
     def _set_running(self, running: bool) -> None:
@@ -461,6 +480,100 @@ class WebRemotePage(QWidget):
     def _register_mapper(self, instance) -> None:
         self.web_server.controllers_page.add_x360_instance(instance)
         self.web_server.hotkey_page.add_x360_instance(instance)
+
+    def open_permissions_dialog(self) -> None:
+        """Open the existing permission editor from the integrated controller page."""
+        self._edit_permissions()
+
+    def _on_mobile_session_added(self, session: dict) -> None:
+        session_id = str(session.get("session_id") or "")
+        if not session_id:
+            return
+        self._mobile_sessions[session_id] = dict(session)
+        self.mobile_session_added.emit(dict(session))
+        self._notify_status_changed()
+
+    def _on_mobile_session_removed(self, session: dict) -> None:
+        session_id = str(session.get("session_id") or "")
+        if session_id:
+            self._mobile_sessions.pop(session_id, None)
+            self.mobile_session_removed.emit(session_id)
+        try:
+            self.web_server.controllers_page.refresh_list()
+        except Exception:
+            pass
+        try:
+            self.web_server.hotkey_page.refresh_list()
+        except Exception:
+            pass
+        self._notify_status_changed()
+        self._maybe_stop_auto_server()
+
+    def sessions_snapshot(self) -> list[dict]:
+        try:
+            return self.web_server.sessions_snapshot()
+        except Exception:
+            return [dict(session) for session in self._mobile_sessions.values()]
+
+    def begin_mobile_pairing_flow(self) -> bool:
+        """Register an active pairing dialog and ensure the HTTPS server is running."""
+        self._mobile_pairing_flows += 1
+        if self.web_server.running:
+            if (
+                not self.web_server.pairing_code
+                or time.monotonic() >= self.web_server.pairing_deadline
+            ):
+                self.web_server.rotate_pairing_code()
+            return True
+        if not self._server_busy:
+            self._auto_started_by_mobile = True
+        self.ensure_server_running()
+        return False
+
+    def ensure_server_running(self) -> bool:
+        """Start the embedded server if needed; return whether it is ready now."""
+        if self.web_server.running:
+            return True
+        if not self._server_busy:
+            if self._mobile_pairing_flows:
+                self._auto_started_by_mobile = True
+            self._toggle_server()
+        return False
+
+    def end_mobile_pairing_flow(self) -> None:
+        self._mobile_pairing_flows = max(0, self._mobile_pairing_flows - 1)
+        self._maybe_stop_auto_server()
+
+    def rotate_mobile_pairing_code(self) -> str:
+        return self.web_server.rotate_pairing_code()
+
+    def disconnect_mobile_session(self, session_id: str) -> None:
+        """Disconnect one mobile session without blocking the Qt event loop."""
+        def disconnect() -> None:
+            try:
+                removed = self.web_server.disconnect_session(session_id)
+                if not removed:
+                    self._mobile_sessions.pop(session_id, None)
+                    self.mobile_session_removed.emit(session_id)
+            except Exception:
+                logger.exception("Could not disconnect mobile session %s", session_id)
+
+        threading.Thread(
+            target=disconnect,
+            name="VPadConnectMobileDisconnect",
+            daemon=True,
+        ).start()
+
+    def _maybe_stop_auto_server(self) -> None:
+        if (
+            self._auto_started_by_mobile
+            and self._mobile_pairing_flows == 0
+            and self.web_server.running
+            and self.web_server.client_count == 0
+            and not self._server_busy
+        ):
+            self._auto_started_by_mobile = False
+            self._toggle_server()
 
     def shutdown(self) -> None:
         self._refresh_timer.stop()
