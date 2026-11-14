@@ -12,6 +12,7 @@ from PySide6.QtCore import Qt, Signal, Slot, QTimer, QThread, QObject, QUrl
 from PySide6.QtGui import QDesktopServices, QColor
 
 from ui.pages.modal.add_controller import AddControllerDialog
+from ui.pages.modal.mobile_pairing import MobilePairingDialog, MobileConnectedDialog
 from core.mapper import Mapper
 from core.settings import SettingsManager
 from core.hid import HIDManager
@@ -710,6 +711,55 @@ class EmuListItemWidget(QWidget):
         self.delete_requested.emit(self)
 
 
+class RemoteDeviceRow(QWidget):
+    """Controller-list row for one independently managed browser session."""
+
+    disconnect_requested = Signal(str)
+
+    def __init__(self, session: dict, parent=None):
+        super().__init__(parent)
+        self.session_id = str(session.get("session_id") or "")
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(10, 6, 10, 6)
+        layout.setSpacing(10)
+
+        identity = QVBoxLayout()
+        identity.setSpacing(2)
+        self.name_label = QLabel(f"📱  {session.get('name') or 'Mobile Device'}")
+        self.name_label.setStyleSheet("font-weight:750; color:#eaf1ff;")
+        identity.addWidget(self.name_label)
+
+        capabilities = session.get("capabilities") or ["Touch mouse", "Keyboard / PC Remote"]
+        self.capabilities_label = QLabel(" · ".join(str(item) for item in capabilities))
+        self.capabilities_label.setStyleSheet("font-size:10px; color:#91a2bc;")
+        self.capabilities_label.setWordWrap(True)
+        identity.addWidget(self.capabilities_label)
+        layout.addLayout(identity, 1)
+
+        self.state_label = QLabel("●  Connected")
+        self.state_label.setStyleSheet(
+            "color:#39d98a; font-size:11px; font-weight:800; padding:4px 8px; "
+            "background:rgba(39,190,125,24%); border-radius:8px;"
+        )
+        layout.addWidget(self.state_label)
+
+        self.delete_button = QPushButton("Delete")
+        self.delete_button.setToolTip("Disconnect this phone and remove its virtual controller")
+        self.delete_button.clicked.connect(
+            lambda: self.disconnect_requested.emit(self.session_id)
+        )
+        layout.addWidget(self.delete_button)
+
+        self.setStyleSheet(
+            "QWidget { background:#172338; border:1px solid #30435f; border-radius:10px; }"
+        )
+
+    def set_busy(self, busy: bool) -> None:
+        self.delete_button.setEnabled(not bool(busy))
+        self.delete_button.setText("Disconnecting…" if busy else "Delete")
+
+
 class ControllerEmulation(QWidget):
     vigem_recheck_requested = Signal()
     raw_hid_report = Signal(str, bytes)
@@ -730,6 +780,9 @@ class ControllerEmulation(QWidget):
         self._mapping_records: dict[int, dict] = {}
         self._path_records: dict[object, int] = {}
         self._lightbar_outputs: dict[object, DualSenseLightbar] = {}
+        self._remote_device_items: dict[str, QListWidgetItem] = {}
+        self._remote_device_widgets: dict[str, RemoteDeviceRow] = {}
+        self.web_remote_service = None
         self.settings = settings
         self._reconnect_timer = QTimer(self)
         self._reconnect_timer.setInterval(1000)
@@ -781,7 +834,18 @@ class ControllerEmulation(QWidget):
         gamepad_layout.addWidget(lbl_dashboard)
         gamepad_layout.addWidget(emu_label)
         gamepad_layout.addWidget(self.emu_list)
-        gamepad_layout.addWidget(add_btn)
+
+        controller_actions = QHBoxLayout()
+        controller_actions.setSpacing(8)
+        controller_actions.addWidget(add_btn, 1)
+        self.remote_permissions_button = QPushButton("Remote Permissions")
+        self.remote_permissions_button.setToolTip(
+            "Manage which Windows actions connected phones are allowed to perform."
+        )
+        self.remote_permissions_button.setEnabled(False)
+        self.remote_permissions_button.clicked.connect(self._open_remote_permissions)
+        controller_actions.addWidget(self.remote_permissions_button)
+        gamepad_layout.addLayout(controller_actions)
 
         self.vigem_gate = VigemGate(gamepad_content)
         self.vigem_gate.recheck_requested.connect(self.vigem_recheck_requested.emit)
@@ -881,8 +945,13 @@ class ControllerEmulation(QWidget):
         hid_path_list.reverse()
         dialog.hid_list.addItems(hid_list_display)
         dialog.emu_list.addItems(["Emulate Xbox"])
+        dialog.add_mobile_device_option()
 
-        if dialog.exec_() != QDialog.Accepted:
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        if dialog.is_mobile_selected():
+            self._start_mobile_pairing()
             return
 
         hid_choice, emu_choice = dialog.get_selections()
@@ -906,6 +975,84 @@ class ControllerEmulation(QWidget):
 
         if not device:
             logger.warning("Selected HID could not be mapped to a device entry")
+
+    def set_web_remote_service(self, service) -> None:
+        """Attach the embedded Web Companion service to the unified device list."""
+        if self.web_remote_service is service:
+            return
+        if self.web_remote_service is not None:
+            try:
+                self.web_remote_service.mobile_session_added.disconnect(self._add_remote_device_row)
+                self.web_remote_service.mobile_session_removed.disconnect(self._remove_remote_device_row)
+            except (RuntimeError, TypeError):
+                pass
+        self.web_remote_service = service
+        self.remote_permissions_button.setEnabled(service is not None)
+        if service is None:
+            return
+        service.mobile_session_added.connect(self._add_remote_device_row)
+        service.mobile_session_removed.connect(self._remove_remote_device_row)
+        for session in service.sessions_snapshot():
+            self._add_remote_device_row(session)
+
+    def _open_remote_permissions(self) -> None:
+        if self.web_remote_service is not None:
+            self.web_remote_service.open_permissions_dialog()
+
+    def _start_mobile_pairing(self) -> None:
+        if self.web_remote_service is None:
+            QMessageBox.warning(
+                self, "Mobile connection unavailable",
+                "The integrated Web Companion service is not available.",
+            )
+            return
+
+        dialog = MobilePairingDialog(self.web_remote_service, self)
+        result = dialog.exec()
+        session = dialog.connected_session
+        if result == QDialog.DialogCode.Accepted and session:
+            self._add_remote_device_row(session)
+            MobileConnectedDialog(
+                str(session.get("name") or "Mobile Device"), self
+            ).exec()
+
+    def _add_remote_device_row(self, session: dict) -> None:
+        session_id = str(session.get("session_id") or "")
+        if not session_id or session_id in self._remote_device_items:
+            return
+
+        item = QListWidgetItem()
+        widget = RemoteDeviceRow(session, self.emu_list)
+        widget.disconnect_requested.connect(self._disconnect_remote_device)
+        item.setSizeHint(widget.sizeHint())
+        item.setData(
+            Qt.ItemDataRole.UserRole,
+            {"source": "remote", "session_id": session_id},
+        )
+        self.emu_list.addItem(item)
+        self.emu_list.setItemWidget(item, widget)
+        self._remote_device_items[session_id] = item
+        self._remote_device_widgets[session_id] = widget
+
+    def _remove_remote_device_row(self, session_id: str) -> None:
+        session_id = str(session_id)
+        item = self._remote_device_items.pop(session_id, None)
+        self._remote_device_widgets.pop(session_id, None)
+        if item is None:
+            return
+        for index in range(self.emu_list.count()):
+            if self.emu_list.item(index) is item:
+                self.emu_list.takeItem(index)
+                break
+
+    def _disconnect_remote_device(self, session_id: str) -> None:
+        widget = self._remote_device_widgets.get(session_id)
+        if widget is not None:
+            widget.set_busy(True)
+        if self.web_remote_service is None:
+            self._remove_remote_device_row(session_id)
+            return
+        self.web_remote_service.disconnect_mobile_session(session_id)
 
     def add_emulated_mapping(self, hid_choice: str, emu: str, device: Optional[dict] = None) -> bool:
         new_path = device.get("path") if device else None
@@ -1305,6 +1452,11 @@ class ControllerEmulation(QWidget):
         self._maybe_stop_reconnect_timer()
 
     def _on_delete_requested(self, widget: EmuListItemWidget, item: QListWidgetItem):
+        stored_data = item.data(Qt.ItemDataRole.UserRole)
+        if isinstance(stored_data, dict) and stored_data.get("source") == "remote":
+            self._disconnect_remote_device(str(stored_data.get("session_id") or ""))
+            return
+
         key = id(item)
         record = self._mapping_records.pop(key, None)
         stored = item.data(Qt.UserRole) or (None, None, None)

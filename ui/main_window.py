@@ -45,13 +45,12 @@ class MainWindow(QMainWindow):
     WINDOW_TITLE = APP_NAME
     WINDOW_WIDTH = 1180
     WINDOW_HEIGHT = 760
-    NAV_PAGE_INDICES = (0, 1, 2, 4)
+    NAV_PAGE_INDICES = (0, 1, 3)
     IDX_CONTROLLER_EMULATION = 0
-    IDX_WEB_REMOTE = 1
-    IDX_HOTKEY = 2
-    IDX_INPUT_TEST = 3
-    IDX_PROFILES_PAGE = 3
-    IDX_SETTINGS_PAGE = 5
+    IDX_HOTKEY = 1
+    IDX_INPUT_TEST = 2
+    IDX_PROFILES_PAGE = 2
+    IDX_SETTINGS_PAGE = 4
 
     def __init__(self, app: QApplication) -> None:
         super().__init__()
@@ -204,7 +203,6 @@ class MainWindow(QMainWindow):
         self.menu.setElideMode(Qt.TextElideMode.ElideNone)
         self.menu.setShape(QTabBar.Shape.RoundedNorth)
         self.menu.addTab("Controller Emulation")
-        self.menu.addTab("Web Companion")
         self.menu.addTab("Hotkeys")
         self.menu.addTab("Input Test")
         self.menu.setMinimumHeight(38)
@@ -251,15 +249,18 @@ class MainWindow(QMainWindow):
         )
         self.pages.addWidget(self.controller_emulation_page)
 
+        # Keep Web Companion as an internal service owned by the main window.
+        # Pairing is initiated from Controller Emulation, not a separate page.
         self.web_remote_page = WebRemotePage(
             self.settings, controllers_page, hotkey_page,
             status_changed=self._refresh_tray_menu,
             vigem_available=self.vigem_available,
+            parent=self,
         )
         self.web_remote_page.vigem_recheck_requested.connect(
             self._refresh_vigem_status
         )
-        self.pages.addWidget(self.web_remote_page)
+        self.controller_emulation_page.set_web_remote_service(self.web_remote_page)
         self.pages.addWidget(hotkey_page)
 
         self.profiles_page = ProfilesPage(self.profile_manager, self.settings)
@@ -426,14 +427,9 @@ class MainWindow(QMainWindow):
         self._tray_hide_action = QAction("Hide window", menu)
         self._tray_hide_action.triggered.connect(self.hide)
         menu.addAction(self._tray_hide_action)
-        self._tray_server_action = QAction("Start Web Companion", menu)
-        self._tray_server_action.triggered.connect(self._toggle_server_from_tray)
-        menu.addAction(self._tray_server_action)
-
         menu.addSeparator()
         for label, index in (
             ("Controller Emulation", self.IDX_CONTROLLER_EMULATION),
-            ("Web Companion", self.IDX_WEB_REMOTE),
             ("Hotkeys", self.IDX_HOTKEY),
             ("Input Test", self.IDX_INPUT_TEST),
         ):
@@ -462,18 +458,11 @@ class MainWindow(QMainWindow):
             f"Web Companion: {'running' if web_running else 'stopped'} · "
             f"Browsers: {web_count} · Mapped: {mapped_count}"
         )
-        self._tray_server_action.setText(
-            "Stop Web Companion" if web_running else "Start Web Companion"
-        )
         self.tray_icon.setToolTip(
             f"{self.WINDOW_TITLE} — Web Companion "
             f"{'running' if web_running else 'stopped'}"
         )
         self._tray_hide_action.setEnabled(self.isVisible())
-
-    def _toggle_server_from_tray(self) -> None:
-        self.web_remote_page._toggle_server()
-        self._refresh_tray_menu()
 
     def _on_profile_loaded(self, profile_name: str) -> None:
         """Called when a profile is activated from the Profiles page."""

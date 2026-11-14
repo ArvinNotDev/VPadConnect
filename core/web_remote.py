@@ -156,12 +156,19 @@ def get_lan_ip() -> str:
 class WebRemoteServer:
     """Embedded threaded HTTPS server; each paired browser gets its own XInput device."""
 
-    def __init__(self, settings, controllers_page, hotkey_page,
-                 mapper_added: Callable[[Any], None] | None = None, *, host: str = "0.0.0.0", port: int = 8765):
+    def __init__(
+        self, settings, controllers_page, hotkey_page,
+        mapper_added: Callable[[Any], None] | None = None,
+        session_added: Callable[[dict[str, Any]], None] | None = None,
+        session_removed: Callable[[dict[str, Any]], None] | None = None,
+        *, host: str = "0.0.0.0", port: int = 8765,
+    ):
         self.settings = settings
         self.controllers_page = controllers_page
         self.hotkey_page = hotkey_page
         self.mapper_added = mapper_added
+        self.session_added = session_added
+        self.session_removed = session_removed
         self.host = host
         self.port = int(port)
         self.fingerprint = ""
@@ -199,6 +206,66 @@ class WebRemoteServer:
                 session["name"] for session in self._sessions.values()
                 if isinstance(session.get("name"), str)
             )
+
+    def sessions_snapshot(self) -> list[dict[str, Any]]:
+        """Return display-safe metadata for currently paired browser sessions."""
+        with self._lock:
+            return [
+                self._session_event_payload(session)
+                for session in self._sessions.values()
+            ]
+
+    @staticmethod
+    def _session_event_payload(session: dict[str, Any]) -> dict[str, Any]:
+        gamepad_available = bool(session.get("gamepad_available", False))
+        capabilities = ["Touch mouse", "Keyboard / PC Remote"]
+        if gamepad_available:
+            capabilities.insert(0, "Gamepad")
+        return {
+            "session_id": str(session.get("uuid") or ""),
+            "name": str(session.get("name") or "Mobile Device"),
+            "gamepad_available": gamepad_available,
+            "capabilities": capabilities,
+        }
+
+    def _notify_session_added(self, session: dict[str, Any]) -> None:
+        callback = self.session_added
+        if callback is None:
+            return
+        try:
+            callback(self._session_event_payload(session))
+        except Exception:
+            self.app.logger.exception("Could not publish a newly paired mobile session")
+
+    def _notify_session_removed(self, session: dict[str, Any]) -> None:
+        callback = self.session_removed
+        if callback is None:
+            return
+        try:
+            callback(self._session_event_payload(session))
+        except Exception:
+            self.app.logger.exception("Could not publish a disconnected mobile session")
+
+    def _remove_session_token(self, token: str) -> bool:
+        with self._lock:
+            session = self._sessions.pop(token, None)
+        if session is None:
+            return False
+        self._close_session(session)
+        self._notify_session_removed(session)
+        return True
+
+    def disconnect_session(self, session_id: str) -> bool:
+        """Disconnect exactly one paired browser session by its stable session ID."""
+        with self._lock:
+            token = next(
+                (
+                    key for key, session in self._sessions.items()
+                    if session.get("uuid") == session_id
+                ),
+                None,
+            )
+        return self._remove_session_token(token) if token is not None else False
 
     @property
     def local_url(self) -> str:
@@ -257,6 +324,7 @@ class WebRemoteServer:
             self._sessions.clear()
         for session in sessions:
             self._close_session(session)
+            self._notify_session_removed(session)
         self.pairing_code = ""
         self.pairing_deadline = 0
 
@@ -288,6 +356,7 @@ class WebRemoteServer:
                 sessions = [self._sessions.pop(key) for key in expired]
             for session in sessions:
                 self._close_session(session)
+                self._notify_session_removed(session)
 
     @staticmethod
     def _close_session(session: dict[str, Any]) -> None:
@@ -309,6 +378,12 @@ class WebRemoteServer:
                         getattr(mapper, method_name)()
                     except Exception:
                         pass
+            stream = session.get("stream_ws")
+            if stream is not None:
+                try:
+                    stream.close(reason=1001, message=b"Session disconnected")
+                except Exception:
+                    pass
             try:
                 session.get("remote").close()
             except Exception:
@@ -331,6 +406,7 @@ class WebRemoteServer:
         if expired:
             if session:
                 self._close_session(session)
+                self._notify_session_removed(session)
             return None, None
         return token, session
 
@@ -489,6 +565,7 @@ class WebRemoteServer:
                         self._sessions.pop(token, None)
                     self._close_session(session)
                     return jsonify({"ok": False, "error": "Could not register this controller with the desktop UI."}), 500
+            self._notify_session_added(session)
             return jsonify({"ok": True, "token": token, "name": session["name"],
                             "gamepad_available": gamepad_available})
 
@@ -634,8 +711,5 @@ class WebRemoteServer:
             token, _session = self._authorize(request.headers.get("Authorization", ""))
             if token is None:
                 return jsonify({"ok": True})
-            with self._lock:
-                session = self._sessions.pop(token, None)
-            if session is not None:
-                self._close_session(session)
+            self._remove_session_token(token)
             return jsonify({"ok": True})
