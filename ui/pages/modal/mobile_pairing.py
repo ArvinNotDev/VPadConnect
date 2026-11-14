@@ -265,7 +265,13 @@ class MobilePairingDialog(QDialog):
 
         divider = QFrame()
         divider.setObjectName("pairDivider")
+        divider.setFrameShape(QFrame.Shape.VLine)
+        divider.setFrameShadow(QFrame.Shadow.Sunken)
         divider.setFixedWidth(1)
+        divider.setSizePolicy(
+            QSizePolicy.Policy.Fixed,
+            QSizePolicy.Policy.Expanding,
+        )
         card_layout.addWidget(divider)
 
         details = QVBoxLayout()
