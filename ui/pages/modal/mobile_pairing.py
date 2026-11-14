@@ -103,7 +103,8 @@ class MobilePairingDialog(QDialog):
             QFrame#pairDivider {
                 background: #2b3e59;
                 border: none;
-                max-height: 1px;
+                min-width: 1px;
+                max-width: 1px;
             }
             QPushButton {
                 min-height: 38px;
