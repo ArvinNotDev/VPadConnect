@@ -462,10 +462,11 @@ def test_desktop_screen_stream_rejects_a_browser_without_screen_permission(monke
         web_remote.WebSocketServer, "accept",
         lambda *_args, **_kwargs: fake_socket,
     )
-    response = server.app.test_client().get("/api/screen")
+    with server.app.test_request_context("/api/screen"):
+        response = server.app.view_functions["screen_stream"]()
     packets = [json.loads(packet) for packet in fake_socket.sent if isinstance(packet, str)]
 
-    assert response.status_code == 200
+    assert response == ""
     assert packets[0]["error"] == "screen_permission_denied"
     assert fake_socket.closed is True
     assert server._screen_viewers == 0
