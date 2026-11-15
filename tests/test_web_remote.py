@@ -321,10 +321,42 @@ def test_browser_keyboard_actions_keep_permissions_validation_and_session_state_
 
     malformed = action(token_b, "bad-key", "keyboard_key", {"key": "POWERSHELL"})
     assert malformed.status_code == 400
-    permissions["keyboard"] = False
+    permissions_b = server.get_session_permissions(server._sessions[token_b]["uuid"])
+    assert permissions_b is not None
+    permissions_b["keyboard"] = False
+    assert server.set_session_permissions(server._sessions[token_b]["uuid"], permissions_b)
     denied = action(token_b, "denied-key", "keyboard_key", {"key": "UP"})
     assert denied.status_code == 403
     assert action("", "no-token", "keyboard_key", {"key": "DOWN"}).status_code == 401
+
+
+def test_browser_remote_permissions_are_isolated_per_session(monkeypatch):
+    import core.web_remote as web_remote
+
+    _install_mock_mappers(monkeypatch)
+    baseline = {
+        "keyboard": True, "media": True, "clipboard": True,
+        "app_launch": True, "presentation": True, "power": True,
+    }
+    monkeypatch.setattr(web_remote, "load_remote_permissions", lambda: dict(baseline))
+    server = web_remote.WebRemoteServer(object(), object(), object())
+    token_a = _pair_browser(server, "Phone A")
+    token_b = _pair_browser(server, "Phone B")
+    session_a = server._sessions[token_a]["uuid"]
+    session_b = server._sessions[token_b]["uuid"]
+
+    permissions_a = server.get_session_permissions(session_a)
+    permissions_b = server.get_session_permissions(session_b)
+    assert permissions_a == permissions_b == baseline
+
+    permissions_a["keyboard"] = False
+    permissions_a["power"] = False
+    assert server.set_session_permissions(session_a, permissions_a)
+
+    assert server.get_session_permissions(session_a)["keyboard"] is False
+    assert server.get_session_permissions(session_a)["power"] is False
+    assert server.get_session_permissions(session_b) == baseline
+    assert server.set_session_permissions("unknown-session", baseline) is False
 
 
 def test_paired_browsers_have_distinct_mappers_and_isolated_inputs(monkeypatch):
