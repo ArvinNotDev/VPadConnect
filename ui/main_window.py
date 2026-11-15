@@ -354,10 +354,6 @@ class MainWindow(QMainWindow):
                 10 if compact else 16,
             )
             self._main_layout.setSpacing(7 if compact else 10)
-        # Native tab scroll buttons preserve navigation; hide the decorative
-        # donation action when the window becomes compact.
-        if hasattr(self, "donate_button"):
-            self.donate_button.setVisible(self.width() >= 1000)
 
     def showEvent(self, event) -> None:
         super().showEvent(event)
