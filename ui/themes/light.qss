@@ -978,3 +978,75 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical,
 QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
     background: transparent;
 }
+
+/* Profile management workspace */
+QFrame#profileListPanel, QFrame#profileHero, QFrame#profileSectionCard {
+    background: rgba(255, 255, 255, 82%);
+    border: 1px solid #dbe3f1;
+    border-radius: 14px;
+}
+QFrame#profileHero {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+        stop:0 #f5f8ff, stop:1 #f6f2ff);
+}
+QScrollArea#profileDetailScroll, QWidget#profileDetailContent {
+    background: transparent;
+    border: none;
+}
+QLabel#profilesPageTitle {
+    color: #202b45;
+    font-size: 20px;
+    font-weight: 750;
+}
+QLabel#profilesPageSubtitle {
+    color: #707e99;
+    font-size: 11px;
+}
+QLabel#profileName {
+    color: #202b45;
+    font-size: 25px;
+    font-weight: 800;
+}
+QLabel#profileStatus {
+    color: #71809a;
+    font-size: 11px;
+    font-weight: 650;
+    padding: 4px 8px;
+    border-radius: 8px;
+    background: #edf1f8;
+}
+QLabel#profileStatus[active="true"] {
+    color: #18775f;
+    background: #def3eb;
+}
+QLabel#profileSectionTitle {
+    color: #26344f;
+    font-size: 14px;
+    font-weight: 750;
+}
+QLabel#profileMetaValue {
+    color: #61708a;
+    font-size: 11px;
+}
+QTextEdit#profileDescription, QTextEdit#profileSettingsSummary {
+    background: rgba(248, 250, 255, 92%);
+    color: #33415c;
+    border: 1px solid #dce4f1;
+    border-radius: 9px;
+    padding: 9px;
+}
+QTextEdit#profileSettingsSummary {
+    font-size: 11px;
+}
+QPushButton#profiles_manage_btn {
+    background: #f4f6fb;
+    color: #596782;
+    border: 1px solid #d8e0ed;
+    border-radius: 8px;
+    padding: 5px 9px;
+    font-size: 11px;
+}
+QPushButton#profiles_manage_btn:hover {
+    background: #e9eef9;
+    border-color: #a8b5d0;
+}

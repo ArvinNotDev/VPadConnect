@@ -15,7 +15,6 @@ from PySide6.QtGui import QFont, QPixmap, QPainter, QBrush, QPen, QColor
 from PySide6.QtWidgets import (
     QFileDialog,
     QFrame,
-    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -23,8 +22,8 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
-    QSpacerItem,
     QSplitter,
     QTextEdit,
     QVBoxLayout,
@@ -43,6 +42,11 @@ class CircularAvatar(QLabel):
         self.setText("")
         self.setStyleSheet("background: transparent;")
         self._pixmap: QPixmap | None = None
+        self._initial = "?"
+
+    def set_initial(self, value: str) -> None:
+        self._initial = (value.strip()[:1] or "?").upper()
+        self.update()
 
     def set_image(self, path: str | None) -> None:
         """Load an image and display it as a circle."""
@@ -70,7 +74,7 @@ class CircularAvatar(QLabel):
             font.setPixelSize(size // 3)
             font.setBold(True)
             painter.setFont(font)
-            painter.drawText(self.rect(), Qt.AlignCenter, "?")
+            painter.drawText(self.rect(), Qt.AlignCenter, self._initial)
             painter.end()
             return
 
@@ -138,200 +142,207 @@ class ProfilesPage(QWidget):
 
     def _build_ui(self) -> None:
         root = QHBoxLayout(self)
-        root.setContentsMargins(18, 18, 18, 18)
-        root.setSpacing(0)
+        root.setContentsMargins(16, 16, 16, 16)
+        root.setSpacing(12)
 
-        splitter = QSplitter(Qt.Horizontal)
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.setObjectName("profiles_splitter")
         splitter.setChildrenCollapsible(False)
 
-        # ---- Left pane: profile list + actions ----
-        left = QWidget()
+        # Profile list and management actions.
+        left = QFrame()
+        left.setObjectName("profileListPanel")
         left_layout = QVBoxLayout(left)
-        left_layout.setContentsMargins(0, 0, 12, 0)
-        left_layout.setSpacing(10)
+        left_layout.setContentsMargins(14, 14, 14, 14)
+        left_layout.setSpacing(9)
 
-        header = QLabel("Profiles")
-        header.setStyleSheet("font-size:20px; font-weight:700;")
+        header = QLabel("Your Profiles")
+        header.setObjectName("profilesPageTitle")
         left_layout.addWidget(header)
 
-        subtitle = QLabel("Manage your application settings profiles")
-        subtitle.setStyleSheet("font-size:12px; color:#888899; margin-bottom:4px;")
+        subtitle = QLabel("Settings collections for your setup")
+        subtitle.setObjectName("profilesPageSubtitle")
+        subtitle.setWordWrap(True)
         left_layout.addWidget(subtitle)
 
-        # Action buttons row 1
-        btn_row1 = QHBoxLayout()
-        btn_row1.setSpacing(6)
-
-        self.btn_new = QPushButton("＋ New")
-        self.btn_new.setProperty("class", "primary")
+        create_row = QHBoxLayout()
+        create_row.setSpacing(7)
+        self.btn_new = QPushButton("＋  New Profile")
         self.btn_new.setObjectName("profiles_new_btn")
-        self.btn_new.setFixedHeight(34)
-        btn_row1.addWidget(self.btn_new)
+        self.btn_new.setFixedHeight(36)
+        self.btn_new.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        create_row.addWidget(self.btn_new, 1)
 
-        self.btn_duplicate = QPushButton("⧉ Copy")
-        self.btn_duplicate.setProperty("class", "secondary")
-        self.btn_duplicate.setFixedHeight(34)
-        btn_row1.addWidget(self.btn_duplicate)
-
-        left_layout.addLayout(btn_row1)
-
-        # Action buttons row 2
-        btn_row2 = QHBoxLayout()
-        btn_row2.setSpacing(6)
-
-        self.btn_rename = QPushButton("✎ Rename")
-        self.btn_rename.setProperty("class", "secondary")
-        self.btn_rename.setFixedHeight(34)
-        btn_row2.addWidget(self.btn_rename)
-
-        self.btn_delete = QPushButton("🗑 Delete")
-        self.btn_delete.setProperty("class", "danger")
-        self.btn_delete.setObjectName("profiles_delete_btn")
-        self.btn_delete.setFixedHeight(34)
-        btn_row2.addWidget(self.btn_delete)
-
-        left_layout.addLayout(btn_row2)
-
-        # Portable profile actions
-        io_row = QHBoxLayout()
-        io_row.setSpacing(6)
-        self.btn_import = QPushButton("⬇ Import")
+        self.btn_import = QPushButton("Import")
         self.btn_import.setObjectName("profiles_import_btn")
-        self.btn_import.setFixedHeight(32)
-        self.btn_export = QPushButton("⬆ Export")
-        self.btn_export.setObjectName("profiles_export_btn")
-        self.btn_export.setFixedHeight(32)
-        io_row.addWidget(self.btn_import)
-        io_row.addWidget(self.btn_export)
-        left_layout.addLayout(io_row)
+        self.btn_import.setFixedHeight(36)
+        create_row.addWidget(self.btn_import)
+        left_layout.addLayout(create_row)
+
+        management_row = QHBoxLayout()
+        management_row.setSpacing(6)
+        self.btn_duplicate = QPushButton("Copy")
+        self.btn_duplicate.setObjectName("profiles_manage_btn")
+        self.btn_duplicate.setFixedHeight(32)
+        management_row.addWidget(self.btn_duplicate)
+        self.btn_rename = QPushButton("Rename")
+        self.btn_rename.setObjectName("profiles_manage_btn")
+        self.btn_rename.setFixedHeight(32)
+        management_row.addWidget(self.btn_rename)
+        management_row.addStretch(1)
+        left_layout.addLayout(management_row)
 
         self.profile_list = QListWidget()
         self.profile_list.setObjectName("profiles_list")
-        self.profile_list.setFont(QFont("Segoe UI", 13))
+        self.profile_list.setFont(QFont("Segoe UI", 11))
         left_layout.addWidget(self.profile_list, 1)
 
-        # ---- Right pane: details ----
+        portable_row = QHBoxLayout()
+        portable_row.setSpacing(6)
+        self.btn_export = QPushButton("Export")
+        self.btn_export.setObjectName("profiles_export_btn")
+        self.btn_export.setFixedHeight(32)
+        portable_row.addWidget(self.btn_export)
+        self.btn_delete = QPushButton("Delete")
+        self.btn_delete.setObjectName("profiles_delete_btn")
+        self.btn_delete.setFixedHeight(32)
+        portable_row.addWidget(self.btn_delete)
+        left_layout.addLayout(portable_row)
+
+        # Scrollable profile details keep the layout usable in compact windows.
+        detail_scroll = QScrollArea()
+        detail_scroll.setObjectName("profileDetailScroll")
+        detail_scroll.setWidgetResizable(True)
+        detail_scroll.setFrameShape(QFrame.Shape.NoFrame)
+
         right = QWidget()
+        right.setObjectName("profileDetailContent")
         right_layout = QVBoxLayout(right)
-        right_layout.setContentsMargins(12, 0, 0, 0)
+        right_layout.setContentsMargins(2, 0, 2, 0)
         right_layout.setSpacing(12)
+        detail_scroll.setWidget(right)
 
-        # --- Top row: avatar + title + status ---
-        top_row = QHBoxLayout()
-        top_row.setSpacing(16)
+        # Profile identity header.
+        hero = QFrame()
+        hero.setObjectName("profileHero")
+        hero_layout = QHBoxLayout(hero)
+        hero_layout.setContentsMargins(18, 16, 18, 16)
+        hero_layout.setSpacing(18)
 
-        # Avatar
         avatar_col = QVBoxLayout()
-        avatar_col.setSpacing(6)
-        avatar_col.setAlignment(Qt.AlignTop)
+        avatar_col.setSpacing(7)
+        self.avatar = CircularAvatar(100)
+        self.avatar.setObjectName("profileAvatar")
+        avatar_col.addWidget(self.avatar, alignment=Qt.AlignmentFlag.AlignHCenter)
 
-        self.avatar = CircularAvatar(80)
-        avatar_col.addWidget(self.avatar, alignment=Qt.AlignCenter)
-
-        img_btn_row = QHBoxLayout()
-        img_btn_row.setSpacing(4)
-        self.btn_set_image = QPushButton("📷 Set Image")
+        image_actions = QHBoxLayout()
+        image_actions.setSpacing(5)
+        self.btn_set_image = QPushButton("Set photo")
         self.btn_set_image.setObjectName("profiles_set_image_btn")
         self.btn_set_image.setFixedHeight(28)
-        img_btn_row.addWidget(self.btn_set_image)
-
-        self.btn_remove_image = QPushButton("✕")
+        image_actions.addWidget(self.btn_set_image)
+        self.btn_remove_image = QPushButton("×")
         self.btn_remove_image.setObjectName("profiles_remove_image_btn")
         self.btn_remove_image.setFixedSize(28, 28)
         self.btn_remove_image.setToolTip("Remove profile image")
-        img_btn_row.addWidget(self.btn_remove_image)
+        image_actions.addWidget(self.btn_remove_image)
+        avatar_col.addLayout(image_actions)
+        hero_layout.addLayout(avatar_col)
 
-        avatar_col.addLayout(img_btn_row)
-        top_row.addLayout(avatar_col)
-
-        # Title + status
-        title_col = QVBoxLayout()
-        title_col.setSpacing(4)
-        title_col.setAlignment(Qt.AlignTop)
-
+        identity = QVBoxLayout()
+        identity.setSpacing(7)
         self.detail_title = QLabel("Select a profile")
+        self.detail_title.setObjectName("profileName")
         self.detail_title.setProperty("_i18n_dynamic", True)
-        self.detail_title.setStyleSheet("font-size:18px; font-weight:700;")
-        title_col.addWidget(self.detail_title)
+        self.detail_title.setWordWrap(True)
+        identity.addWidget(self.detail_title)
 
         self.detail_status = QLabel("")
+        self.detail_status.setObjectName("profileStatus")
         self.detail_status.setProperty("_i18n_dynamic", True)
-        self.detail_status.setStyleSheet("font-size:12px; color:#888899;")
-        title_col.addWidget(self.detail_status)
+        identity.addWidget(self.detail_status)
 
-        top_row.addLayout(title_col, 1)
-        right_layout.addLayout(top_row)
+        identity.addStretch(1)
+        hero_layout.addLayout(identity, 1)
+        right_layout.addWidget(hero)
 
-        # --- Description (editable) ---
-        desc_group = QGroupBox("Description")
-        desc_outer = QVBoxLayout(desc_group)
-        desc_outer.setContentsMargins(8, 12, 8, 8)
+        # Editable profile description.
+        about_card = QFrame()
+        about_card.setObjectName("profileSectionCard")
+        about_layout = QVBoxLayout(about_card)
+        about_layout.setContentsMargins(16, 14, 16, 14)
+        about_layout.setSpacing(8)
+        about_title = QLabel("About this profile")
+        about_title.setObjectName("profileSectionTitle")
+        about_layout.addWidget(about_title)
 
         self.detail_desc = QTextEdit()
-        self.detail_desc.setPlaceholderText("Add a description for this profile…")
-        self.detail_desc.setFixedHeight(70)
-        self.detail_desc.setStyleSheet("font-size:13px;")
+        self.detail_desc.setObjectName("profileDescription")
+        self.detail_desc.setPlaceholderText("Add a short description for this profile…")
+        self.detail_desc.setFixedHeight(76)
         self.detail_desc.textChanged.connect(self._on_desc_text_changed)
-        desc_outer.addWidget(self.detail_desc)
+        about_layout.addWidget(self.detail_desc)
 
         desc_btn_row = QHBoxLayout()
-        desc_btn_row.addStretch()
-        self.btn_save_desc = QPushButton("Save Description")
+        desc_btn_row.addStretch(1)
+        self.btn_save_desc = QPushButton("Save description")
         self.btn_save_desc.setObjectName("profiles_save_desc_btn")
-        self.btn_save_desc.setFixedHeight(28)
+        self.btn_save_desc.setFixedHeight(30)
         self.btn_save_desc.setEnabled(False)
         desc_btn_row.addWidget(self.btn_save_desc)
-        desc_outer.addLayout(desc_btn_row)
+        about_layout.addLayout(desc_btn_row)
+        right_layout.addWidget(about_card)
 
-        right_layout.addWidget(desc_group)
-
-        # --- Metadata ---
-        meta_group = QGroupBox("Metadata")
-        meta_layout = QVBoxLayout(meta_group)
-
+        # Creation and modification information.
+        meta_card = QFrame()
+        meta_card.setObjectName("profileSectionCard")
+        meta_layout = QHBoxLayout(meta_card)
+        meta_layout.setContentsMargins(16, 13, 16, 13)
+        meta_layout.setSpacing(18)
         self.detail_created = QLabel("Created: —")
+        self.detail_created.setObjectName("profileMetaValue")
         self.detail_created.setProperty("_i18n_dynamic", True)
-        self.detail_created.setStyleSheet("font-size:13px;")
-        meta_layout.addWidget(self.detail_created)
-
+        self.detail_created.setWordWrap(True)
+        meta_layout.addWidget(self.detail_created, 1)
         self.detail_modified = QLabel("Modified: —")
+        self.detail_modified.setObjectName("profileMetaValue")
         self.detail_modified.setProperty("_i18n_dynamic", True)
-        self.detail_modified.setStyleSheet("font-size:13px;")
-        meta_layout.addWidget(self.detail_modified)
+        self.detail_modified.setWordWrap(True)
+        meta_layout.addWidget(self.detail_modified, 1)
+        right_layout.addWidget(meta_card)
 
-        right_layout.addWidget(meta_group)
-
-        # --- Settings summary ---
-        summary_group = QGroupBox("Settings Summary")
-        summary_layout = QVBoxLayout(summary_group)
+        # Read-only settings overview.
+        summary_card = QFrame()
+        summary_card.setObjectName("profileSectionCard")
+        summary_layout = QVBoxLayout(summary_card)
+        summary_layout.setContentsMargins(16, 14, 16, 14)
+        summary_layout.setSpacing(8)
+        summary_title = QLabel("Settings summary")
+        summary_title.setObjectName("profileSectionTitle")
+        summary_layout.addWidget(summary_title)
         self.detail_summary = QTextEdit()
+        self.detail_summary.setObjectName("profileSettingsSummary")
         self.detail_summary.setReadOnly(True)
-        self.detail_summary.setStyleSheet(
-            "font-size:12px; border:none; background:transparent;"
-        )
+        self.detail_summary.setMinimumHeight(150)
         summary_layout.addWidget(self.detail_summary)
-        right_layout.addWidget(summary_group, 1)
+        right_layout.addWidget(summary_card)
 
-        # --- Load button ---
-        load_row = QHBoxLayout()
-        load_row.addStretch()
-
+        activate_row = QHBoxLayout()
+        activate_row.addStretch(1)
         self.btn_load = QPushButton("Activate Profile")
-        self.btn_load.setProperty("class", "primary")
         self.btn_load.setObjectName("profiles_activate_btn")
-        self.btn_load.setFixedWidth(180)
-        self.btn_load.setFixedHeight(38)
+        self.btn_load.setFixedWidth(190)
+        self.btn_load.setFixedHeight(40)
         self.btn_load.setEnabled(False)
-        load_row.addWidget(self.btn_load)
+        activate_row.addWidget(self.btn_load)
+        right_layout.addLayout(activate_row)
+        right_layout.addStretch(1)
 
-        right_layout.addLayout(load_row)
-
-        # Add to splitter
         splitter.addWidget(left)
-        splitter.addWidget(right)
+        splitter.addWidget(detail_scroll)
         splitter.setStretchFactor(0, 2)
-        splitter.setStretchFactor(1, 3)
-
+        splitter.setStretchFactor(1, 5)
+        splitter.setSizes([250, 560])
         root.addWidget(splitter)
 
     def _t(self, text: str) -> str:
@@ -376,12 +387,11 @@ class ProfilesPage(QWidget):
             item.setData(Qt.UserRole, name)
 
             if name == active:
-                item.setText(f"  ●  {name}  ({self._t('active')})")
                 font = item.font()
                 font.setBold(True)
                 item.setFont(font)
-            else:
-                item.setText(name)
+                item.setToolTip(self._t("Active profile"))
+            item.setText(name)
 
             self.profile_list.addItem(item)
 
@@ -406,15 +416,16 @@ class ProfilesPage(QWidget):
         active_name = self.pm.get_active_profile_name()
 
         self.detail_title.setText(name)
+        self.avatar.set_initial(name)
 
         if name == active_name:
             self.detail_status.setText(f"●  {self._t('Active profile')}")
-            self.detail_status.setStyleSheet(
-                "font-size:12px; color:#4ecdc4; font-weight:600;"
-            )
+            self.detail_status.setProperty("active", True)
         else:
             self.detail_status.setText("")
-            self.detail_status.setStyleSheet("font-size:12px; color:#888899;")
+            self.detail_status.setProperty("active", False)
+        self.detail_status.style().unpolish(self.detail_status)
+        self.detail_status.style().polish(self.detail_status)
 
         # Description
         self.detail_desc.setPlainText(meta.get("description", "") or "")
@@ -445,6 +456,7 @@ class ProfilesPage(QWidget):
     def _clear_detail(self) -> None:
         self.detail_title.setText(self._t("Select a profile"))
         self.detail_status.setText("")
+        self.detail_status.setProperty("active", False)
         self.detail_desc.setPlainText("")
         self.btn_save_desc.setEnabled(False)
         self.detail_created.setText(f"{self._t('Created')}: —")
@@ -453,6 +465,7 @@ class ProfilesPage(QWidget):
         self.btn_load.setEnabled(False)
         self.btn_load.setText(self._t("Activate Profile"))
         self.avatar.clear_image()
+        self.avatar.set_initial("?")
         self.btn_remove_image.setEnabled(False)
         self._current_image_path = ""
 
