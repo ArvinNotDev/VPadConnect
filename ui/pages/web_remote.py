@@ -27,7 +27,6 @@ from PySide6.QtWidgets import (
 )
 
 from core.web_remote import WebRemoteServer
-from core.remote_actions import load_remote_permissions, save_remote_permissions
 from core.vigem import VIGEMBUS_RELEASES_URL, is_vigem_installed
 
 
@@ -152,14 +151,8 @@ class WebRemotePage(QWidget):
         status_caption.setObjectName("webCaption")
         self.status_badge = QLabel("●  STOPPED")
         self.status_badge.setObjectName("webStatusStopped")
-        self.permissions_button = QPushButton("⚙")
-        self.permissions_button.setObjectName("webPermissionsButton")
-        self.permissions_button.setToolTip("Remote access permissions")
-        self.permissions_button.setFixedSize(34, 32)
-        self.permissions_button.clicked.connect(self._edit_permissions)
         setup_layout.addWidget(status_caption, 0, 0)
         setup_layout.addWidget(self.status_badge, 0, 1)
-        setup_layout.addWidget(self.permissions_button, 0, 2, alignment=Qt.AlignmentFlag.AlignRight)
 
         url_caption = QLabel("BROWSER URL")
         url_caption.setObjectName("webCaption")
@@ -275,7 +268,6 @@ class WebRemotePage(QWidget):
             QPushButton#webStartButton[running="true"] { background: #bd394b; border-color: #e65a6a; }
             QPushButton#webStartButton[running="true"]:hover:enabled { background: #d34859; }
             QPushButton#webCopyButton { padding: 4px 8px; font-size: 11px; }
-            QPushButton#webPermissionsButton { padding: 0; font-size: 17px; }
             QFrame#webVigemNotice { border: 1px solid #806239; border-radius: 12px;
                 background: #2a2119; }
             QLabel#webVigemNoticeTitle { color: #ffd49a; font-size: 12px; font-weight: 800; }
@@ -360,7 +352,6 @@ class WebRemotePage(QWidget):
         self.start_button.style().polish(self.start_button)
         self.pairing_card.setEnabled(running)
         self.copy_button.setEnabled(running)
-        self.permissions_button.setEnabled(True)
         self.client_list.setEnabled(running)
         if running:
             self.url_label.setText(self.web_server.local_url)
@@ -443,18 +434,39 @@ class WebRemotePage(QWidget):
             lambda: self.copy_button.setText("Copy URL") if self.web_server.running else None,
         )
 
-    def _edit_permissions(self) -> None:
-        current = load_remote_permissions()
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Remote access")
+    def _edit_permissions(self, session_id: str, parent=None) -> None:
+        session_id = str(session_id or "")
+        current = self.web_server.get_session_permissions(session_id)
+        if current is None:
+            QMessageBox.information(
+                parent or self,
+                "Device disconnected",
+                "This mobile companion is no longer connected.",
+            )
+            return
+
+        session = self._mobile_sessions.get(session_id, {})
+        device_name = str(session.get("name") or "Mobile Companion")
+        dialog = QDialog(parent or self)
+        dialog.setWindowTitle(f"Remote permissions · {device_name}")
         dialog.setModal(True)
-        dialog.setMinimumWidth(340)
+        dialog.setMinimumWidth(360)
         layout = QVBoxLayout(dialog)
-        layout.setContentsMargins(18, 16, 18, 14)
-        layout.setSpacing(8)
-        title = QLabel("Allow remote actions")
+        layout.setContentsMargins(20, 18, 20, 16)
+        layout.setSpacing(9)
+
+        title = QLabel(f"Permissions for {device_name}")
         title.setStyleSheet("font-size: 16px; font-weight: 750;")
+        title.setWordWrap(True)
         layout.addWidget(title)
+        description = QLabel(
+            "These permissions apply only to this connected device. "
+            "Other mobile companions keep their own settings."
+        )
+        description.setWordWrap(True)
+        description.setStyleSheet("color: #91a2bc; font-size: 11px;")
+        layout.addWidget(description)
+
         checks = {}
         for key, label in (
             ("keyboard", "Keyboard and text"),
@@ -465,25 +477,34 @@ class WebRemotePage(QWidget):
             ("power", "Power actions"),
         ):
             check = QCheckBox(label)
-            check.setChecked(current.get(key, False))
+            check.setChecked(bool(current.get(key, False)))
             checks[key] = check
             layout.addWidget(check)
+
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
         )
         buttons.accepted.connect(dialog.accept)
         buttons.rejected.connect(dialog.reject)
         layout.addWidget(buttons)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            save_remote_permissions({key: check.isChecked() for key, check in checks.items()})
+
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        updated = {key: check.isChecked() for key, check in checks.items()}
+        if not self.web_server.set_session_permissions(session_id, updated):
+            QMessageBox.warning(
+                parent or self,
+                "Device disconnected",
+                "Could not save these permissions. Confirm the device is still connected and try again.",
+            )
+
+    def open_session_permissions_dialog(self, session_id: str, parent=None) -> None:
+        """Open the permission editor for exactly one connected mobile companion."""
+        self._edit_permissions(session_id, parent)
 
     def _register_mapper(self, instance) -> None:
         self.web_server.controllers_page.add_x360_instance(instance)
         self.web_server.hotkey_page.add_x360_instance(instance)
-
-    def open_permissions_dialog(self) -> None:
-        """Open the existing permission editor from the integrated controller page."""
-        self._edit_permissions()
 
     def _on_mobile_session_added(self, session: dict) -> None:
         session_id = str(session.get("session_id") or "")

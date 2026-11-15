@@ -4,6 +4,23 @@ var $=function(id){return document.getElementById(id);},token="",clientName="Web
 var inputSocket=null,inputSocketReady=false,inputSocketConnecting=false,inputSocketUnavailable=false,inputSocketUnsupported=false,inputSocketRetryTimer=null,inputSocketConnectTimer=null,inputSocketRetryCount=0,stateDirty=false,lastHttpSend=0,pendingHttpTimer=null,inputReconnectPending=false,inputStreamEverReady=false,inputSessionEnded=false,lastInputPingAt=0,lastInputPongAt=0,lastInputAttemptAt=0;
 var FALLBACK_HEARTBEAT_MS=6000;
 var PREFERENCES_KEY="ib.web.preferences";
+var COMPANION_ID_KEY="vpadconnect.companion.id";
+function createCompanionId(){
+var bytes=new Uint8Array(16);
+if(window.crypto&&typeof window.crypto.getRandomValues==="function"){window.crypto.getRandomValues(bytes);}
+else{for(var i=0;i<bytes.length;i++)bytes[i]=Math.floor(Math.random()*256);}
+return Array.prototype.map.call(bytes,function(value){return value.toString(16).padStart(2,"0");}).join("");
+}
+function getCompanionId(){
+try{
+var stored=localStorage.getItem(COMPANION_ID_KEY);
+if(/^[a-f0-9]{32}$/.test(stored||""))return stored;
+var created=createCompanionId();
+localStorage.setItem(COMPANION_ID_KEY,created);
+return created;
+}catch(_){return createCompanionId();}
+}
+var companionId=getCompanionId();
 var currentTab="gamepad",airMouseEnabled=false,airMouseSensitivity=2,airMouseBiasX=0,airMouseBiasY=0,lastAirMouseRates=null,airMouseLastTime=0,airMouseFilterX={value:0,derivative:0,previous:0,initialized:false},airMouseFilterY={value:0,derivative:0,previous:0,initialized:false},airMouseRemainderX=0,airMouseRemainderY=0,airMouseSamples=[];
 var state={buttons:{},analog:{L2:0,R2:0},joystick:{left_x:128,left_y:128,right_x:128,right_y:128},mouse:{dx:0,dy:0,scroll:0,left:0,right:0,middle:0}};
 var inputResetters=[];
@@ -78,7 +95,7 @@ function recheckGamepadDriver(){
  }).catch(function(e){if(detail)detail.textContent=e.message+" Touch mouse and PC Remote remain available.";toast(e.message,3500);}).finally(function(){if(button){button.disabled=false;button.textContent="Recheck status";}});
 }
 function pair(){var code=$("pairCode").value.trim(),name=$("deviceName").value.trim()||"Web Controller";if(!/^\d{6}$/.test(code)){message("pairMessage","Enter the six-digit code shown on the PC.",true);return;}
-$("pairButton").disabled=true;$("pairButton").textContent="Verifying HTTPS…";verifyBrowserFingerprint().then(function(){return api("/api/pair",{code:code,name:name});}).then(function(d){
+$("pairButton").disabled=true;$("pairButton").textContent="Verifying HTTPS…";verifyBrowserFingerprint().then(function(){return api("/api/pair",{code:code,name:name,device_id:companionId});}).then(function(d){
  inputSessionEnded=false;inputReconnectPending=false;inputStreamEverReady=false;token=d.token;clientName=d.name||name;setGamepadAvailability(d.gamepad_available!==false);$("deviceName").value=clientName;savePreferences();sessionStorage.setItem("ib.web.token",token);sessionStorage.setItem("ib.web.name",clientName);sessionStorage.setItem("ib.web.gamepadAvailable",String(gamepadAvailable));history.replaceState(null,"",location.pathname+location.search);connected(true);ensureInputStream();$("welcome").textContent="Connected to your desktop";$("sessionInfo").textContent=clientName+" · Browser controller";
  if(!gamepadAvailable){tab("mouse");toast("Connected. Touch mouse and PC Remote are ready; ViGEmBus is required only for the virtual gamepad.",5000);}else{toast("Browser controller paired");}
  sendAction("pc_status",{}).catch(function(){});

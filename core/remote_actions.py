@@ -19,6 +19,115 @@ _MEDIA_VKEYS = {"volume_up": 0xAF, "volume_down": 0xAE, "mute": 0xAD, "play_paus
 
 
 PERMISSION_SCHEMA_VERSION = 2
+DEVICE_PERMISSION_SCHEMA_VERSION = 1
+DEVICE_PERMISSION_FILE = data_path("remote_device_permissions.json")
+_DEVICE_PERMISSION_LOCK = threading.RLock()
+
+
+def _valid_remote_device_id(device_id: str) -> bool:
+    import re
+
+    return bool(re.fullmatch(r"[a-f0-9]{32}", str(device_id or "").lower()))
+
+
+def _normalize_remote_permissions(permissions: dict[str, Any] | None) -> dict[str, bool]:
+    normalized = dict(DEFAULT_REMOTE_PERMISSIONS)
+    if isinstance(permissions, dict):
+        for name in normalized:
+            if type(permissions.get(name)) is bool:
+                normalized[name] = permissions[name]
+    return normalized
+
+
+def load_device_remote_permissions(
+    device_id: str, path: str | Path = DEVICE_PERMISSION_FILE
+) -> dict[str, bool]:
+    """Load one browser installation's permissions, falling back to legacy defaults."""
+    defaults = load_remote_permissions()
+    normalized_id = str(device_id or "").lower()
+    if not _valid_remote_device_id(normalized_id):
+        return defaults
+
+    import json
+
+    with _DEVICE_PERMISSION_LOCK:
+        try:
+            with Path(path).open("r", encoding="utf-8") as stream:
+                document = json.load(stream)
+        except (OSError, ValueError, TypeError):
+            return defaults
+
+    if not isinstance(document, dict):
+        return defaults
+    if document.get("schema_version") != DEVICE_PERMISSION_SCHEMA_VERSION:
+        return defaults
+    devices = document.get("devices")
+    if not isinstance(devices, dict):
+        return defaults
+    stored = devices.get(normalized_id)
+    return _normalize_remote_permissions(stored) if isinstance(stored, dict) else defaults
+
+
+def save_device_remote_permissions(
+    device_id: str,
+    permissions: dict[str, Any],
+    path: str | Path = DEVICE_PERMISSION_FILE,
+) -> None:
+    """Atomically persist permissions for one browser installation."""
+    if not _valid_remote_device_id(str(device_id or "").lower()):
+        raise ValueError("Invalid remote device identifier")
+
+    import json
+    import tempfile
+
+    normalized_id = str(device_id).lower()
+    normalized = _normalize_remote_permissions(permissions)
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+
+    with _DEVICE_PERMISSION_LOCK:
+        try:
+            with target.open("r", encoding="utf-8") as stream:
+                existing = json.load(stream)
+        except (OSError, ValueError, TypeError):
+            existing = {}
+
+        devices = existing.get("devices", {}) if isinstance(existing, dict) else {}
+        if not isinstance(devices, dict):
+            devices = {}
+        devices = {
+            key: value for key, value in devices.items()
+            if _valid_remote_device_id(str(key).lower()) and isinstance(value, dict)
+        }
+        devices[normalized_id] = normalized
+        # Keep the settings file bounded for long-lived installations.
+        if len(devices) > 256:
+            devices = dict(list(devices.items())[-256:])
+
+        temporary = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                "w", encoding="utf-8", dir=target.parent,
+                prefix=target.name + ".", suffix=".tmp", delete=False,
+            ) as stream:
+                temporary = Path(stream.name)
+                json.dump(
+                    {
+                        "schema_version": DEVICE_PERMISSION_SCHEMA_VERSION,
+                        "devices": devices,
+                    },
+                    stream,
+                    indent=2,
+                )
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, target)
+        finally:
+            if temporary is not None:
+                try:
+                    temporary.unlink(missing_ok=True)
+                except OSError:
+                    pass
 
 
 def load_remote_permissions(path: str | Path = PERMISSION_FILE) -> dict[str, bool]:

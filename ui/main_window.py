@@ -625,7 +625,32 @@ class _DraggableTitleBar(QWidget):
 
     def mouseMoveEvent(self, event):
         if self._drag_offset is not None and event.buttons() & Qt.MouseButton.LeftButton:
-            self._window.move(event.globalPosition().toPoint() - self._drag_offset)
+            cursor_position = event.globalPosition().toPoint()
+            target_position = cursor_position - self._drag_offset
+
+            # Keep the draggable title bar inside the monitor's work area.
+            # availableGeometry excludes the taskbar/dock, so the controls
+            # remain reachable even when the user drags the window downward.
+            screen = QApplication.screenAt(cursor_position) or self._window.screen()
+            if screen is not None:
+                available = screen.availableGeometry()
+                frame = self._window.frameGeometry()
+                titlebar_height = max(self.height(), 52)
+                min_y = available.top()
+                max_y = max(min_y, available.bottom() - titlebar_height + 1)
+                target_position.setY(
+                    min(max(target_position.y(), min_y), max_y)
+                )
+
+                # Keep a useful part of the title bar reachable horizontally.
+                visible_width = min(160, max(1, self.width()))
+                min_x = available.left() - frame.width() + visible_width
+                max_x = available.right() - visible_width + 1
+                target_position.setX(
+                    min(max(target_position.x(), min_x), max_x)
+                )
+
+            self._window.move(target_position)
             event.accept()
             return
         super().mouseMoveEvent(event)

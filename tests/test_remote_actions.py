@@ -76,3 +76,47 @@ def test_permissions_persist_atomically_and_invalid_values_use_defaults(tmp_path
     assert restored["power"] is False
     assert restored["clipboard"] is True
     assert restored["keyboard"] is True
+
+def test_device_permissions_are_isolated_and_persisted(tmp_path, monkeypatch):
+    import core.remote_actions as remote_actions
+    from core.remote_actions import (
+        DEFAULT_REMOTE_PERMISSIONS,
+        load_device_remote_permissions,
+        save_device_remote_permissions,
+    )
+
+    monkeypatch.setattr(
+        remote_actions, "load_remote_permissions",
+        lambda: dict(DEFAULT_REMOTE_PERMISSIONS),
+    )
+    path = tmp_path / "remote_device_permissions.json"
+    phone_a = "a" * 32
+    phone_b = "b" * 32
+    updated_a = dict(DEFAULT_REMOTE_PERMISSIONS, keyboard=False, power=False)
+
+    save_device_remote_permissions(phone_a, updated_a, path)
+    restored_a = load_device_remote_permissions(phone_a, path)
+    restored_b = load_device_remote_permissions(phone_b, path)
+
+    assert restored_a == updated_a
+    assert restored_b == DEFAULT_REMOTE_PERMISSIONS
+    assert load_device_remote_permissions(phone_a, path)["keyboard"] is False
+
+
+def test_device_permission_store_rejects_invalid_identity(tmp_path, monkeypatch):
+    import core.remote_actions as remote_actions
+    from core.remote_actions import (
+        DEFAULT_REMOTE_PERMISSIONS,
+        load_device_remote_permissions,
+        save_device_remote_permissions,
+    )
+
+    monkeypatch.setattr(
+        remote_actions, "load_remote_permissions",
+        lambda: dict(DEFAULT_REMOTE_PERMISSIONS),
+    )
+    path = tmp_path / "remote_device_permissions.json"
+    assert load_device_remote_permissions("invalid", path) == DEFAULT_REMOTE_PERMISSIONS
+    with pytest.raises(ValueError):
+        save_device_remote_permissions("invalid", {"keyboard": False}, path)
+

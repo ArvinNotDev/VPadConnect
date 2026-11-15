@@ -6,7 +6,7 @@ from typing import Optional, Tuple
 from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QLabel, QListWidget, QPushButton,
     QDialog, QListWidgetItem, QSizePolicy, QMessageBox, QFrame, QCheckBox,
-    QColorDialog, QDialogButtonBox
+    QColorDialog, QDialogButtonBox, QSplitter
 )
 from PySide6.QtCore import Qt, Signal, Slot, QTimer, QThread, QObject, QUrl
 from PySide6.QtGui import QDesktopServices, QColor
@@ -171,11 +171,12 @@ class HidHideCard(QFrame):
 
         self.setObjectName("hidhideCard")
         self.setFrameShape(QFrame.StyledPanel)
-        self.setMinimumHeight(156)
+        self.setMinimumHeight(0)
+        self._expanded = False
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(16, 14, 16, 14)
-        root.setSpacing(8)
+        root.setContentsMargins(10, 7, 10, 7)
+        root.setSpacing(5)
 
         header = QHBoxLayout()
         header.setSpacing(10)
@@ -188,14 +189,27 @@ class HidHideCard(QFrame):
         self.status.setObjectName("hidhideStatus")
         self.status.setWordWrap(True)
         header.addWidget(self.status, 1)
+
+        self.toggle_button = QPushButton("▸")
+        self.toggle_button.setObjectName("hidhideToggle")
+        self.toggle_button.setFixedSize(30, 30)
+        self.toggle_button.setToolTip("Expand HidHide controls")
+        self.toggle_button.setAccessibleName("Expand HidHide controls")
+        self.toggle_button.clicked.connect(self._toggle_expanded)
+        header.addWidget(self.toggle_button)
         root.addLayout(header)
+
+        self._content = QWidget(self)
+        content_layout = QVBoxLayout(self._content)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setSpacing(8)
 
         self.detail = QLabel(
             "Hide each physical controller independently. VPadConnect stays whitelisted so it can continue reading hidden controllers."
         )
         self.detail.setObjectName("hidhideDetail")
         self.detail.setWordWrap(True)
-        root.addWidget(self.detail)
+        content_layout.addWidget(self.detail)
 
         actions = QHBoxLayout()
         actions.setSpacing(8)
@@ -222,13 +236,15 @@ class HidHideCard(QFrame):
         )
         actions.addWidget(self.open_link_button)
         actions.addStretch(1)
-        root.addLayout(actions)
+        content_layout.addLayout(actions)
 
         self.devices_container = QWidget(self)
         self.devices_layout = QVBoxLayout(self.devices_container)
         self.devices_layout.setContentsMargins(0, 2, 0, 0)
         self.devices_layout.setSpacing(6)
-        root.addWidget(self.devices_container)
+        content_layout.addWidget(self.devices_container)
+        root.addWidget(self._content)
+        self._content.setVisible(False)
 
         self._apply_style()
 
@@ -278,6 +294,19 @@ class HidHideCard(QFrame):
                 color: #cbd5e1;
                 background: rgba(148, 163, 184, 16%);
             }
+            QPushButton#hidhideToggle {
+                background: rgba(133, 193, 255, 10%);
+                color: #a9cfff;
+                border: 1px solid rgba(133, 193, 255, 28%);
+                border-radius: 8px;
+                font-size: 16px;
+                font-weight: 800;
+                padding: 0;
+            }
+            QPushButton#hidhideToggle:hover {
+                background: rgba(133, 193, 255, 18%);
+                border-color: rgba(133, 193, 255, 60%);
+            }
             QPushButton#hidhidePrimary {
                 background: #5390ff;
                 color: white;
@@ -309,6 +338,14 @@ class HidHideCard(QFrame):
             }
             """
         )
+
+    def _toggle_expanded(self) -> None:
+        self._expanded = not self._expanded
+        self._content.setVisible(self._expanded)
+        self.toggle_button.setText("▾" if self._expanded else "▸")
+        action = "Collapse" if self._expanded else "Expand"
+        self.toggle_button.setToolTip(f"{action} HidHide controls")
+        self.toggle_button.setAccessibleName(f"{action} HidHide controls")
 
     def _set_status(self, text: str):
         self.status.setText(text)
@@ -715,6 +752,7 @@ class RemoteDeviceRow(QWidget):
     """Controller-list row for one independently managed browser session."""
 
     disconnect_requested = Signal(str)
+    permissions_requested = Signal(str)
 
     def __init__(self, session: dict, parent=None):
         super().__init__(parent)
@@ -744,20 +782,74 @@ class RemoteDeviceRow(QWidget):
         )
         layout.addWidget(self.state_label)
 
-        self.delete_button = QPushButton("Delete")
+        self.permissions_button = QPushButton("Permissions")
+        self.permissions_button.setObjectName("remotePermissionsButton")
+        self.permissions_button.setToolTip(
+            "Configure PC actions allowed for this mobile companion only"
+        )
+        self.permissions_button.setMinimumWidth(94)
+        self.permissions_button.clicked.connect(
+            lambda: self.permissions_requested.emit(self.session_id)
+        )
+        layout.addWidget(self.permissions_button)
+
+        self.delete_button = QPushButton("Disconnect")
+        self.delete_button.setObjectName("remoteDisconnectButton")
         self.delete_button.setToolTip("Disconnect this phone and remove its virtual controller")
         self.delete_button.clicked.connect(
             lambda: self.disconnect_requested.emit(self.session_id)
         )
         layout.addWidget(self.delete_button)
 
-        self.setStyleSheet(
-            "QWidget { background:#172338; border:1px solid #30435f; border-radius:10px; }"
-        )
+        self.setObjectName("remoteDeviceRow")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setStyleSheet("""
+            QWidget#remoteDeviceRow {
+                background:#172338;
+                border:1px solid #30435f;
+                border-radius:10px;
+            }
+            QWidget#remoteDeviceRow QLabel {
+                background:transparent;
+                border:none;
+            }
+            QWidget#remoteDeviceRow QPushButton {
+                color:#dceaff;
+                background:#22344c;
+                border:1px solid #405976;
+                border-radius:8px;
+                padding:6px 10px;
+                font-size:11px;
+                font-weight:700;
+            }
+            QWidget#remoteDeviceRow QPushButton:hover:enabled {
+                background:#2c4665;
+                border-color:#6e91bb;
+            }
+            QWidget#remoteDeviceRow QPushButton#remotePermissionsButton {
+                color:#dff3ff;
+                background:#1d5271;
+                border-color:#347ea7;
+            }
+            QWidget#remoteDeviceRow QPushButton#remotePermissionsButton:hover:enabled {
+                background:#276b91;
+                border-color:#62b2df;
+            }
+            QWidget#remoteDeviceRow QPushButton#remoteDisconnectButton {
+                color:#ffd9df;
+                background:#472735;
+                border-color:#744051;
+            }
+            QWidget#remoteDeviceRow QPushButton#remoteDisconnectButton:hover:enabled {
+                background:#663141;
+                border-color:#ad596b;
+            }
+        """)
 
     def set_busy(self, busy: bool) -> None:
         self.delete_button.setEnabled(not bool(busy))
-        self.delete_button.setText("Disconnecting…" if busy else "Delete")
+        self.permissions_button.setEnabled(not bool(busy))
+        self.delete_button.setText("Disconnecting…" if busy else "Disconnect")
 
 
 class ControllerEmulation(QWidget):
@@ -891,47 +983,37 @@ class ControllerEmulation(QWidget):
         controller_actions.addWidget(mobile_btn, 1)
         gamepad_layout.addLayout(controller_actions)
 
-        permissions_row = QHBoxLayout()
-        permissions_row.addStretch(1)
-        self.remote_permissions_button = QPushButton("Remote Permissions  ›")
-        self.remote_permissions_button.setObjectName("remotePermissionsAction")
-        self.remote_permissions_button.setToolTip(
-            "Manage which Windows actions connected phones are allowed to perform."
-        )
-        self.remote_permissions_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.remote_permissions_button.setEnabled(False)
-        self.remote_permissions_button.setMinimumHeight(32)
-        self.remote_permissions_button.setStyleSheet("""
-            QPushButton#remotePermissionsAction {
-                background:transparent;
-                color:#9eb7d5;
-                border:1px solid #30435f;
-                border-radius:8px;
-                padding:4px 12px;
-                font-size:11px;
-                font-weight:650;
-            }
-            QPushButton#remotePermissionsAction:hover:enabled {
-                background:#1a2a40;
-                color:#dceaff;
-                border-color:#4b6688;
-            }
-        """)
-        self.remote_permissions_button.clicked.connect(self._open_remote_permissions)
-        permissions_row.addWidget(self.remote_permissions_button)
-        gamepad_layout.addLayout(permissions_row)
-
         gamepad_layout.addWidget(emu_label)
-        gamepad_layout.addWidget(self.emu_list)
+        self.emu_list.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
+        gamepad_layout.addWidget(self.emu_list, 1)
 
         self.vigem_gate = VigemGate(gamepad_content)
         self.vigem_gate.recheck_requested.connect(self.vigem_recheck_requested.emit)
         self.vigem_gate.set_vigem_available(
             is_vigem_installed() if vigem_available is None else vigem_available
         )
-        layout_dashboard.addWidget(self.vigem_gate, 1)
-        # HidHide is an independent optional feature and stays usable without XInput.
-        layout_dashboard.addWidget(self.hidhide_card)
+        self.content_splitter = QSplitter(Qt.Orientation.Vertical, self)
+        self.content_splitter.setObjectName("controllerContentSplitter")
+        self.content_splitter.setChildrenCollapsible(False)
+        self.content_splitter.setCollapsible(0, False)
+        self.content_splitter.setCollapsible(1, False)
+        self.content_splitter.setHandleWidth(7)
+        self.content_splitter.addWidget(self.vigem_gate)
+        # HidHide remains available without XInput and can be resized or collapsed.
+        self.content_splitter.addWidget(self.hidhide_card)
+        self.content_splitter.setStretchFactor(0, 5)
+        self.content_splitter.setStretchFactor(1, 1)
+        self.content_splitter.setSizes([520, 58])
+        self.content_splitter.setStyleSheet(
+            "QSplitter::handle:vertical { "
+            "background: rgba(133, 193, 255, 38%); "
+            "height: 7px; margin: 1px 120px; border-radius: 3px; } "
+            "QSplitter::handle:vertical:hover { "
+            "background: rgba(133, 193, 255, 85%); }"
+        )
+        layout_dashboard.addWidget(self.content_splitter, 1)
 
     def set_vigem_available(self, available: bool) -> None:
         self.vigem_gate.set_vigem_available(available)
@@ -1061,7 +1143,6 @@ class ControllerEmulation(QWidget):
             except (RuntimeError, TypeError):
                 pass
         self.web_remote_service = service
-        self.remote_permissions_button.setEnabled(service is not None)
         if service is None:
             return
         service.mobile_session_added.connect(self._add_remote_device_row)
@@ -1069,9 +1150,9 @@ class ControllerEmulation(QWidget):
         for session in service.sessions_snapshot():
             self._add_remote_device_row(session)
 
-    def _open_remote_permissions(self) -> None:
+    def _open_remote_permissions(self, session_id: str) -> None:
         if self.web_remote_service is not None:
-            self.web_remote_service.open_permissions_dialog()
+            self.web_remote_service.open_session_permissions_dialog(session_id, self)
 
     def _start_mobile_pairing(self) -> None:
         if self.web_remote_service is None:
@@ -1098,6 +1179,7 @@ class ControllerEmulation(QWidget):
         item = QListWidgetItem()
         widget = RemoteDeviceRow(session, self.emu_list)
         widget.disconnect_requested.connect(self._disconnect_remote_device)
+        widget.permissions_requested.connect(self._open_remote_permissions)
         item.setSizeHint(widget.sizeHint())
         item.setData(
             Qt.ItemDataRole.UserRole,
