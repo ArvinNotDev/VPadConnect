@@ -18,7 +18,11 @@ from flask import Flask, jsonify, render_template, request
 from simple_websocket import ConnectionClosed, Server as WebSocketServer
 from werkzeug.serving import make_server
 
-from core.remote_actions import RemoteActionSession, load_remote_permissions
+from core.remote_actions import (
+    DEFAULT_REMOTE_PERMISSIONS,
+    RemoteActionSession,
+    load_remote_permissions,
+)
 from core.remote_protocol import PROTOCOL_VERSION
 from core.remote_security import create_web_server_ssl_context
 from core.vigem import is_vigem_installed
@@ -227,6 +231,43 @@ class WebRemoteServer:
             "gamepad_available": gamepad_available,
             "capabilities": capabilities,
         }
+
+    def get_session_permissions(self, session_id: str) -> dict[str, bool] | None:
+        """Return a copy of one connected browser's PC-action permissions."""
+        session_id = str(session_id or "")
+        with self._lock:
+            session = next(
+                (item for item in self._sessions.values() if item.get("uuid") == session_id),
+                None,
+            )
+            if session is None or session.get("closed", False):
+                return None
+            return dict(session.get("permissions") or DEFAULT_REMOTE_PERMISSIONS)
+
+    def set_session_permissions(
+        self, session_id: str, permissions: dict[str, Any]
+    ) -> bool:
+        """Replace only the selected live session's permission snapshot."""
+        if not isinstance(permissions, dict):
+            return False
+        normalized = dict(DEFAULT_REMOTE_PERMISSIONS)
+        for name in normalized:
+            value = permissions.get(name)
+            if type(value) is bool:
+                normalized[name] = value
+
+        session_id = str(session_id or "")
+        with self._lock:
+            session = next(
+                (item for item in self._sessions.values() if item.get("uuid") == session_id),
+                None,
+            )
+            if session is None or session.get("closed", False):
+                return False
+            # Actions read a small immutable snapshot under the same server lock.
+            # No disk I/O or work is added to the controller-state/WebSocket path.
+            session["permissions"] = normalized
+        return True
 
     def _notify_session_added(self, session: dict[str, Any]) -> None:
         callback = self.session_added
@@ -544,8 +585,10 @@ class WebRemoteServer:
                 return jsonify({"ok": False, "error": "Could not initialize this browser session on the PC."}), 500
             token = secrets.token_urlsafe(32)
             session = {"uuid": session_uuid, "name": name.strip(), "mapper": mapper,
-                       "remote": RemoteActionSession(), "last_seen": time.monotonic(),
-                       "mode": "gamepad", "gamepad_available": gamepad_available,
+                       "remote": RemoteActionSession(),
+                       "permissions": dict(load_remote_permissions()),
+                       "last_seen": time.monotonic(), "mode": "gamepad",
+                       "gamepad_available": gamepad_available,
                        "lock": threading.RLock(), "closed": False, "stream_ws": None}
             with self._lock:
                 self._pending_pairs = max(0, self._pending_pairs - 1)
@@ -696,7 +739,7 @@ class WebRemoteServer:
                     result = session["remote"].execute({
                         "protocol_version": PROTOCOL_VERSION, "request_id": payload.get("request_id"),
                         "action": name, "payload": payload.get("payload")
-                    }, load_remote_permissions())
+                    }, dict(session.get("permissions") or DEFAULT_REMOTE_PERMISSIONS))
                 return jsonify({"ok": True, "action": name, "result": result})
             except PermissionError as exc:
                 return jsonify({"ok": False, "action": name, "error": str(exc)}), 403
