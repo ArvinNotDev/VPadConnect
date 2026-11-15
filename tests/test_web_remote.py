@@ -64,14 +64,15 @@ def _install_mock_mappers(monkeypatch):
     return instances
 
 
-def _pair_browser(server, name="Test browser"):
+def _pair_browser(server, name="Test browser", device_id=None):
     import time
 
     server.pairing_code = "123456"
     server.pairing_deadline = time.monotonic() + 60
-    response = server.app.test_client().post(
-        "/api/pair", json={"code": server.pairing_code, "name": name}
-    )
+    payload = {"code": server.pairing_code, "name": name}
+    if device_id is not None:
+        payload["device_id"] = device_id
+    response = server.app.test_client().post("/api/pair", json=payload)
     assert response.status_code == 200
     return response.get_json()["token"]
 
@@ -267,6 +268,11 @@ def test_pairing_and_state_endpoints_reject_bad_or_missing_credentials():
     client = WebRemoteServer(object(), object(), object()).app.test_client()
     bad_code = client.post("/api/pair", json={"code": "123", "name": "Test"})
     assert bad_code.status_code == 400
+    bad_device_id = client.post(
+        "/api/pair",
+        json={"code": "123456", "name": "Test", "device_id": "not-a-device-id"},
+    )
+    assert bad_device_id.status_code == 400
     no_token = client.post("/api/state", json={"mode": "gamepad"})
     assert no_token.status_code == 401
 
@@ -281,7 +287,14 @@ def test_browser_keyboard_actions_keep_permissions_validation_and_session_state_
         "app_launch": False, "presentation": False, "power": False,
     }
     key_calls = []
-    monkeypatch.setattr(web_remote, "load_remote_permissions", lambda: dict(permissions))
+    monkeypatch.setattr(
+        web_remote, "load_device_remote_permissions",
+        lambda _device_id: dict(permissions),
+    )
+    monkeypatch.setattr(
+        web_remote, "save_device_remote_permissions",
+        lambda _device_id, _permissions: None,
+    )
     monkeypatch.setattr(
         remote_actions, "_keyboard_call", lambda method, key: key_calls.append((method, key))
     )
@@ -338,10 +351,20 @@ def test_browser_remote_permissions_are_isolated_per_session(monkeypatch):
         "keyboard": True, "media": True, "clipboard": True,
         "app_launch": True, "presentation": True, "power": True,
     }
-    monkeypatch.setattr(web_remote, "load_remote_permissions", lambda: dict(baseline))
+    saved_permissions = {}
+
+    def load_permissions(device_id):
+        return dict(saved_permissions.get(device_id, baseline))
+
+    def save_permissions(device_id, permissions):
+        saved_permissions[device_id] = dict(permissions)
+
+    monkeypatch.setattr(web_remote, "load_device_remote_permissions", load_permissions)
+    monkeypatch.setattr(web_remote, "save_device_remote_permissions", save_permissions)
     server = web_remote.WebRemoteServer(object(), object(), object())
-    token_a = _pair_browser(server, "Phone A")
-    token_b = _pair_browser(server, "Phone B")
+    device_a, device_b = "a" * 32, "b" * 32
+    token_a = _pair_browser(server, "Phone A", device_a)
+    token_b = _pair_browser(server, "Phone B", device_b)
     session_a = server._sessions[token_a]["uuid"]
     session_b = server._sessions[token_b]["uuid"]
 
@@ -356,7 +379,16 @@ def test_browser_remote_permissions_are_isolated_per_session(monkeypatch):
     assert server.get_session_permissions(session_a)["keyboard"] is False
     assert server.get_session_permissions(session_a)["power"] is False
     assert server.get_session_permissions(session_b) == baseline
+    assert saved_permissions[device_a]["keyboard"] is False
+    assert saved_permissions[device_b] == baseline
     assert server.set_session_permissions("unknown-session", baseline) is False
+
+    server.disconnect_session(session_a)
+    reconnected_token = _pair_browser(server, "Phone A", device_a)
+    reconnected_session = server._sessions[reconnected_token]["uuid"]
+    assert server.get_session_permissions(reconnected_session)["keyboard"] is False
+    assert server.get_session_permissions(reconnected_session)["power"] is False
+    assert server.get_session_permissions(server._sessions[token_b]["uuid"]) == baseline
 
 
 def test_paired_browsers_have_distinct_mappers_and_isolated_inputs(monkeypatch):
