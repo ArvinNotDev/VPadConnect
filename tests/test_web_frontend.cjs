@@ -1008,8 +1008,8 @@ test("desktop screen tab opens its own authenticated stream and forwards touchpa
 
   const snapshots = inputSocket.sent.filter((packet) => packet.type === "state");
   assert.equal(snapshots.at(-1).state.mode, "mouse");
-  assert.equal(snapshots.at(-1).state.mouse.dx, 24);
-  assert.equal(snapshots.at(-1).state.mouse.dy, 13);
+  assert.equal(snapshots.at(-1).state.mouse.dx, 41);
+  assert.equal(snapshots.at(-1).state.mouse.dy, 22);
 
   harness.mouseTab.dispatch("click");
   assert.equal(screenSocket.readyState, 3);

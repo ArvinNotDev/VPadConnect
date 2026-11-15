@@ -48,7 +48,7 @@ function setScreenStatus(text,bad){
 function clearScreenFrame(){
  if(screenFrameUrl&&typeof URL!=="undefined"&&typeof URL.revokeObjectURL==="function"){try{URL.revokeObjectURL(screenFrameUrl);}catch(_){}}
  screenFrameUrl="";
- var image=$("screenFrame");if(image)image.removeAttribute("src");
+ var image=$("screenFrame");if(image&&typeof image.removeAttribute==="function")image.removeAttribute("src");
 }
 function stopScreenStream(manual){
  if(manual!==false)screenReconnectWanted=false;
