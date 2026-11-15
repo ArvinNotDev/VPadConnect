@@ -15,6 +15,34 @@ from ui.pages.raw_hid_terminal import RawHidTerminalDialog
 from core.dev_logging import configure_developer_logging, resolve_log_path, clear_log_file as clear_developer_log_file
 
 
+class _WheelSafeSpinBox(QSpinBox):
+    """Let the settings scroll area handle the wheel instead of changing values."""
+
+    def wheelEvent(self, event) -> None:
+        event.ignore()
+
+
+class _WheelSafeDoubleSpinBox(QDoubleSpinBox):
+    """Prevent accidental numeric changes while scrolling settings."""
+
+    def wheelEvent(self, event) -> None:
+        event.ignore()
+
+
+class _WheelSafeComboBox(QComboBox):
+    """Keep wheel scrolling from silently changing the selected option."""
+
+    def wheelEvent(self, event) -> None:
+        event.ignore()
+
+
+class _WheelSafeSlider(QSlider):
+    """Allow the parent settings page to consume wheel events."""
+
+    def wheelEvent(self, event) -> None:
+        event.ignore()
+
+
 class SettingsPage(QWidget):
     vibration_enabled_changed = Signal(bool)
     raw_hid_monitor_state_changed = Signal(bool)
@@ -113,7 +141,7 @@ class SettingsPage(QWidget):
 
         # Input poll interval
         poll_row = QHBoxLayout()
-        self.spin_poll = QSpinBox()
+        self.spin_poll = _WheelSafeSpinBox()
         self.spin_poll.setButtonSymbols(QAbstractSpinBox.UpDownArrows)
         self.spin_poll.setRange(1, 1000)
         self.spin_poll.setFixedWidth(110)
@@ -139,7 +167,7 @@ class SettingsPage(QWidget):
 
         # Mouse sensitivity
         sens_row = QHBoxLayout()
-        self.spin_mouse_sens = QDoubleSpinBox()
+        self.spin_mouse_sens = _WheelSafeDoubleSpinBox()
         self.spin_mouse_sens.setButtonSymbols(QAbstractSpinBox.UpDownArrows)
         self.spin_mouse_sens.setRange(0.1, 10.0)
         self.spin_mouse_sens.setSingleStep(0.1)
@@ -150,7 +178,7 @@ class SettingsPage(QWidget):
         device_form.addRow("Mouse sensitivity", sens_row)
 
         mouse_deadzone_row = QHBoxLayout()
-        self.mouse_deadzone_slider = QSlider(Qt.Orientation.Horizontal)
+        self.mouse_deadzone_slider = _WheelSafeSlider(Qt.Orientation.Horizontal)
         self.mouse_deadzone_slider.setRange(0, 500)
         self.mouse_deadzone_slider.setSingleStep(5)
         self.mouse_deadzone_slider.setPageStep(25)
@@ -170,7 +198,7 @@ class SettingsPage(QWidget):
         deadzone_layout.setVerticalSpacing(10)
 
         lbl_left = QLabel("Left joystick deadzone")
-        self.left_slider = QSlider(Qt.Horizontal)
+        self.left_slider = _WheelSafeSlider(Qt.Horizontal)
         self.left_slider.setRange(0, 1000)
         self.left_slider.setSingleStep(1)
         self.left_slider.setPageStep(10)
@@ -182,7 +210,7 @@ class SettingsPage(QWidget):
         deadzone_layout.addWidget(self.left_val, 0, 2)
 
         lbl_right = QLabel("Right joystick deadzone")
-        self.right_slider = QSlider(Qt.Horizontal)
+        self.right_slider = _WheelSafeSlider(Qt.Horizontal)
         self.right_slider.setRange(0, 1000)
         self.right_slider.setSingleStep(1)
         self.right_slider.setPageStep(10)
@@ -276,14 +304,14 @@ class SettingsPage(QWidget):
         ui_form.setVerticalSpacing(12)
         ui_group.setMinimumWidth(0)
 
-        self.combo_lang = QComboBox()
+        self.combo_lang = _WheelSafeComboBox()
         for code, name in LANGUAGE_NAMES.items():
             self.combo_lang.addItem(name, code)
         self.combo_lang.setMinimumWidth(120)
         self.combo_lang.view().setMinimumWidth(140)
         ui_form.addRow("Language", self.combo_lang)
 
-        self.combo_theme = QComboBox()
+        self.combo_theme = _WheelSafeComboBox()
         self.combo_theme.setMinimumWidth(120)
         self.combo_theme.view().setMinimumWidth(140)
 
