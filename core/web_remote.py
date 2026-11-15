@@ -22,7 +22,6 @@ from core.remote_actions import (
     DEFAULT_REMOTE_PERMISSIONS,
     RemoteActionSession,
     load_device_remote_permissions,
-    load_remote_permissions,
     save_device_remote_permissions,
 )
 from core.remote_protocol import PROTOCOL_VERSION
@@ -260,10 +259,14 @@ class WebRemoteServer:
 
         session_id = str(session_id or "")
         with self._lock:
-            session = next(
-                (item for item in self._sessions.values() if item.get("uuid") == session_id),
+            token = next(
+                (
+                    key for key, item in self._sessions.items()
+                    if item.get("uuid") == session_id
+                ),
                 None,
             )
+            session = self._sessions.get(token) if token is not None else None
             if session is None or session.get("closed", False):
                 return False
             device_id = str(session.get("device_id") or "")
