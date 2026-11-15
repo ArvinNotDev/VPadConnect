@@ -944,7 +944,7 @@ class ControllerEmulation(QWidget):
             }
         """)
 
-        mobile_btn = QPushButton("📱   Mobile Companion")
+        mobile_btn = QPushButton("＋   Mobile Companion")
         mobile_btn.setObjectName("mobileCompanionAction")
         mobile_btn.setToolTip(
             "Connect a phone or tablet using a secure QR-code pairing session."
