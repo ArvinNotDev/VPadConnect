@@ -21,7 +21,9 @@ from werkzeug.serving import make_server
 from core.remote_actions import (
     DEFAULT_REMOTE_PERMISSIONS,
     RemoteActionSession,
+    load_device_remote_permissions,
     load_remote_permissions,
+    save_device_remote_permissions,
 )
 from core.remote_protocol import PROTOCOL_VERSION
 from core.remote_security import create_web_server_ssl_context
@@ -264,8 +266,20 @@ class WebRemoteServer:
             )
             if session is None or session.get("closed", False):
                 return False
-            # Actions read a small immutable snapshot under the same server lock.
-            # No disk I/O or work is added to the controller-state/WebSocket path.
+            device_id = str(session.get("device_id") or "")
+
+        try:
+            save_device_remote_permissions(device_id, normalized)
+        except (OSError, ValueError):
+            self.app.logger.exception("Could not persist remote permissions for %s", device_id)
+            return False
+
+        with self._lock:
+            # A completed save updates only this live session. A concurrent
+            # action already holding its copy finishes normally; the next
+            # action sees the replacement without touching the input stream.
+            if self._sessions.get(token) is not session or session.get("closed", False):
+                return False
             session["permissions"] = normalized
         return True
 
@@ -528,9 +542,19 @@ class WebRemoteServer:
         @app.post("/api/pair")
         def pair():
             payload = request.get_json(silent=True)
-            if not isinstance(payload, dict) or set(payload) - {"code", "name"}:
+            if not isinstance(payload, dict) or set(payload) - {"code", "name", "device_id"}:
                 return jsonify({"ok": False, "error": "Invalid pairing request."}), 400
             code, name = payload.get("code"), payload.get("name", "Web Controller")
+            device_id = payload.get("device_id")
+            if device_id is not None and (
+                not isinstance(device_id, str)
+                or len(device_id) != 32
+                or any(character not in "0123456789abcdef" for character in device_id.lower())
+            ):
+                return jsonify({"ok": False, "error": "Invalid browser installation identifier."}), 400
+            # Older companion clients receive an ephemeral identity and retain
+            # their existing one-session permission behavior.
+            device_id = device_id.lower() if isinstance(device_id, str) else uuid.uuid4().hex
             if not isinstance(code, str) or len(code) != 6 or not code.isdigit():
                 return jsonify({"ok": False, "error": "Enter the six-digit code shown on the PC."}), 400
             if not isinstance(name, str) or not name.strip() or len(name.strip()) > 64 or any(ord(c) < 32 for c in name):
@@ -584,9 +608,10 @@ class WebRemoteServer:
                 app.logger.exception("Could not initialize browser session")
                 return jsonify({"ok": False, "error": "Could not initialize this browser session on the PC."}), 500
             token = secrets.token_urlsafe(32)
-            session = {"uuid": session_uuid, "name": name.strip(), "mapper": mapper,
+            session = {"uuid": session_uuid, "device_id": device_id,
+                       "name": name.strip(), "mapper": mapper,
                        "remote": RemoteActionSession(),
-                       "permissions": dict(load_remote_permissions()),
+                       "permissions": load_device_remote_permissions(device_id),
                        "last_seen": time.monotonic(), "mode": "gamepad",
                        "gamepad_available": gamepad_available,
                        "lock": threading.RLock(), "closed": False, "stream_ws": None}
