@@ -495,7 +495,7 @@ class WebRemotePage(QWidget):
             QMessageBox.warning(
                 parent or self,
                 "Device disconnected",
-                "The mobile companion disconnected before its permissions could be saved.",
+                "Could not save these permissions. Confirm the device is still connected and try again.",
             )
 
     def open_session_permissions_dialog(self, session_id: str, parent=None) -> None:
@@ -505,10 +505,6 @@ class WebRemotePage(QWidget):
     def _register_mapper(self, instance) -> None:
         self.web_server.controllers_page.add_x360_instance(instance)
         self.web_server.hotkey_page.add_x360_instance(instance)
-
-    def open_permissions_dialog(self) -> None:
-        """Open the existing permission editor from the integrated controller page."""
-        self._edit_permissions()
 
     def _on_mobile_session_added(self, session: dict) -> None:
         session_id = str(session.get("session_id") or "")
