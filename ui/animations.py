@@ -22,6 +22,7 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QColor, QLinearGradient, QPainter
 from PySide6.QtWidgets import (
     QApplication,
+    QDialog,
     QGraphicsDropShadowEffect,
     QGraphicsOpacityEffect,
     QLabel,
@@ -42,6 +43,128 @@ def animations_enabled() -> bool:
     if app is not None and bool(app.property("reducedMotion")):
         return False
     return True
+
+
+class AnimatedDialog(QDialog):
+    """A modal dialog with short, reduced-motion-aware open and close transitions."""
+
+    OPEN_MS = 165
+    CLOSE_MS = 135
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._dialog_animation = None
+        self._dialog_geometry = None
+        self._closing = False
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        self._closing = False
+        self.setEnabled(True)
+        if not animations_enabled():
+            self.setWindowOpacity(1.0)
+            self._dialog_geometry = self.geometry()
+            return
+
+        target = self.geometry()
+        self._dialog_geometry = target
+        start = target.translated(0, 8)
+        self.setGeometry(start)
+        self.setWindowOpacity(0.0)
+
+        group = QParallelAnimationGroup(self)
+        opacity = QPropertyAnimation(self, b"windowOpacity", group)
+        opacity.setDuration(self.OPEN_MS)
+        opacity.setStartValue(0.0)
+        opacity.setEndValue(1.0)
+        opacity.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+        movement = QPropertyAnimation(self, b"geometry", group)
+        movement.setDuration(self.OPEN_MS)
+        movement.setStartValue(start)
+        movement.setEndValue(target)
+        movement.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+        group.finished.connect(
+            lambda active=group, final_geometry=target:
+            self._finish_dialog_open(active, final_geometry)
+        )
+        self._start_dialog_animation(group)
+
+    def done(self, result: int) -> None:
+        if (
+            self._closing
+            or not self.isVisible()
+            or not animations_enabled()
+        ):
+            self._stop_dialog_animation()
+            self._closing = False
+            self.setWindowOpacity(1.0)
+            super().done(result)
+            return
+
+        self._closing = True
+        self.setEnabled(False)
+        self._stop_dialog_animation()
+        current = self.geometry()
+        target = self._dialog_geometry or current
+        end = current.translated(0, 6)
+
+        group = QParallelAnimationGroup(self)
+        opacity = QPropertyAnimation(self, b"windowOpacity", group)
+        opacity.setDuration(self.CLOSE_MS)
+        opacity.setStartValue(self.windowOpacity())
+        opacity.setEndValue(0.0)
+        opacity.setEasingCurve(QEasingCurve.Type.InCubic)
+
+        movement = QPropertyAnimation(self, b"geometry", group)
+        movement.setDuration(self.CLOSE_MS)
+        movement.setStartValue(current)
+        movement.setEndValue(end)
+        movement.setEasingCurve(QEasingCurve.Type.InCubic)
+
+        group.finished.connect(
+            lambda active=group, answer=result, final_geometry=target:
+            self._finish_dialog_close(active, answer, final_geometry)
+        )
+        self._start_dialog_animation(group)
+
+    def closeEvent(self, event) -> None:
+        if self._closing:
+            event.ignore()
+            return
+        event.ignore()
+        self.done(QDialog.DialogCode.Rejected)
+
+    def _start_dialog_animation(self, group) -> None:
+        self._dialog_animation = group
+        group.start()
+
+    def _stop_dialog_animation(self) -> None:
+        group = self._dialog_animation
+        self._dialog_animation = None
+        if group is None:
+            return
+        group.stop()
+        group.deleteLater()
+
+    def _finish_dialog_close(self, group, result: int, geometry: QRect) -> None:
+        if self._dialog_animation is not group:
+            return
+        self._dialog_animation = None
+        self.setGeometry(geometry)
+        self.setWindowOpacity(1.0)
+        self.setEnabled(True)
+        group.deleteLater()
+        super().done(result)
+
+    def _finish_dialog_open(self, group, geometry: QRect) -> None:
+        if self._dialog_animation is not group:
+            return
+        self._dialog_animation = None
+        self.setGeometry(geometry)
+        self.setWindowOpacity(1.0)
+        group.deleteLater()
 
 
 class AnimatedTabBar(QTabBar):

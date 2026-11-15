@@ -24,9 +24,10 @@ from PySide6.QtWidgets import (
 
 from core.raw_hid import format_raw_hid_report
 from ui.i18n import tr
+from ui.animations import AnimatedDialog
 
 
-class RawHidTerminalDialog(QDialog):
+class RawHidTerminalDialog(AnimatedDialog):
     """Display rate-limited live HID packets without doing work on HID threads."""
 
     visibility_changed = Signal(bool)

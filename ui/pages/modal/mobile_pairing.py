@@ -22,9 +22,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from ui.icons import SMALL_ICON_SIZE, icon
+from ui.animations import AnimatedDialog
 
 
-class MobilePairingDialog(QDialog):
+class MobilePairingDialog(AnimatedDialog):
     """Start or reuse Web Companion and wait for an authenticated mobile session."""
 
     def __init__(self, service, parent=None):
@@ -580,7 +581,7 @@ class MobilePairingDialog(QDialog):
         super().done(result)
 
 
-class MobileConnectedDialog(QDialog):
+class MobileConnectedDialog(AnimatedDialog):
     """Brief confirmation displayed after a real mobile pairing event."""
 
     def __init__(self, device_name: str, parent=None):
@@ -590,7 +591,7 @@ class MobileConnectedDialog(QDialog):
         self.setWindowFlags(
             self.windowFlags() | Qt.WindowType.FramelessWindowHint
         )
-        self.setFixedSize(360, 205)
+        self.setFixedSize(400, 250)
         self.setStyleSheet(
             """
             QDialog {
@@ -599,34 +600,52 @@ class MobileConnectedDialog(QDialog):
                 border-radius:16px;
             }
             QLabel { color:#eaf5ef; background:transparent; }
-            QLabel#successMark {
-                color:#39d98a;
-                font-size:52px;
-                font-weight:900;
+            QFrame#successIconContainer {
+                background:#173b31;
+                border:1px solid #285d49;
+                border-radius:30px;
             }
-            QLabel#successTitle { font-size:18px; font-weight:800; }
-            QLabel#successDevice { color:#a8b9cb; font-size:12px; }
+            QLabel#successTitle { font-size:19px; font-weight:800; }
+            QLabel#successCaption { color:#8fd3af; font-size:10px; font-weight:750; }
+            QLabel#successDevice { color:#b7c6d8; font-size:13px; font-weight:650; }
+            QLabel#successHint { color:#8799b2; font-size:10px; }
             """
         )
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(24, 18, 24, 18)
-        layout.setSpacing(5)
+        layout.setContentsMargins(28, 20, 28, 18)
+        layout.setSpacing(7)
 
-        mark = QLabel("✓")
-        mark.setObjectName("successMark")
+        icon_container = QFrame()
+        icon_container.setObjectName("successIconContainer")
+        icon_container.setFixedSize(60, 60)
+        icon_layout = QHBoxLayout(icon_container)
+        icon_layout.setContentsMargins(0, 0, 0, 0)
+        mark = QLabel()
+        mark.setPixmap(icon("circle-check", "#45d48d").pixmap(34, 34))
         mark.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(mark)
+        icon_layout.addWidget(mark)
+        layout.addWidget(icon_container, 0, Qt.AlignmentFlag.AlignHCenter)
 
         title = QLabel("Connected Successfully")
         title.setObjectName("successTitle")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
 
+        caption = QLabel("MOBILE COMPANION")
+        caption.setObjectName("successCaption")
+        caption.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(caption)
+
         device = QLabel(device_name or "Mobile Device")
         device.setObjectName("successDevice")
         device.setAlignment(Qt.AlignmentFlag.AlignCenter)
         device.setWordWrap(True)
         layout.addWidget(device)
+
+        hint = QLabel("Your device is paired and ready to use.")
+        hint.setObjectName("successHint")
+        hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(hint)
 
         QTimer.singleShot(1800, self.accept)

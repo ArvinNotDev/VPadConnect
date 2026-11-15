@@ -21,9 +21,10 @@ from PySide6.QtWidgets import (
 )
 
 from core import emulator
+from ui.animations import AnimatedDialog
 
 
-class PressTwoButtonsAtTheSameTime(QDialog):
+class PressTwoButtonsAtTheSameTime(AnimatedDialog):
     """
     Dialog for capturing a hotkey combination consisting of exactly two buttons.
 
@@ -375,7 +376,7 @@ class PressTwoButtonsAtTheSameTime(QDialog):
         super().closeEvent(event)
 
 
-class HotkeyDialog(QDialog):
+class HotkeyDialog(AnimatedDialog):
     """
     Dialog for managing hotkeys bound to a single controller instance.
 

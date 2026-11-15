@@ -28,6 +28,7 @@ from core.remote_actions import RemoteActionSession, load_remote_permissions, sa
 from core.remote_protocol import MAX_FRAME_BYTES as REMOTE_MAX_FRAME_BYTES, PROTOCOL_VERSION, encode_json_line, make_remote_response, validate_remote_request
 from core.remote_security import create_server_ssl_context
 from core.utils.paths import data_path
+from ui.animations import AnimatedDialog
 
 
 HOST = "0.0.0.0"
@@ -755,7 +756,7 @@ class ServerPage(QWidget):
             QMessageBox.warning(self, "Pairing QR unavailable", str(exc))
             return
 
-        dialog = QDialog(self)
+        dialog = AnimatedDialog(self)
         dialog.setWindowTitle("VPadConnect — Secure Remote Client Pairing")
         dialog.setMinimumSize(420, 520)
         content = QVBoxLayout(dialog)

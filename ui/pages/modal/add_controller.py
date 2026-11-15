@@ -10,9 +10,10 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 from ui.icons import SMALL_ICON_SIZE, icon
+from ui.animations import AnimatedDialog
 
 
-class AddControllerDialog(QDialog):
+class AddControllerDialog(AnimatedDialog):
     """Select a detected physical HID device and its virtual output target."""
 
     def __init__(self, parent=None):

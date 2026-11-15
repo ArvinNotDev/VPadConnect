@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 
 from core.web_remote import WebRemoteServer
 from core.vigem import VIGEMBUS_RELEASES_URL, is_vigem_installed
+from ui.animations import AnimatedDialog
 
 
 class _WebRemoteSignals(QObject):
@@ -447,7 +448,7 @@ class WebRemotePage(QWidget):
 
         session = self._mobile_sessions.get(session_id, {})
         device_name = str(session.get("name") or "Mobile Companion")
-        dialog = QDialog(parent or self)
+        dialog = AnimatedDialog(parent or self)
         dialog.setWindowTitle(f"Remote permissions · {device_name}")
         dialog.setModal(True)
         dialog.setMinimumWidth(360)

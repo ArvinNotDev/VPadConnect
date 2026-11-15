@@ -10,9 +10,10 @@ from core import emulator
 from core.vigem import is_vigem_installed
 from ui.vigem_gate import VigemGate
 from ui.icons import SMALL_ICON_SIZE, battery_icon_name, icon
+from ui.animations import AnimatedDialog
 
 
-class X360MonitorDialog(QDialog):
+class X360MonitorDialog(AnimatedDialog):
     def __init__(self, instance, name):
         super().__init__()
         self.instance = instance
@@ -405,7 +406,7 @@ class ControllerButton(QLabel):
         )
 
 
-class VibrationTestDialog(QDialog):
+class VibrationTestDialog(AnimatedDialog):
     """Separate motor test panel for one active XInput controller."""
 
     def __init__(self, instance, name: str, enabled: bool, parent=None):
@@ -487,7 +488,7 @@ class VibrationTestDialog(QDialog):
 
     def closeEvent(self, event):
         self._send(0, 0)
-        event.accept()
+        super().closeEvent(event)
 
 
 class X360TestCard(QFrame):

@@ -31,6 +31,7 @@ from ui.i18n import tr
 from core.vigem import is_vigem_installed
 from ui.vigem_gate import VigemGate
 from ui.animations import animations_enabled
+from ui.animations import AnimatedDialog
 from ui.icons import ICON_SIZE, SMALL_ICON_SIZE, battery_icon_name, icon
 
 from core.hidhide import HIDHIDE_RELEASES_URL, HidHideError, HidHideManager
@@ -642,7 +643,7 @@ class HidHideCard(QFrame):
             logger.exception("Unexpected HidHide cleanup error")
 
 
-class DualSenseLightbarDialog(QDialog):
+class DualSenseLightbarDialog(AnimatedDialog):
     """Compact per-controller Lightbar settings using the app's active theme."""
 
     def __init__(self, controller_name: str, settings: dict, language="eng", parent=None):
