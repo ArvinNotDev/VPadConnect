@@ -380,7 +380,7 @@ def test_browser_remote_permissions_are_isolated_per_session(monkeypatch):
     assert server.get_session_permissions(session_a)["power"] is False
     assert server.get_session_permissions(session_b) == baseline
     assert saved_permissions[device_a]["keyboard"] is False
-    assert saved_permissions[device_b] == baseline
+    assert device_b not in saved_permissions
     assert server.set_session_permissions("unknown-session", baseline) is False
 
     server.disconnect_session(session_a)
