@@ -182,12 +182,6 @@ class WebRemoteServer:
         self.pairing_deadline = 0.0
         self._lock = threading.RLock()
         self._sessions: dict[str, dict[str, Any]] = {}
-        self._screen_viewers = 0
-        self._screen_frame: bytes | None = None
-        self._screen_sequence = 0
-        self._screen_capture_error: str | None = None
-        self._screen_capture_stop = threading.Event()
-        self._screen_capture_thread: threading.Thread | None = None
         self._pending_pairs = 0
         self._pair_failures: dict[str, list[float]] = {}
         self._server = None
@@ -237,7 +231,6 @@ class WebRemoteServer:
             "session_id": str(session.get("uuid") or ""),
             "name": str(session.get("name") or "Mobile Device"),
             "gamepad_available": gamepad_available,
-            "screen_view_allowed": bool(permissions.get("screen_view", False)),
             "capabilities": capabilities,
         }
 
@@ -256,43 +249,6 @@ class WebRemoteServer:
                 name: bool(permissions.get(name, default))
                 for name, default in DEFAULT_REMOTE_PERMISSIONS.items()
             }
-
-    def get_session_screen_permission(self, session_id: str) -> bool | None:
-        """Return whether one connected browser may view the desktop."""
-        with self._lock:
-            session = next(
-                (item for item in self._sessions.values() if item.get("uuid") == str(session_id or "")),
-                None,
-            )
-            if session is None or session.get("closed", False):
-                return None
-            return bool((session.get("permissions") or {}).get("screen_view", False))
-
-    def set_session_screen_permission(self, session_id: str, allowed: bool) -> bool:
-        """Persist or revoke the desktop-screen grant for one browser installation."""
-        if type(allowed) is not bool:
-            return False
-        with self._lock:
-            token = next(
-                (key for key, item in self._sessions.items() if item.get("uuid") == str(session_id or "")),
-                None,
-            )
-            session = self._sessions.get(token) if token is not None else None
-            if session is None or session.get("closed", False):
-                return False
-            device_id = str(session.get("device_id") or "")
-            normalized = dict(session.get("permissions") or DEFAULT_REMOTE_PERMISSIONS)
-            normalized["screen_view"] = allowed
-        try:
-            save_device_remote_permissions(device_id, normalized)
-        except (OSError, ValueError):
-            self.app.logger.exception("Could not persist screen-view permission for %s", device_id)
-            return False
-        with self._lock:
-            if self._sessions.get(token) is not session or session.get("closed", False):
-                return False
-            session["permissions"] = normalized
-        return True
 
     def set_session_permissions(
         self, session_id: str, permissions: dict[str, Any]
@@ -319,7 +275,6 @@ class WebRemoteServer:
                 value = permissions.get(name)
                 if type(value) is bool:
                     normalized[name] = value
-            normalized["screen_view"] = bool(current_permissions.get("screen_view", False))
 
         try:
             save_device_remote_permissions(device_id, normalized)
@@ -414,7 +369,6 @@ class WebRemoteServer:
     def stop(self) -> None:
         self._notify_streams_shutdown()
         self._stop_event.set()
-        self._screen_capture_stop.set()
         server, thread, watchdog = self._server, self._thread, self._watchdog
         self._server = None
         if server is not None:
@@ -443,7 +397,7 @@ class WebRemoteServer:
             streams = []
             seen: set[int] = set()
             for session in self._sessions.values():
-                for stream in (session.get("stream_ws"), session.get("screen_ws")):
+                for stream in (session.get("stream_ws")):
                     if stream is not None and id(stream) not in seen:
                         seen.add(id(stream))
                         streams.append(stream)
@@ -487,7 +441,7 @@ class WebRemoteServer:
                         getattr(mapper, method_name)()
                     except Exception:
                         pass
-            for stream in (session.get("stream_ws"), session.get("screen_ws")):
+            for stream in (session.get("stream_ws")):
                 if stream is not None:
                     try:
                         stream.close(reason=1001, message=b"Session disconnected")
@@ -544,104 +498,6 @@ class WebRemoteServer:
 
     def _touch_stream_session(self, token: str, session: dict[str, Any]) -> bool:
         """Keep a live WebSocket session alive without periodic HTTP heartbeats."""
-        with self._lock:
-            if self._sessions.get(token) is not session or session.get("closed", False):
-                return False
-            session["last_seen"] = time.monotonic()
-            return True
-
-    def _start_screen_capture_locked(self) -> None:
-        """Start one shared screen-capture worker for all authorized viewers."""
-        worker = self._screen_capture_thread
-        if worker is not None and worker.is_alive():
-            return
-        self._screen_capture_stop.clear()
-        self._screen_capture_thread = threading.Thread(
-            target=self._screen_capture_loop,
-            name="VPadConnectScreenCapture",
-            daemon=True,
-        )
-        self._screen_capture_thread.start()
-
-    def _subscribe_screen(self) -> None:
-        with self._lock:
-            if self._screen_viewers == 0:
-                self._screen_frame = None
-                self._screen_sequence = 0
-                self._screen_capture_error = None
-            self._screen_viewers += 1
-            self._screen_capture_stop.clear()
-            self._start_screen_capture_locked()
-
-    def _unsubscribe_screen(self) -> None:
-        with self._lock:
-            self._screen_viewers = max(0, self._screen_viewers - 1)
-            if self._screen_viewers == 0:
-                self._screen_capture_stop.set()
-                self._screen_frame = None
-
-    def _screen_frame_snapshot(self) -> tuple[bytes | None, int, str | None]:
-        with self._lock:
-            return self._screen_frame, self._screen_sequence, self._screen_capture_error
-
-    def _screen_capture_loop(self) -> None:
-        """Publish one bounded JPEG stream to all viewers without per-device capture."""
-        try:
-            from io import BytesIO
-            from PIL import Image, ImageGrab
-        except ImportError:
-            with self._lock:
-                self._screen_capture_error = (
-                    "Screen capture is unavailable because Pillow is missing. Reinstall VPadConnect dependencies."
-                )
-            return
-
-        try:
-            resampling = getattr(Image, "Resampling", Image).LANCZOS
-            while not self._screen_capture_stop.is_set():
-                with self._lock:
-                    if self._screen_viewers <= 0:
-                        break
-                try:
-                    try:
-                        frame = ImageGrab.grab(all_screens=True)
-                    except TypeError:
-                        frame = ImageGrab.grab()
-                    frame = frame.convert("RGB")
-                    frame.thumbnail((1600, 900), resampling)
-                    output = BytesIO()
-                    frame.save(output, format="JPEG", quality=66, optimize=False)
-                    encoded = output.getvalue()
-                except Exception:
-                    with self._lock:
-                        self._screen_capture_error = (
-                            "Windows could not capture the desktop. Make sure the desktop session is unlocked."
-                        )
-                    self.app.logger.exception("Desktop screen capture failed")
-                    break
-
-                with self._lock:
-                    if self._screen_viewers <= 0:
-                        break
-                    self._screen_frame = encoded
-                    self._screen_sequence += 1
-                    self._screen_capture_error = None
-                if self._screen_capture_stop.wait(1.0 / 12.0):
-                    break
-        finally:
-            with self._lock:
-                if self._screen_capture_thread is threading.current_thread():
-                    self._screen_capture_thread = None
-                restart = (
-                    self._screen_viewers > 0
-                    and not self._screen_capture_stop.is_set()
-                    and self._screen_capture_error is None
-                    and not self._stop_event.is_set()
-                )
-                if restart:
-                    self._start_screen_capture_locked()
-
-    def _touch_screen_session(self, token: str, session: dict[str, Any]) -> bool:
         with self._lock:
             if self._sessions.get(token) is not session or session.get("closed", False):
                 return False
@@ -882,126 +738,6 @@ class WebRemoteServer:
                         if session.get("stream_ws") is ws:
                             session["stream_ws"] = None
                     self._release_stream_inputs(session)
-                try:
-                    ws.close()
-                except Exception:
-                    pass
-            return ""
-
-        @app.route("/api/screen", methods=["GET"], websocket=True)
-        def screen_stream():
-            """Send authenticated desktop frames only to devices with the screen grant."""
-            try:
-                ws = WebSocketServer.accept(
-                    request.environ, ping_interval=15, max_message_size=1024
-                )
-            except Exception:
-                return jsonify({"ok": False, "error": "WebSocket upgrade required."}), 426
-
-            session = None
-            token = None
-            subscribed = False
-            try:
-                first = ws.receive(timeout=5)
-                try:
-                    hello = json.loads(first) if isinstance(first, str) else None
-                except (TypeError, ValueError):
-                    hello = None
-                if (
-                    not isinstance(hello, dict)
-                    or hello.get("type") != "auth"
-                    or not isinstance(hello.get("token"), str)
-                    or not hello.get("token")
-                ):
-                    ws.send(json.dumps({"type": "error", "error": "authentication_required"}))
-                    ws.close(reason=1008, message=b"Authentication required")
-                    return ""
-
-                token = hello["token"]
-                with self._lock:
-                    candidate = self._sessions.get(token)
-                    if (
-                        candidate is not None
-                        and not candidate.get("closed", False)
-                        and not self._stop_event.is_set()
-                        and time.monotonic() - candidate["last_seen"] <= SESSION_IDLE_SECONDS
-                    ):
-                        session = candidate
-                        allowed = bool((candidate.get("permissions") or {}).get("screen_view", False))
-                        previous_socket = candidate.get("screen_ws") if allowed else None
-                        if allowed:
-                            candidate["last_seen"] = time.monotonic()
-                            candidate["screen_ws"] = ws
-                    else:
-                        allowed = False
-                        previous_socket = None
-
-                if session is None:
-                    error_type = "server_shutdown" if self._stop_event.is_set() else "session_expired"
-                    ws.send(json.dumps({"type": "error", "error": error_type}))
-                    ws.close(reason=1001 if error_type == "server_shutdown" else 1008)
-                    return ""
-                if not allowed:
-                    ws.send(json.dumps({
-                        "type": "error",
-                        "error": "screen_permission_denied",
-                        "message": "Screen access is disabled for this device. Enable Screen access for this phone on the PC.",
-                    }))
-                    ws.close(reason=1008, message=b"Screen access is not enabled")
-                    return ""
-
-                if previous_socket is not None and previous_socket is not ws:
-                    try:
-                        previous_socket.close(reason=1000, message=b"Screen stream replaced")
-                    except Exception:
-                        pass
-                self._subscribe_screen()
-                subscribed = True
-                ws.send(json.dumps({"type": "ready"}))
-                last_sequence = 0
-                while not self._stop_event.is_set():
-                    if not self._touch_screen_session(token, session):
-                        break
-                    with self._lock:
-                        still_allowed = bool((session.get("permissions") or {}).get("screen_view", False))
-                    if not still_allowed:
-                        ws.send(json.dumps({
-                            "type": "error",
-                            "error": "screen_permission_revoked",
-                            "message": "Screen access was disabled on the PC.",
-                        }))
-                        break
-                    frame, sequence, capture_error = self._screen_frame_snapshot()
-                    if capture_error:
-                        ws.send(json.dumps({
-                            "type": "error",
-                            "error": "screen_capture_unavailable",
-                            "message": capture_error,
-                        }))
-                        break
-                    if frame is not None and sequence > last_sequence:
-                        ws.send(frame)
-                        last_sequence = sequence
-                    try:
-                        incoming = ws.receive(timeout=0.08)
-                    except ConnectionClosed:
-                        break
-                    if isinstance(incoming, str):
-                        try:
-                            packet = json.loads(incoming)
-                        except (TypeError, ValueError):
-                            packet = None
-                        if isinstance(packet, dict) and packet.get("type") == "ping":
-                            ws.send(json.dumps({"type": "pong"}))
-            except (ConnectionClosed, OSError, RuntimeError, ValueError):
-                pass
-            finally:
-                if subscribed:
-                    self._unsubscribe_screen()
-                if session is not None:
-                    with self._lock:
-                        if session.get("screen_ws") is ws:
-                            session["screen_ws"] = None
                 try:
                     ws.close()
                 except Exception:

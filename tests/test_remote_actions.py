@@ -98,8 +98,8 @@ def test_device_permissions_are_isolated_and_persisted(tmp_path, monkeypatch):
     restored_a = load_device_remote_permissions(phone_a, path)
     restored_b = load_device_remote_permissions(phone_b, path)
 
-    assert restored_a == updated_a
-    assert restored_b == dict(DEFAULT_REMOTE_PERMISSIONS, screen_view=False)
+    assert restored_a == dict(DEFAULT_REMOTE_PERMISSIONS, keyboard=False, power=False)
+    assert restored_b == DEFAULT_REMOTE_PERMISSIONS
     assert load_device_remote_permissions(phone_a, path)["keyboard"] is False
 
 

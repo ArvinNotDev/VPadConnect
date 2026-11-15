@@ -103,7 +103,9 @@ current desktop and Web Companion work into a fresh downloadable Windows release
 
 ## [Unreleased]
 
-_No unreleased changes._
+### Removed
+
+- Removed desktop screen sharing, its mobile Screen tab, capture worker, stream endpoint, and per-device screen-view permissions. Gamepad, Touch Mouse, and PC Remote remain available.
 
 ## [2.0.8] — 2026-09-26
 

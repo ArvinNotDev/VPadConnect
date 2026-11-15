@@ -42,12 +42,8 @@ def _normalize_remote_permissions(permissions: dict[str, Any] | None) -> dict[st
 def _normalize_device_remote_permissions(
     permissions: dict[str, Any] | None,
 ) -> dict[str, bool]:
-    """Keep screen sharing separate from PC actions and deny it by default."""
-    normalized = _normalize_remote_permissions(permissions)
-    normalized["screen_view"] = False
-    if isinstance(permissions, dict) and type(permissions.get("screen_view")) is bool:
-        normalized["screen_view"] = permissions["screen_view"]
-    return normalized
+    """Discard legacy fields that are not part of the PC-action permission set."""
+    return _normalize_remote_permissions(permissions)
 
 
 def load_device_remote_permissions(
@@ -107,7 +103,8 @@ def save_device_remote_permissions(
         if not isinstance(devices, dict):
             devices = {}
         devices = {
-            key: value for key, value in devices.items()
+            key: _normalize_device_remote_permissions(value)
+            for key, value in devices.items()
             if _valid_remote_device_id(str(key).lower()) and isinstance(value, dict)
         }
         devices[normalized_id] = normalized
