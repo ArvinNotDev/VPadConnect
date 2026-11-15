@@ -16,7 +16,10 @@ from PySide6.QtWidgets import (
     QSizeGrip,
 )
 from PySide6.QtCore import Qt, QUrl, Signal
-from PySide6.QtGui import QDesktopServices, QIcon, QAction, QPixmap, QPainter, QBrush, QPen, QColor, QFont
+from PySide6.QtGui import (
+    QDesktopServices, QIcon, QAction, QActionGroup, QPixmap, QPainter,
+    QBrush, QPen, QColor, QFont,
+)
 
 from ui.theme_manager import ThemeManager
 from ui.animations import AnimatedStackedWidget, AnimatedTabBar, ButtonHoverAnimations
@@ -45,11 +48,10 @@ class MainWindow(QMainWindow):
     WINDOW_TITLE = APP_NAME
     WINDOW_WIDTH = 1180
     WINDOW_HEIGHT = 760
-    NAV_PAGE_INDICES = (0, 1, 3, 4)
+    NAV_PAGE_INDICES = (0, 1, 3, 4, 2)
     IDX_CONTROLLER_EMULATION = 0
     IDX_HOTKEY = 1
     IDX_INPUT_TEST = 2
-    IDX_PROFILES_PAGE = 2
 
     def __init__(self, app: QApplication) -> None:
         super().__init__()
@@ -152,12 +154,10 @@ class MainWindow(QMainWindow):
         self._avatar_container.setObjectName("profile_chip")
         self._avatar_container.setFlat(False)
         self._avatar_container.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._avatar_container.setToolTip("Open profiles")
+        self._avatar_container.setToolTip("Switch active profile")
+        self._avatar_container.setAccessibleName("Profile selector")
         self._avatar_container.setMinimumWidth(236)
         self._avatar_container.setMinimumHeight(48)
-        self._avatar_container.clicked.connect(
-            lambda: self._show_special_page(self.IDX_PROFILES_PAGE)
-        )
         avatar_layout = QHBoxLayout(self._avatar_container)
         avatar_layout.setContentsMargins(8, 4, 10, 4)
         avatar_layout.setSpacing(8)
@@ -176,6 +176,15 @@ class MainWindow(QMainWindow):
         profile_copy.addWidget(self._sidebar_profile_name)
         profile_copy.addWidget(self._sidebar_profile_label)
         avatar_layout.addLayout(profile_copy)
+        self._profile_dropdown_chevron = QLabel("▾")
+        self._profile_dropdown_chevron.setObjectName("profile_dropdown_chevron")
+        avatar_layout.addWidget(self._profile_dropdown_chevron)
+        self._profile_selector_menu = QMenu(self)
+        self._profile_selector_menu.setObjectName("profile_selector_menu")
+        self._profile_selector_menu.aboutToShow.connect(self._refresh_profile_menu)
+        self._profile_action_group = QActionGroup(self._profile_selector_menu)
+        self._profile_action_group.setExclusive(True)
+        self._avatar_container.setMenu(self._profile_selector_menu)
         header_layout.addWidget(self._avatar_container)
 
         header_layout.addLayout(window_controls)
@@ -196,6 +205,7 @@ class MainWindow(QMainWindow):
         self.menu.addTab("Hotkeys")
         self.menu.addTab("Input Test")
         self.menu.addTab("Settings")
+        self.menu.addTab("Profiles")
         self.menu.setMinimumHeight(38)
         self.menu.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
 
@@ -256,7 +266,7 @@ class MainWindow(QMainWindow):
 
         self.profiles_page = ProfilesPage(self.profile_manager, self.settings)
         self.profiles_page.profile_loaded.connect(self._on_profile_loaded)
-        self.profiles_page.profile_changed.connect(self._refresh_sidebar_avatar)
+        self.profiles_page.profile_changed.connect(self._refresh_profile_selector)
         self.pages.addWidget(self.profiles_page)
 
         self.pages.addWidget(controllers_page)
@@ -298,7 +308,7 @@ class MainWindow(QMainWindow):
         self.pages.setCurrentIndex(0)
 
         # Initialize sidebar avatar
-        self._refresh_sidebar_avatar()
+        self._refresh_profile_selector()
         self._apply_language()
 
         self.gyro_shortcut_requested.connect(self.controllers_page.toggle_selected_gyro)
@@ -368,10 +378,6 @@ class MainWindow(QMainWindow):
     def _on_menu_index_changed(self, index: int) -> None:
         if 0 <= index < len(self.NAV_PAGE_INDICES):
             self.pages.setCurrentIndex(self.NAV_PAGE_INDICES[index])
-
-    def _show_special_page(self, page_index: int) -> None:
-        self.menu.setCurrentIndex(-1)
-        self.pages.setCurrentIndex(page_index)
 
     def _toggle_window_maximized(self) -> None:
         if self.isMaximized():
@@ -457,7 +463,7 @@ class MainWindow(QMainWindow):
 
     def _on_profile_loaded(self, profile_name: str) -> None:
         """Called when a profile is activated from the Profiles page."""
-        self._refresh_sidebar_avatar()
+        self._refresh_profile_selector()
         self.settings_page.reload_from_settings()
         # Reload theme in case it changed
         try:
@@ -466,8 +472,8 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
-    def _refresh_sidebar_avatar(self) -> None:
-        """Update the sidebar avatar and profile name from the active profile."""
+    def _refresh_profile_selector(self) -> None:
+        """Update the active profile chip and its available-profile menu."""
         name = self.profile_manager.get_active_profile_name()
         try:
             language = self.settings.get_ui_language()
@@ -482,6 +488,43 @@ class MainWindow(QMainWindow):
             self._sidebar_avatar.set_image(None)
             self._sidebar_profile_name.setText("")
             self._sidebar_profile_label.setText(tr("No profile active", language))
+        self._refresh_profile_menu()
+
+    def _refresh_profile_menu(self) -> None:
+        menu = getattr(self, "_profile_selector_menu", None)
+        if menu is None:
+            return
+        for old_action in self._profile_action_group.actions():
+            self._profile_action_group.removeAction(old_action)
+        menu.clear()
+        active_name = self.profile_manager.get_active_profile_name()
+        for profile in self.profile_manager.list_profiles():
+            name = profile.get("name", "")
+            if not name:
+                continue
+            action = QAction(name, menu)
+            action.setCheckable(True)
+            action.setChecked(name == active_name)
+            if name == active_name:
+                font = action.font()
+                font.setWeight(QFont.Weight.DemiBold)
+                action.setFont(font)
+            image_path = self.profile_manager.get_profile_image_path(name)
+            if image_path:
+                action.setIcon(QIcon(image_path))
+            action.triggered.connect(
+                lambda checked=False, selected=name: self._switch_profile(selected)
+            )
+            self._profile_action_group.addAction(action)
+            menu.addAction(action)
+
+    def _switch_profile(self, name: str) -> None:
+        """Activate a profile selected from the title-bar dropdown."""
+        if name == self.profile_manager.get_active_profile_name():
+            return
+        if self.profile_manager.activate_profile(name):
+            self.profiles_page.refresh_list()
+            self._on_profile_loaded(name)
 
     def _apply_language(self) -> None:
         """Apply the selected UI language without changing layout direction."""

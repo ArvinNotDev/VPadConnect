@@ -1050,3 +1050,31 @@ QPushButton#profiles_manage_btn:hover {
     background: #e9eef9;
     border-color: #a8b5d0;
 }
+QLabel#profile_dropdown_chevron {
+    color: #71809a;
+    font-size: 14px;
+    font-weight: 700;
+}
+QPushButton#profile_chip::menu-indicator {
+    image: none;
+    width: 0;
+}
+QMenu#profile_selector_menu {
+    background: #ffffff;
+    color: #273550;
+    border: 1px solid #d4ddec;
+    border-radius: 10px;
+    padding: 5px;
+}
+QMenu#profile_selector_menu::item {
+    padding: 8px 30px 8px 12px;
+    border-radius: 6px;
+}
+QMenu#profile_selector_menu::item:selected {
+    background: #edf1fa;
+    color: #243454;
+}
+QMenu#profile_selector_menu::item:checked {
+    background: #e2e9fb;
+    color: #27376b;
+}
