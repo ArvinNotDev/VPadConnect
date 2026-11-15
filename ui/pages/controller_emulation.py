@@ -858,7 +858,7 @@ class RemoteDeviceRow(QWidget):
                 background:#31516f;
                 border-color:#6d9cc5;
             }
-            QWidget#remoteDeviceRow QPushButton#remoteScreenButton[enabled="true"] {
+            QWidget#remoteDeviceRow QPushButton#remoteScreenButton[screenAccess="true"] {
                 color:#c8ffea;
                 background:#174b43;
                 border-color:#2d806e;
@@ -873,11 +873,12 @@ class RemoteDeviceRow(QWidget):
                 border-color:#ad596b;
             }
         """)
+        self.set_screen_access_enabled(bool(session.get("screen_view_allowed", False)))
 
     def set_screen_access_enabled(self, enabled: bool) -> None:
         allowed = bool(enabled)
         self.screen_button.setText("Screen: On" if allowed else "Screen: Off")
-        self.screen_button.setProperty("enabled", "true" if allowed else "false")
+        self.screen_button.setProperty("screenAccess", "true" if allowed else "false")
         self.screen_button.setToolTip(
             "This device can view the desktop screen. Click to change access."
             if allowed else
