@@ -753,6 +753,7 @@ class RemoteDeviceRow(QWidget):
 
     disconnect_requested = Signal(str)
     permissions_requested = Signal(str)
+    screen_requested = Signal(str)
 
     def __init__(self, session: dict, parent=None):
         super().__init__(parent)
@@ -792,6 +793,19 @@ class RemoteDeviceRow(QWidget):
             lambda: self.permissions_requested.emit(self.session_id)
         )
         layout.addWidget(self.permissions_button)
+
+        self.screen_button = QPushButton(
+            "Screen: On" if session.get("screen_view_allowed", False) else "Screen: Off"
+        )
+        self.screen_button.setObjectName("remoteScreenButton")
+        self.screen_button.setToolTip(
+            "Choose whether this mobile device may view the desktop screen"
+        )
+        self.screen_button.setMinimumWidth(88)
+        self.screen_button.clicked.connect(
+            lambda: self.screen_requested.emit(self.session_id)
+        )
+        layout.addWidget(self.screen_button)
 
         self.delete_button = QPushButton("Disconnect")
         self.delete_button.setObjectName("remoteDisconnectButton")
@@ -835,6 +849,20 @@ class RemoteDeviceRow(QWidget):
                 background:#276b91;
                 border-color:#62b2df;
             }
+            QWidget#remoteDeviceRow QPushButton#remoteScreenButton {
+                color:#dff3ff;
+                background:#26364d;
+                border-color:#405976;
+            }
+            QWidget#remoteDeviceRow QPushButton#remoteScreenButton:hover:enabled {
+                background:#31516f;
+                border-color:#6d9cc5;
+            }
+            QWidget#remoteDeviceRow QPushButton#remoteScreenButton[enabled="true"] {
+                color:#c8ffea;
+                background:#174b43;
+                border-color:#2d806e;
+            }
             QWidget#remoteDeviceRow QPushButton#remoteDisconnectButton {
                 color:#ffd9df;
                 background:#472735;
@@ -846,9 +874,22 @@ class RemoteDeviceRow(QWidget):
             }
         """)
 
+    def set_screen_access_enabled(self, enabled: bool) -> None:
+        allowed = bool(enabled)
+        self.screen_button.setText("Screen: On" if allowed else "Screen: Off")
+        self.screen_button.setProperty("enabled", "true" if allowed else "false")
+        self.screen_button.setToolTip(
+            "This device can view the desktop screen. Click to change access."
+            if allowed else
+            "This device cannot view the desktop screen. Click to grant access."
+        )
+        self.screen_button.style().unpolish(self.screen_button)
+        self.screen_button.style().polish(self.screen_button)
+
     def set_busy(self, busy: bool) -> None:
         self.delete_button.setEnabled(not bool(busy))
         self.permissions_button.setEnabled(not bool(busy))
+        self.screen_button.setEnabled(not bool(busy))
         self.delete_button.setText("Disconnecting…" if busy else "Disconnect")
 
 
@@ -1154,6 +1195,16 @@ class ControllerEmulation(QWidget):
         if self.web_remote_service is not None:
             self.web_remote_service.open_session_permissions_dialog(session_id, self)
 
+    def _open_remote_screen_permission(self, session_id: str) -> None:
+        if self.web_remote_service is None:
+            return
+        allowed = self.web_remote_service.open_session_screen_permission_dialog(
+            session_id, self
+        )
+        widget = self._remote_device_widgets.get(session_id)
+        if widget is not None and allowed is not None:
+            widget.set_screen_access_enabled(allowed)
+
     def _start_mobile_pairing(self) -> None:
         if self.web_remote_service is None:
             QMessageBox.warning(
@@ -1180,6 +1231,7 @@ class ControllerEmulation(QWidget):
         widget = RemoteDeviceRow(session, self.emu_list)
         widget.disconnect_requested.connect(self._disconnect_remote_device)
         widget.permissions_requested.connect(self._open_remote_permissions)
+        widget.screen_requested.connect(self._open_remote_screen_permission)
         item.setSizeHint(widget.sizeHint())
         item.setData(
             Qt.ItemDataRole.UserRole,

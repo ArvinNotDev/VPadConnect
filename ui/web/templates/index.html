@@ -14,7 +14,7 @@
 
 <section id="workspace" class="hidden">
 <div class="heading"><div><div class="eyebrow">REMOTE CONSOLE</div><h1 id="welcome">Your desktop</h1><p class="muted">Gamepad, touch mouse and PC tools in one place.</p></div><button id="focus" class="btn ghost" type="button" aria-pressed="false">⛶ Focus</button></div>
-<nav class="tabs"><button id="gamepadTab" class="tab active" data-tab="gamepad">◉ Gamepad</button><button class="tab" data-tab="mouse">⌁ Touch mouse</button><button class="tab" data-tab="remote">⌨ PC Remote</button><button class="tab" data-tab="session">⚙ Settings</button></nav>
+<nav class="tabs"><button id="gamepadTab" class="tab active" data-tab="gamepad">◉ Gamepad</button><button class="tab" data-tab="mouse">⌁ Touch mouse</button><button class="tab" data-tab="screen">▣ Screen</button><button class="tab" data-tab="remote">⌨ PC Remote</button><button class="tab" data-tab="session">⚙ Settings</button></nav>
 
 <section id="view-gamepad" class="view active">
 <div id="gamepadUnavailableNotice" class="gamepad-unavailable-notice hidden" role="status" aria-live="polite">
@@ -41,6 +41,38 @@
 <div id="touchpad" class="touchpad" tabindex="0" role="application" aria-label="Touch mouse surface. Drag to move the Windows pointer; use two fingers to scroll."><div class="touchgrid"></div><span id="touchpadHint">DRAG TO MOVE</span></div><div class="mouse-row"><button class="btn primary" data-mouse="left">Left click</button><button class="btn" data-mouse="right">Right click</button><button class="btn" data-mouse="middle">Middle click</button></div>
 <div class="mouse-row"><button id="scrollUp" class="btn">↑ Scroll up</button><button id="scrollDown" class="btn">↓ Scroll down</button><button id="mouseMode" class="btn ghost">Use gamepad output</button></div>
 </article></section>
+
+<section id="view-screen" class="view">
+<article class="panel screen-panel">
+  <div class="screen-heading">
+    <div>
+      <div class="eyebrow">LIVE DESKTOP</div>
+      <h2>PC screen</h2>
+      <p class="muted">Watch your desktop and use the image area as a touchpad. Drag to move the mouse, tap to click, and use two fingers to scroll.</p>
+    </div>
+    <span id="screenLiveBadge" class="screen-live-badge"><i></i><span>Not streaming</span></span>
+  </div>
+  <div class="screen-toolbar">
+    <p id="screenStatus" class="screen-status" role="status" aria-live="polite">Connect to your PC, then start the desktop stream.</p>
+    <div class="screen-actions">
+      <button id="screenStart" class="btn primary" type="button">▶ Start stream</button>
+      <button id="screenStop" class="btn ghost" type="button" disabled>Stop</button>
+      <button id="screenFullscreen" class="btn ghost" type="button">⛶ Full screen</button>
+    </div>
+  </div>
+  <div id="screenViewer" class="screen-viewer" aria-label="Live desktop viewer">
+    <img id="screenFrame" alt="Live view of the Windows desktop" draggable="false">
+    <div id="screenTouchpad" class="screen-touchpad" tabindex="0" role="application" aria-label="Desktop screen touchpad. Drag to move the PC mouse, tap to click, and use two fingers to scroll.">
+      <span id="screenHint" class="screen-hint">START THE STREAM TO VIEW YOUR DESKTOP</span>
+    </div>
+    <button id="screenExitFullscreen" class="btn ghost screen-exit-fullscreen" type="button">✕ Exit full screen</button>
+  </div>
+  <div class="screen-footer">
+    <span>⌖ Touch controls active while this tab is selected</span>
+    <span>12 FPS · Adaptive JPEG</span>
+  </div>
+</article>
+</section>
 
 <section id="view-remote" class="view"><div class="remote-grid">
 <article class="panel"><h2>Keyboard & text</h2><p class="muted">Type into the active desktop application.</p><textarea id="remoteText" maxlength="4096" rows="3" placeholder="Text to send…"></textarea><button id="sendText" class="btn primary full" data-permission="keyboard">Send text</button>

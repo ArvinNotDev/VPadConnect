@@ -39,11 +39,22 @@ def _normalize_remote_permissions(permissions: dict[str, Any] | None) -> dict[st
     return normalized
 
 
+def _normalize_device_remote_permissions(
+    permissions: dict[str, Any] | None,
+) -> dict[str, bool]:
+    """Keep screen sharing separate from PC actions and deny it by default."""
+    normalized = _normalize_remote_permissions(permissions)
+    normalized["screen_view"] = False
+    if isinstance(permissions, dict) and type(permissions.get("screen_view")) is bool:
+        normalized["screen_view"] = permissions["screen_view"]
+    return normalized
+
+
 def load_device_remote_permissions(
     device_id: str, path: str | Path = DEVICE_PERMISSION_FILE
 ) -> dict[str, bool]:
     """Load one browser installation's permissions, falling back to legacy defaults."""
-    defaults = load_remote_permissions()
+    defaults = _normalize_device_remote_permissions(load_remote_permissions())
     normalized_id = str(device_id or "").lower()
     if not _valid_remote_device_id(normalized_id):
         return defaults
@@ -65,7 +76,7 @@ def load_device_remote_permissions(
     if not isinstance(devices, dict):
         return defaults
     stored = devices.get(normalized_id)
-    return _normalize_remote_permissions(stored) if isinstance(stored, dict) else defaults
+    return _normalize_device_remote_permissions(stored) if isinstance(stored, dict) else defaults
 
 
 def save_device_remote_permissions(
@@ -81,7 +92,7 @@ def save_device_remote_permissions(
     import tempfile
 
     normalized_id = str(device_id).lower()
-    normalized = _normalize_remote_permissions(permissions)
+    normalized = _normalize_device_remote_permissions(permissions)
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
 

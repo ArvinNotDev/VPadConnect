@@ -105,7 +105,8 @@ function createHarness(settings = {}) {
   elements.set("rightStick", rightStick);
   elements.set("touchpad", touchpad);
   const mouseTab = createElement("mouse-tab", { "data-tab": "mouse" });
-  const views = ["gamepad", "mouse", "remote", "session"].map((name) => {
+  const screenTab = createElement("screen-tab", { "data-tab": "screen" });
+  const views = ["gamepad", "mouse", "screen", "remote", "session"].map((name) => {
     const view = createElement(`view-${name}`);
     elements.set(view.id, view);
     return view;
@@ -149,7 +150,7 @@ function createHarness(settings = {}) {
       return elements.get(id);
     },
     querySelectorAll(selector) {
-      if (selector === ".tab") return [mouseTab];
+      if (selector === ".tab") return [mouseTab, screenTab];
       if (selector === ".view") return views;
       if (selector === ".pad-key[data-button]") return [gamepadButton];
       if (selector === "[data-key]") return quickKeys;
@@ -254,6 +255,7 @@ function createHarness(settings = {}) {
     gamepadButton,
     leftStick,
     mouseTab,
+    screenTab,
     quickKeys,
     sessionValues,
     preferenceValues,
@@ -973,4 +975,54 @@ test("web companion keeps ABXY positions stable and exposes the Reymit support l
   assert.match(appCss, /\.faces \.face\.a\s*\{grid-column:2;grid-row:3\}/);
   assert.match(appHtml, /href="https:\/\/reymit\.ir\/arvinnotdev"/);
   assert.match(appHtml, /Buy me a coffee/);
+});
+
+
+
+test("desktop screen tab opens its own authenticated stream and forwards touchpad movement to the PC mouse", async () => {
+  const harness = createHarness({ websocket: true });
+  await settle();
+
+  const inputSocket = harness.webSockets[0];
+  inputSocket.readyState = 1;
+  inputSocket.onopen({});
+  inputSocket.onmessage({ data: JSON.stringify({ type: "ready" }) });
+
+  harness.screenTab.dispatch("click");
+  await settle();
+  assert.equal(harness.webSockets.length, 2);
+  const screenSocket = harness.webSockets[1];
+  assert.equal(screenSocket.url, "wss://vpadconnect.test/api/screen");
+  screenSocket.readyState = 1;
+  screenSocket.onopen({});
+  assert.deepEqual(screenSocket.sent[0], { type: "auth", token: "test-session-token" });
+  screenSocket.onmessage({ data: JSON.stringify({ type: "ready" }) });
+
+  harness.elements.get("screenTouchpad").dispatch("pointerdown", {
+    pointerId: 77, clientX: 100, clientY: 90,
+  });
+  harness.elements.get("screenTouchpad").dispatch("pointermove", {
+    pointerId: 77, clientX: 124, clientY: 103,
+  });
+  harness.tickFrame();
+
+  const snapshots = inputSocket.sent.filter((packet) => packet.type === "state");
+  assert.equal(snapshots.at(-1).state.mode, "mouse");
+  assert.equal(snapshots.at(-1).state.mouse.dx, 24);
+  assert.equal(snapshots.at(-1).state.mouse.dy, 13);
+
+  harness.mouseTab.dispatch("click");
+  assert.equal(screenSocket.readyState, 3);
+});
+
+
+test("desktop screen viewer exposes stream controls and a full-screen touch surface", () => {
+  assert.match(appHtml, /data-tab="screen"/);
+  assert.match(appHtml, /id="view-screen"/);
+  assert.match(appHtml, /id="screenViewer"/);
+  assert.match(appHtml, /id="screenTouchpad"/);
+  assert.match(appHtml, /id="screenFullscreen"/);
+  assert.match(appCss, /#screenViewer:fullscreen/);
+  assert.match(appSource, /\/api\/screen/);
+  assert.match(appSource, /screen_permission_revoked/);
 });

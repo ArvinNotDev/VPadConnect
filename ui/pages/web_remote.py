@@ -502,6 +502,79 @@ class WebRemotePage(QWidget):
         """Open the permission editor for exactly one connected mobile companion."""
         self._edit_permissions(session_id, parent)
 
+    def open_session_screen_permission_dialog(
+        self, session_id: str, parent=None
+    ) -> bool | None:
+        """Edit screen-view access for exactly one connected mobile browser."""
+        current = self.web_server.get_session_screen_permission(session_id)
+        if current is None:
+            QMessageBox.information(
+                parent or self,
+                "Device disconnected",
+                "This mobile companion is no longer connected.",
+            )
+            return None
+
+        session = self._mobile_sessions.get(str(session_id), {})
+        device_name = str(session.get("name") or "Mobile Companion")
+        dialog = QDialog(parent or self)
+        dialog.setWindowTitle(f"Desktop screen access · {device_name}")
+        dialog.setModal(True)
+        dialog.setMinimumWidth(390)
+        layout = QVBoxLayout(dialog)
+        layout.setContentsMargins(20, 18, 20, 16)
+        layout.setSpacing(12)
+
+        title = QLabel(f"Allow desktop viewing for {device_name}")
+        title.setStyleSheet("font-size: 16px; font-weight: 750;")
+        title.setWordWrap(True)
+        layout.addWidget(title)
+
+        description = QLabel(
+            "When enabled, this phone can watch a live view of the Windows desktop "
+            "from its Screen tab. The stream is sent only to this paired device. "
+            "Disable access at any time to stop its screen stream."
+        )
+        description.setWordWrap(True)
+        description.setStyleSheet("color: #91a2bc; font-size: 11px;")
+        layout.addWidget(description)
+
+        warning = QLabel(
+            "Screen sharing can expose private messages, files, and other information "
+            "visible on the desktop. Grant access only to a device you trust."
+        )
+        warning.setWordWrap(True)
+        warning.setStyleSheet(
+            "color: #ffd49a; background: rgba(128, 98, 57, 35%); "
+            "border: 1px solid #806239; border-radius: 9px; padding: 10px;"
+        )
+        layout.addWidget(warning)
+
+        check = QCheckBox("Allow this device to view the desktop screen")
+        check.setChecked(current)
+        check.setStyleSheet("font-weight: 700; padding: 4px 0;")
+        layout.addWidget(check)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Save
+            | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return None
+        allowed = check.isChecked()
+        if not self.web_server.set_session_screen_permission(session_id, allowed):
+            QMessageBox.warning(
+                parent or self,
+                "Could not update screen access",
+                "The device disconnected or its permission could not be saved. Try again.",
+            )
+            return None
+        return allowed
+
     def _register_mapper(self, instance) -> None:
         self.web_server.controllers_page.add_x360_instance(instance)
         self.web_server.hotkey_page.add_x360_instance(instance)
