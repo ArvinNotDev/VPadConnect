@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QVBoxLayout,
 )
+from ui.icons import SMALL_ICON_SIZE, icon
 
 
 class AddControllerDialog(QDialog):
@@ -153,8 +154,13 @@ class AddControllerDialog(QDialog):
         self._accept_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
         self._accept_button.setText("Add Controller")
         self._accept_button.setObjectName("addControllerConfirm")
+        self._accept_button.setIcon(icon("plus", "#ffffff"))
+        self._accept_button.setIconSize(SMALL_ICON_SIZE)
         self._accept_button.setEnabled(False)
-        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Cancel")
+        cancel_button = buttons.button(QDialogButtonBox.StandardButton.Cancel)
+        cancel_button.setText("Cancel")
+        cancel_button.setIcon(icon("xmark", "#edf4ff"))
+        cancel_button.setIconSize(SMALL_ICON_SIZE)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)

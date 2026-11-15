@@ -31,6 +31,7 @@ from ui.i18n import tr
 from core.vigem import is_vigem_installed
 from ui.vigem_gate import VigemGate
 from ui.animations import animations_enabled
+from ui.icons import ICON_SIZE, SMALL_ICON_SIZE, battery_icon_name, icon
 
 from core.hidhide import HIDHIDE_RELEASES_URL, HidHideError, HidHideManager
 
@@ -128,6 +129,7 @@ class HidHideDeviceRow(QFrame):
         self.button = QPushButton()
         self.button.setObjectName("hidhideDeviceButton")
         self.button.setMinimumHeight(32)
+        self.button.setIconSize(SMALL_ICON_SIZE)
         self.button.clicked.connect(self._request_toggle)
         root.addWidget(self.button)
 
@@ -139,11 +141,13 @@ class HidHideDeviceRow(QFrame):
             self.state_label.setText("Hidden")
             self.state_label.setProperty("state", "hidden")
             self.button.setText("Unhide")
+            self.button.setIcon(icon("eye", "#85c1ff"))
             self.button.setToolTip("Remove this controller from the HidHide blacklist")
         else:
             self.state_label.setText("Visible")
             self.state_label.setProperty("state", "visible")
             self.button.setText("Hide")
+            self.button.setIcon(icon("eye-slash", "#85c1ff"))
             self.button.setToolTip("Hide this controller from other applications")
         self.state_label.style().unpolish(self.state_label)
         self.state_label.style().polish(self.state_label)
@@ -217,9 +221,11 @@ class HidHideCard(QFrame):
         self.status.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         header.addWidget(self.status, 1)
 
-        self.toggle_button = QPushButton("▸")
+        self.toggle_button = QPushButton()
         self.toggle_button.setObjectName("hidhideToggle")
         self.toggle_button.setFixedSize(30, 30)
+        self.toggle_button.setIconSize(SMALL_ICON_SIZE)
+        self.toggle_button.setIcon(icon("chevron-right", "#a9cfff"))
         self.toggle_button.setToolTip("Expand HidHide controls")
         self.toggle_button.setAccessibleName("Expand HidHide controls")
         self.toggle_button.clicked.connect(self._toggle_expanded)
@@ -245,12 +251,16 @@ class HidHideCard(QFrame):
         self.detect_button = QPushButton("HidHide")
         self.detect_button.setObjectName("hidhidePrimary")
         self.detect_button.setMinimumHeight(36)
+        self.detect_button.setIcon(icon("shield-halved", "#ffffff"))
+        self.detect_button.setIconSize(SMALL_ICON_SIZE)
         self.detect_button.clicked.connect(self.start_detection)
         actions.addWidget(self.detect_button)
 
         self.unhide_all_button = QPushButton("Unhide All")
         self.unhide_all_button.setObjectName("hidhideSecondary")
         self.unhide_all_button.setMinimumHeight(36)
+        self.unhide_all_button.setIcon(icon("eye", "#85c1ff"))
+        self.unhide_all_button.setIconSize(SMALL_ICON_SIZE)
         self.unhide_all_button.setVisible(False)
         self.unhide_all_button.clicked.connect(self._unhide_all)
         actions.addWidget(self.unhide_all_button)
@@ -258,6 +268,8 @@ class HidHideCard(QFrame):
         self.open_link_button = QPushButton("Open Link")
         self.open_link_button.setObjectName("hidhideSecondary")
         self.open_link_button.setMinimumHeight(36)
+        self.open_link_button.setIcon(icon("arrow-up-right-from-square", "#85c1ff"))
+        self.open_link_button.setIconSize(SMALL_ICON_SIZE)
         self.open_link_button.setVisible(False)
         self.open_link_button.clicked.connect(
             lambda: QDesktopServices.openUrl(QUrl(HIDHIDE_RELEASES_URL))
@@ -382,7 +394,9 @@ class HidHideCard(QFrame):
         self.header_widget.style().unpolish(self.header_widget)
         self.header_widget.style().polish(self.header_widget)
         self.header_widget.update()
-        self.toggle_button.setText("▾" if self._expanded else "▸")
+        self.toggle_button.setIcon(
+            icon("chevron-down" if self._expanded else "chevron-right", "#a9cfff")
+        )
         action = "Collapse" if self._expanded else "Expand"
         self.toggle_button.setToolTip(f"{action} HidHide controls")
         self.toggle_button.setAccessibleName(f"{action} HidHide controls")
@@ -739,6 +753,9 @@ class EmuListItemWidget(QWidget):
         self.lbl_text.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         layout.addWidget(self.lbl_text)
 
+        self.battery_icon = QLabel()
+        self.battery_icon.setFixedSize(SMALL_ICON_SIZE)
+        layout.addWidget(self.battery_icon)
         self.lbl_battery = QLabel("Battery: --")
         self.lbl_battery.setMinimumWidth(115)
         self.lbl_battery.setAlignment(Qt.AlignCenter)
@@ -792,9 +809,18 @@ class EmuListItemWidget(QWidget):
         if percent is None:
             self._battery = None
             self.lbl_battery.setText("Battery: --")
+            self.battery_icon.setPixmap(
+                icon(battery_icon_name(None), "#91a2bc").pixmap(SMALL_ICON_SIZE)
+            )
             return
         self._battery = (int(percent), bool(charging))
-        suffix = " ⚡" if charging else ""
+        self.battery_icon.setPixmap(
+            icon(
+                battery_icon_name(int(percent), charging),
+                "#4ade80" if charging else "#aabbd2",
+            ).pixmap(SMALL_ICON_SIZE)
+        )
+        suffix = " · Charging" if charging else ""
         self.lbl_battery.setText(f"Battery: {int(percent)}%{suffix}")
 
     def set_connection_state(self, connected: bool):
@@ -803,6 +829,9 @@ class EmuListItemWidget(QWidget):
             return
         self.status.setStyleSheet(
             "border-radius: 6px; background-color: #f59e0b;"
+        )
+        self.battery_icon.setPixmap(
+            icon(battery_icon_name(None), "#91a2bc").pixmap(SMALL_ICON_SIZE)
         )
         self.lbl_battery.setText("Waiting for reconnect…")
 
@@ -833,9 +862,18 @@ class RemoteDeviceRow(QWidget):
 
         identity = QVBoxLayout()
         identity.setSpacing(2)
-        self.name_label = QLabel(f"📱  {session.get('name') or 'Mobile Device'}")
+        name_row = QHBoxLayout()
+        name_row.setSpacing(7)
+        self.device_icon = QLabel()
+        self.device_icon.setFixedSize(SMALL_ICON_SIZE)
+        self.device_icon.setPixmap(
+            icon("mobile-screen-button", "#a9cfff").pixmap(SMALL_ICON_SIZE)
+        )
+        name_row.addWidget(self.device_icon)
+        self.name_label = QLabel(str(session.get("name") or "Mobile Device"))
         self.name_label.setStyleSheet("font-weight:750; color:#eaf1ff;")
-        identity.addWidget(self.name_label)
+        name_row.addWidget(self.name_label, 1)
+        identity.addLayout(name_row)
 
         capabilities = session.get("capabilities") or ["Touch mouse", "Keyboard / PC Remote"]
         self.capabilities_label = QLabel(" · ".join(str(item) for item in capabilities))
@@ -986,8 +1024,10 @@ class ControllerEmulation(QWidget):
 
         self.hidhide_card = HidHideCard(self)
 
-        add_btn = QPushButton("＋   Add Controller")
+        add_btn = QPushButton("Add Controller")
         add_btn.setObjectName("addControllerAction")
+        add_btn.setIcon(icon("plus", "#ffffff"))
+        add_btn.setIconSize(ICON_SIZE)
         add_btn.setToolTip("Add a physical HID controller and configure its virtual output.")
         add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         add_btn.setMinimumHeight(62)
@@ -1013,8 +1053,10 @@ class ControllerEmulation(QWidget):
             }
         """)
 
-        mobile_btn = QPushButton("＋   Mobile Companion")
+        mobile_btn = QPushButton("Mobile Companion")
         mobile_btn.setObjectName("mobileCompanionAction")
+        mobile_btn.setIcon(icon("plus", "#e4fffb"))
+        mobile_btn.setIconSize(ICON_SIZE)
         mobile_btn.setToolTip(
             "Connect a phone or tablet using a secure QR-code pairing session."
         )

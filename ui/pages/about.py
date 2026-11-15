@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
 )
 
 from core.version import APP_NAME, DEVELOPER_NAME, GITHUB_URL, REPOSITORY_URL, VERSION
+from ui.icons import SMALL_ICON_SIZE, icon
 
 
 class AboutPage(QWidget):
@@ -28,7 +29,7 @@ class AboutPage(QWidget):
         hero_layout.setContentsMargins(28, 28, 28, 28)
         hero_layout.setSpacing(8)
 
-        badge = QLabel("✨  VPADCONNECT")
+        badge = QLabel("VPADCONNECT")
         badge.setObjectName("about_badge")
         hero_layout.addWidget(badge)
 
@@ -56,7 +57,7 @@ class AboutPage(QWidget):
         info_layout.setContentsMargins(22, 20, 22, 20)
         info_layout.setSpacing(10)
 
-        heading = QLabel("Built with care for gamers 🎮")
+        heading = QLabel("Built for controller customization")
         heading.setObjectName("about_section_title")
         info_layout.addWidget(heading)
 
@@ -75,15 +76,19 @@ class AboutPage(QWidget):
 
         buttons = QHBoxLayout()
         buttons.setSpacing(10)
-        self.github_button = QPushButton("🐙 GitHub Profile")
+        self.github_button = QPushButton("GitHub Profile")
         self.github_button.setObjectName("about_primary_btn")
+        self.github_button.setIcon(icon("code-branch", "#ffffff"))
+        self.github_button.setIconSize(SMALL_ICON_SIZE)
         self.github_button.clicked.connect(
             lambda: QDesktopServices.openUrl(QUrl(GITHUB_URL))
         )
         buttons.addWidget(self.github_button)
 
-        self.repo_button = QPushButton("📦 Project Repository")
+        self.repo_button = QPushButton("Project Repository")
         self.repo_button.setObjectName("about_secondary_btn")
+        self.repo_button.setIcon(icon("code", "#657596"))
+        self.repo_button.setIconSize(SMALL_ICON_SIZE)
         self.repo_button.clicked.connect(
             lambda: QDesktopServices.openUrl(QUrl(REPOSITORY_URL))
         )
@@ -93,7 +98,7 @@ class AboutPage(QWidget):
         root.addWidget(info)
 
         tip = QLabel(
-            "💡 Tip: Create a profile for each game and switch between them in seconds."
+            "Tip: Create a profile for each game and switch between them in seconds."
         )
         tip.setObjectName("about_tip")
         tip.setWordWrap(True)

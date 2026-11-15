@@ -23,6 +23,7 @@ from PySide6.QtGui import (
 
 from ui.theme_manager import ThemeManager
 from ui.animations import AnimatedStackedWidget, AnimatedTabBar, ButtonHoverAnimations
+from ui.icons import ICON_SIZE, icon
 from ui.pages.controller_emulation import ControllerEmulation
 from ui.pages.controllers import ControllersPage
 from ui.pages.settings import SettingsPage
@@ -201,11 +202,15 @@ class MainWindow(QMainWindow):
         self.menu.setUsesScrollButtons(True)
         self.menu.setElideMode(Qt.TextElideMode.ElideNone)
         self.menu.setShape(QTabBar.Shape.RoundedNorth)
-        self.menu.addTab("Controller Emulation")
-        self.menu.addTab("Hotkeys")
-        self.menu.addTab("Input Test")
-        self.menu.addTab("Settings")
-        self.menu.addTab("Profiles")
+        for glyph, label in (
+            ("gamepad", "Controller Emulation"),
+            ("keyboard", "Hotkeys"),
+            ("chart-line", "Input Test"),
+            ("sliders", "Settings"),
+            ("id-card", "Profiles"),
+        ):
+            self.menu.addTab(icon(glyph, "#7787a4"), label)
+        self.menu.setIconSize(ICON_SIZE)
         self.menu.setMinimumHeight(38)
         self.menu.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
 
@@ -216,8 +221,10 @@ class MainWindow(QMainWindow):
         navigation_layout.addWidget(self.menu, 0, Qt.AlignmentFlag.AlignLeft)
         navigation_layout.addStretch(1)
 
-        self.donate_button = QPushButton("☕ Buy me a coffee")
+        self.donate_button = QPushButton("Buy me a coffee")
         self.donate_button.setObjectName("nav_donate_button")
+        self.donate_button.setIcon(icon("mug-hot", "#513915"))
+        self.donate_button.setIconSize(ICON_SIZE)
         self.donate_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.donate_button.setMinimumHeight(34)
         self.donate_button.setStyleSheet("QPushButton#nav_donate_button { color: #25202a; background: #f4c37b; border: 1px solid #ffdda2; border-radius: 9px; padding: 6px 14px; font-weight: 800; } QPushButton#nav_donate_button:hover { background: #ffdaa0; }")
@@ -512,6 +519,8 @@ class MainWindow(QMainWindow):
             image_path = self.profile_manager.get_profile_image_path(name)
             if image_path:
                 action.setIcon(QIcon(image_path))
+            else:
+                action.setIcon(icon("id-card", "#7486a6"))
             action.triggered.connect(
                 lambda checked=False, selected=name: self._switch_profile(selected)
             )
@@ -714,6 +723,7 @@ class _SidebarAvatar(QLabel):
         self.setFixedSize(size, size)
         self.setStyleSheet("background: transparent;")
         self._pixmap: QPixmap | None = None
+        self._placeholder_icon = icon("gamepad", "#9aaecb")
 
     def set_image(self, path: str | None) -> None:
         if path and Path(path).is_file():
@@ -730,12 +740,12 @@ class _SidebarAvatar(QLabel):
             painter.setBrush(QBrush(QColor("#3a3a5a")))
             painter.setPen(QPen(QColor("#555577"), 2))
             painter.drawEllipse(1, 1, s - 2, s - 2)
-            # Draw a controller icon placeholder
-            painter.setPen(QColor("#8888aa"))
-            font = QFont()
-            font.setPixelSize(s // 3)
-            painter.setFont(font)
-            painter.drawText(self.rect(), Qt.AlignCenter, "🎮")
+            placeholder = self._placeholder_icon.pixmap(s // 2, s // 2)
+            painter.drawPixmap(
+                (s - placeholder.width()) // 2,
+                (s - placeholder.height()) // 2,
+                placeholder,
+            )
             painter.end()
             return
 

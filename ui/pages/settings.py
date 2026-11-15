@@ -11,6 +11,7 @@ from PySide6.QtCore import Qt, QTimer, Signal, QUrl, Slot
 from PySide6.QtGui import QDesktopServices
 from ui.i18n import LANGUAGE_NAMES, tr
 from ui.animations import AnimatedStackedWidget, AnimatedTabBar
+from ui.icons import SMALL_ICON_SIZE, icon
 from ui.pages.raw_hid_terminal import RawHidTerminalDialog
 from core.dev_logging import configure_developer_logging, resolve_log_path, clear_log_file as clear_developer_log_file
 
@@ -57,12 +58,14 @@ def _numeric_stepper(control: QAbstractSpinBox) -> QHBoxLayout:
     row.setSpacing(5)
     row.addWidget(control)
 
-    for symbol, direction, accessible_name in (
-        ("−", -1, "Decrease setting"),
-        ("+", 1, "Increase setting"),
+    for glyph, direction, accessible_name in (
+        ("minus", -1, "Decrease setting"),
+        ("plus", 1, "Increase setting"),
     ):
-        button = QPushButton(symbol)
+        button = QPushButton()
         button.setObjectName("settings_stepper_button")
+        button.setIcon(icon(glyph))
+        button.setIconSize(SMALL_ICON_SIZE)
         button.setFixedSize(32, 32)
         button.setCursor(Qt.CursorShape.PointingHandCursor)
         button.setFocusPolicy(Qt.FocusPolicy.NoFocus)

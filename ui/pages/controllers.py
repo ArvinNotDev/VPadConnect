@@ -9,6 +9,7 @@ from PySide6.QtGui import QColor, QPainter, QPen
 from core import emulator
 from core.vigem import is_vigem_installed
 from ui.vigem_gate import VigemGate
+from ui.icons import SMALL_ICON_SIZE, battery_icon_name, icon
 
 
 class X360MonitorDialog(QDialog):
@@ -251,6 +252,9 @@ class X360TestRow(QWidget):
         self.name_label.setStyleSheet("font-weight: bold;")
         header.addWidget(self.name_label)
 
+        self.battery_icon = QLabel()
+        self.battery_icon.setFixedSize(SMALL_ICON_SIZE)
+        header.addWidget(self.battery_icon)
         self.battery_label = QLabel("Battery: —")
         self.battery_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         header.addWidget(self.battery_label)
@@ -301,10 +305,14 @@ class X360TestRow(QWidget):
         self.name_label.setText(name)
 
     def set_battery(self, percent: int | None, charging: bool = False) -> None:
+        tint = "#4ade80" if charging else "#aabbd2"
+        self.battery_icon.setPixmap(
+            icon(battery_icon_name(percent, charging), tint).pixmap(SMALL_ICON_SIZE)
+        )
         if percent is None:
             self.battery_label.setText("Battery: —")
             return
-        suffix = " (charging)" if charging else ""
+        suffix = " · Charging" if charging else ""
         self.battery_label.setText(f"Battery: {percent}%{suffix}")
 
     def set_rumble_enabled(self, enabled: bool) -> None:
@@ -508,6 +516,9 @@ class X360TestCard(QFrame):
         self.name_label.setStyleSheet("font-size:15px; font-weight:700;")
         header.addWidget(self.name_label)
         header.addStretch(1)
+        self.battery_icon = QLabel()
+        self.battery_icon.setFixedSize(SMALL_ICON_SIZE)
+        header.addWidget(self.battery_icon)
         self.battery_label = QLabel("Battery: —")
         self.battery_label.setStyleSheet("color:#aabbd2;")
         header.addWidget(self.battery_label)
@@ -770,20 +781,24 @@ class X360TestCard(QFrame):
         self._update_gyro_parameters(0)
 
     def set_battery(self, percent: int | None, charging: bool = False) -> None:
+        tint = "#4ade80" if charging else "#aabbd2"
+        self.battery_icon.setPixmap(
+            icon(battery_icon_name(percent, charging), tint).pixmap(SMALL_ICON_SIZE)
+        )
         if percent is None:
-            self.battery_label.setText("🔋 Battery: —")
+            self.battery_label.setText("Battery: —")
             self.battery_label.setStyleSheet("color:#aabbd2;")
             return
 
         percent = max(0, min(100, int(percent)))
         if charging:
-            self.battery_label.setText(f"🔋 {percent}%  ⚡ Charging")
+            self.battery_label.setText(f"Battery: {percent}% · Charging")
             self.battery_label.setStyleSheet("color:#4ade80; font-weight:700;")
         elif percent >= 100:
-            self.battery_label.setText("🔋 100%  ✓ Fully charged")
+            self.battery_label.setText("Battery: 100% · Fully charged")
             self.battery_label.setStyleSheet("color:#75e0ad; font-weight:700;")
         else:
-            self.battery_label.setText(f"🔋 {percent}%")
+            self.battery_label.setText(f"Battery: {percent}%")
             self.battery_label.setStyleSheet("color:#aabbd2;")
 
     def set_vibration_enabled(self, enabled: bool) -> None:

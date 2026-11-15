@@ -37,6 +37,7 @@ hiddenimports = [
 ]
 
 datas += collect_data_files("vgamepad")
+datas += collect_data_files("qtawesome")
 
 
 a = Analysis(

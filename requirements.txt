@@ -1,4 +1,5 @@
 vgamepad
+qtawesome>=1.4.2,<2
 PySide6; python_version < "3.15"
 # Stable PySide6 releases currently exclude Python 3.15. Use Qt's official
 # development wheels until a stable release declares Python 3.15 support.

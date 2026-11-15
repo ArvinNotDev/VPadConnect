@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from ui.i18n import tr
+from ui.icons import ICON_SIZE, SMALL_ICON_SIZE, icon
 
 
 class CircularAvatar(QLabel):
@@ -167,14 +168,18 @@ class ProfilesPage(QWidget):
 
         create_row = QHBoxLayout()
         create_row.setSpacing(7)
-        self.btn_new = QPushButton("＋  New Profile")
+        self.btn_new = QPushButton("New Profile")
         self.btn_new.setObjectName("profiles_new_btn")
+        self.btn_new.setIcon(icon("plus", "#ffffff"))
+        self.btn_new.setIconSize(ICON_SIZE)
         self.btn_new.setFixedHeight(36)
         self.btn_new.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         create_row.addWidget(self.btn_new, 1)
 
         self.btn_import = QPushButton("Import")
         self.btn_import.setObjectName("profiles_import_btn")
+        self.btn_import.setIcon(icon("file-import", "#7486a6"))
+        self.btn_import.setIconSize(SMALL_ICON_SIZE)
         self.btn_import.setFixedHeight(36)
         create_row.addWidget(self.btn_import)
         left_layout.addLayout(create_row)
@@ -183,10 +188,14 @@ class ProfilesPage(QWidget):
         management_row.setSpacing(6)
         self.btn_duplicate = QPushButton("Copy")
         self.btn_duplicate.setObjectName("profiles_manage_btn")
+        self.btn_duplicate.setIcon(icon("copy", "#7486a6"))
+        self.btn_duplicate.setIconSize(SMALL_ICON_SIZE)
         self.btn_duplicate.setFixedHeight(32)
         management_row.addWidget(self.btn_duplicate)
         self.btn_rename = QPushButton("Rename")
         self.btn_rename.setObjectName("profiles_manage_btn")
+        self.btn_rename.setIcon(icon("pen", "#7486a6"))
+        self.btn_rename.setIconSize(SMALL_ICON_SIZE)
         self.btn_rename.setFixedHeight(32)
         management_row.addWidget(self.btn_rename)
         management_row.addStretch(1)
@@ -201,10 +210,14 @@ class ProfilesPage(QWidget):
         portable_row.setSpacing(6)
         self.btn_export = QPushButton("Export")
         self.btn_export.setObjectName("profiles_export_btn")
+        self.btn_export.setIcon(icon("file-export", "#7486a6"))
+        self.btn_export.setIconSize(SMALL_ICON_SIZE)
         self.btn_export.setFixedHeight(32)
         portable_row.addWidget(self.btn_export)
         self.btn_delete = QPushButton("Delete")
         self.btn_delete.setObjectName("profiles_delete_btn")
+        self.btn_delete.setIcon(icon("trash", "#ff7777"))
+        self.btn_delete.setIconSize(SMALL_ICON_SIZE)
         self.btn_delete.setFixedHeight(32)
         portable_row.addWidget(self.btn_delete)
         left_layout.addLayout(portable_row)
@@ -239,10 +252,14 @@ class ProfilesPage(QWidget):
         image_actions.setSpacing(5)
         self.btn_set_image = QPushButton("Set photo")
         self.btn_set_image.setObjectName("profiles_set_image_btn")
+        self.btn_set_image.setIcon(icon("camera", "#7486a6"))
+        self.btn_set_image.setIconSize(SMALL_ICON_SIZE)
         self.btn_set_image.setFixedHeight(28)
         image_actions.addWidget(self.btn_set_image)
-        self.btn_remove_image = QPushButton("×")
+        self.btn_remove_image = QPushButton()
         self.btn_remove_image.setObjectName("profiles_remove_image_btn")
+        self.btn_remove_image.setIcon(icon("xmark", "#ff7777"))
+        self.btn_remove_image.setIconSize(SMALL_ICON_SIZE)
         self.btn_remove_image.setFixedSize(28, 28)
         self.btn_remove_image.setToolTip("Remove profile image")
         image_actions.addWidget(self.btn_remove_image)
@@ -287,6 +304,8 @@ class ProfilesPage(QWidget):
         desc_btn_row.addStretch(1)
         self.btn_save_desc = QPushButton("Save description")
         self.btn_save_desc.setObjectName("profiles_save_desc_btn")
+        self.btn_save_desc.setIcon(icon("floppy-disk", "#7486a6"))
+        self.btn_save_desc.setIconSize(SMALL_ICON_SIZE)
         self.btn_save_desc.setFixedHeight(30)
         self.btn_save_desc.setEnabled(False)
         desc_btn_row.addWidget(self.btn_save_desc)
@@ -317,7 +336,7 @@ class ProfilesPage(QWidget):
         summary_layout = QVBoxLayout(summary_card)
         summary_layout.setContentsMargins(16, 14, 16, 14)
         summary_layout.setSpacing(8)
-        summary_title = QLabel("Settings summary")
+        summary_title = QLabel("Settings Summary")
         summary_title.setObjectName("profileSectionTitle")
         summary_layout.addWidget(summary_title)
         self.detail_summary = QTextEdit()
@@ -392,6 +411,12 @@ class ProfilesPage(QWidget):
                 item.setFont(font)
                 item.setToolTip(self._t("Active profile"))
             item.setText(name)
+            item.setIcon(
+                icon(
+                    "circle-check" if name == active else "id-card",
+                    "#70d5ae" if name == active else "#7486a6",
+                )
+            )
 
             self.profile_list.addItem(item)
 
@@ -419,7 +444,7 @@ class ProfilesPage(QWidget):
         self.avatar.set_initial(name)
 
         if name == active_name:
-            self.detail_status.setText(f"●  {self._t('Active profile')}")
+            self.detail_status.setText(self._t("Active profile"))
             self.detail_status.setProperty("active", True)
         else:
             self.detail_status.setText("")
@@ -449,8 +474,12 @@ class ProfilesPage(QWidget):
         self.detail_summary.setPlainText(self._format_summary(data))
 
         self.btn_load.setEnabled(True)
+        self.btn_load.setIcon(
+            icon("check" if name == active_name else "bolt", "#ffffff")
+        )
+        self.btn_load.setIconSize(SMALL_ICON_SIZE)
         self.btn_load.setText(
-            self._t("✓ Active") if name == active_name else self._t("Activate Profile")
+            self._t("Active") if name == active_name else self._t("Activate Profile")
         )
 
     def _clear_detail(self) -> None:
@@ -463,6 +492,8 @@ class ProfilesPage(QWidget):
         self.detail_modified.setText(f"{self._t('Modified')}: —")
         self.detail_summary.clear()
         self.btn_load.setEnabled(False)
+        self.btn_load.setIcon(icon("bolt", "#ffffff"))
+        self.btn_load.setIconSize(SMALL_ICON_SIZE)
         self.btn_load.setText(self._t("Activate Profile"))
         self.avatar.clear_image()
         self.avatar.set_initial("?")

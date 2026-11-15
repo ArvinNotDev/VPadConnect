@@ -32,6 +32,7 @@ datas = [
 
 binaries = collect_dynamic_libs("vgamepad")
 datas += collect_data_files("vgamepad")
+datas += collect_data_files("qtawesome")
 
 hiddenimports = [
     "hid",

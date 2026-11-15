@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from ui.icons import SMALL_ICON_SIZE, icon
 
 
 class MobilePairingDialog(QDialog):
@@ -308,6 +309,8 @@ class MobilePairingDialog(QDialog):
         code_row.addWidget(self.code, 1)
 
         self.copy_code = QPushButton("Copy code")
+        self.copy_code.setIcon(icon("copy"))
+        self.copy_code.setIconSize(SMALL_ICON_SIZE)
         self.copy_code.clicked.connect(self._copy_code)
         code_row.addWidget(self.copy_code)
         code_layout.addLayout(code_row)
@@ -336,6 +339,8 @@ class MobilePairingDialog(QDialog):
         url_layout.addWidget(self.url)
 
         self.copy_url = QPushButton("Copy pairing link")
+        self.copy_url.setIcon(icon("link"))
+        self.copy_url.setIconSize(SMALL_ICON_SIZE)
         self.copy_url.clicked.connect(self._copy_url)
         url_layout.addWidget(self.copy_url)
         details.addWidget(url_card)
@@ -360,12 +365,16 @@ class MobilePairingDialog(QDialog):
         fingerprint_layout.addWidget(self.fingerprint)
 
         self.copy_fingerprint = QPushButton("Copy fingerprint")
+        self.copy_fingerprint.setIcon(icon("copy"))
+        self.copy_fingerprint.setIconSize(SMALL_ICON_SIZE)
         self.copy_fingerprint.clicked.connect(self._copy_fingerprint)
         fingerprint_layout.addWidget(self.copy_fingerprint)
         details.addWidget(fingerprint_card)
 
         self.new_code = QPushButton("Generate a new QR code")
         self.new_code.setObjectName("pairPrimary")
+        self.new_code.setIcon(icon("qrcode", "#ffffff"))
+        self.new_code.setIconSize(SMALL_ICON_SIZE)
         self.new_code.clicked.connect(self._generate_new_code)
         details.addWidget(self.new_code)
         details.addStretch(1)
@@ -377,12 +386,16 @@ class MobilePairingDialog(QDialog):
         footer = QHBoxLayout()
         footer.addStretch(1)
         self.retry = QPushButton("Retry server")
+        self.retry.setIcon(icon("rotate-right"))
+        self.retry.setIconSize(SMALL_ICON_SIZE)
         self.retry.hide()
         self.retry.clicked.connect(self._retry_server)
         footer.addWidget(self.retry)
 
         self.cancel = QPushButton("Cancel")
         self.cancel.setObjectName("pairCancel")
+        self.cancel.setIcon(icon("xmark"))
+        self.cancel.setIconSize(SMALL_ICON_SIZE)
         self.cancel.clicked.connect(self.reject)
         footer.addWidget(self.cancel)
         root.addLayout(footer)
