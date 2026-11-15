@@ -15,14 +15,16 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QSizeGrip,
 )
-from PySide6.QtCore import Qt, QUrl, QSize, Signal
+from PySide6.QtCore import QEvent, Qt, QUrl, QSize, Signal
 from PySide6.QtGui import (
     QDesktopServices, QIcon, QAction, QActionGroup, QPixmap, QPainter,
     QBrush, QPen, QColor, QFont,
+    QCursor,
 )
 
 from ui.theme_manager import ThemeManager
 from ui.animations import AnimatedStackedWidget, AnimatedTabBar, ButtonHoverAnimations
+from ui.cursor_spotlight import CursorSpotlight
 from ui.icons import ICON_SIZE, icon
 from ui.pages.controller_emulation import ControllerEmulation
 from ui.pages.controllers import ControllersPage
@@ -334,6 +336,13 @@ class MainWindow(QMainWindow):
         # The controller/input logic and button click handlers remain unchanged.
         self._button_hover_animations = ButtonHoverAnimations(self)
 
+        self._cursor_spotlight = CursorSpotlight(central)
+        self._cursor_spotlight.setGeometry(central.rect())
+        self._cursor_spotlight.lower()
+        for widget in (self, *self.findChildren(QWidget)):
+            widget.setMouseTracking(True)
+        app.installEventFilter(self)
+
         # Tray
         self.tray_icon: QSystemTrayIcon | None = None
         if QSystemTrayIcon.isSystemTrayAvailable():
@@ -345,6 +354,8 @@ class MainWindow(QMainWindow):
         super().resizeEvent(event)
         if not self._screen_adjusting and not self.isMaximized():
             self._preferred_window_size = event.size()
+        if hasattr(self, "_cursor_spotlight"):
+            self._cursor_spotlight.setGeometry(self.centralWidget().rect())
         if hasattr(self, "_main_layout"):
             compact = self.width() < 1000
             self._main_layout.setContentsMargins(
@@ -363,6 +374,41 @@ class MainWindow(QMainWindow):
                 handle.screenChanged.connect(self._on_screen_changed)
                 self._screen_signal_connected = True
             self._on_screen_changed(handle.screen() or self.screen())
+
+    def hideEvent(self, event) -> None:
+        if hasattr(self, "_cursor_spotlight"):
+            self._cursor_spotlight.hide_spotlight()
+        super().hideEvent(event)
+
+    def eventFilter(self, watched, event):
+        if isinstance(watched, QWidget) and self._widget_is_in_window(watched):
+            if event.type() == QEvent.Type.Show:
+                watched.setMouseTracking(True)
+            elif event.type() == QEvent.Type.MouseMove:
+                global_position = event.globalPosition().toPoint()
+                target = QApplication.widgetAt(global_position)
+                if self._widget_is_in_window(target):
+                    central = self.centralWidget()
+                    local_position = central.mapFromGlobal(global_position)
+                    if central.rect().contains(local_position):
+                        self._cursor_spotlight.set_target(local_position)
+                    else:
+                        self._cursor_spotlight.hide_spotlight()
+                else:
+                    self._cursor_spotlight.hide_spotlight()
+            elif event.type() == QEvent.Type.Leave:
+                target = QApplication.widgetAt(QCursor.pos())
+                if not self._widget_is_in_window(target):
+                    self._cursor_spotlight.hide_spotlight()
+        return super().eventFilter(watched, event)
+
+    def _widget_is_in_window(self, widget) -> bool:
+        current = widget
+        while isinstance(current, QWidget):
+            if current is self:
+                return True
+            current = current.parentWidget()
+        return False
 
     def _track_screen(self, screen) -> None:
         if screen is None or screen in self._tracked_screens:
