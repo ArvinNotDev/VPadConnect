@@ -145,6 +145,9 @@ class MainWindow(QMainWindow):
         self._brand_mark.setObjectName("brand_mark")
         self._brand_mark.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._brand_mark.setFixedSize(42, 42)
+        self._brand_mark.setAttribute(
+            Qt.WidgetAttribute.WA_TransparentForMouseEvents, True
+        )
         logo = QPixmap(str(resource_path("ui", "assets", "vpadconnect-icon.png")))
         if not logo.isNull():
             self._brand_mark.setPixmap(logo.scaled(
@@ -159,6 +162,9 @@ class MainWindow(QMainWindow):
 
         brand_title = QLabel("VPadConnect")
         brand_title.setObjectName("brand_title")
+        brand_title.setAttribute(
+            Qt.WidgetAttribute.WA_TransparentForMouseEvents, True
+        )
         header_layout.addWidget(brand_title)
         header_layout.addStretch(1)
 
@@ -175,6 +181,9 @@ class MainWindow(QMainWindow):
         avatar_layout.setSpacing(8)
 
         self._sidebar_avatar = _SidebarAvatar(30)
+        self._sidebar_avatar.setAttribute(
+            Qt.WidgetAttribute.WA_TransparentForMouseEvents, True
+        )
         avatar_layout.addWidget(self._sidebar_avatar, alignment=Qt.AlignmentFlag.AlignVCenter)
         profile_copy = QVBoxLayout()
         profile_copy.setContentsMargins(0, 0, 0, 0)
@@ -182,14 +191,23 @@ class MainWindow(QMainWindow):
         self._sidebar_profile_name = QLabel("")
         self._sidebar_profile_name.setObjectName("sidebar_profile_name")
         self._sidebar_profile_name.setMinimumWidth(150)
+        self._sidebar_profile_name.setAttribute(
+            Qt.WidgetAttribute.WA_TransparentForMouseEvents, True
+        )
         self._sidebar_profile_label = QLabel("No profile active")
         self._sidebar_profile_label.setObjectName("sidebar_profile_label")
         self._sidebar_profile_label.setMinimumWidth(150)
+        self._sidebar_profile_label.setAttribute(
+            Qt.WidgetAttribute.WA_TransparentForMouseEvents, True
+        )
         profile_copy.addWidget(self._sidebar_profile_name)
         profile_copy.addWidget(self._sidebar_profile_label)
         avatar_layout.addLayout(profile_copy)
         self._profile_dropdown_chevron = QLabel("▾")
         self._profile_dropdown_chevron.setObjectName("profile_dropdown_chevron")
+        self._profile_dropdown_chevron.setAttribute(
+            Qt.WidgetAttribute.WA_TransparentForMouseEvents, True
+        )
         avatar_layout.addWidget(self._profile_dropdown_chevron)
         self._profile_selector_menu = QMenu(self)
         self._profile_selector_menu.setObjectName("profile_selector_menu")
@@ -770,15 +788,24 @@ class _DraggableTitleBar(QWidget):
         super().__init__(parent)
         self._window = window
         self._drag_offset = None
+        self._native_move_started = False
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton and not self._window.isMaximized():
+            handle = self._window.windowHandle()
+            if handle is not None and handle.startSystemMove():
+                self._native_move_started = True
+                event.accept()
+                return
             self._drag_offset = event.globalPosition().toPoint() - self._window.frameGeometry().topLeft()
             event.accept()
             return
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
+        if getattr(self, "_native_move_started", False):
+            event.accept()
+            return
         if self._drag_offset is not None and event.buttons() & Qt.MouseButton.LeftButton:
             cursor_position = event.globalPosition().toPoint()
             target_position = cursor_position - self._drag_offset
@@ -812,6 +839,7 @@ class _DraggableTitleBar(QWidget):
 
     def mouseReleaseEvent(self, event):
         self._drag_offset = None
+        self._native_move_started = False
         super().mouseReleaseEvent(event)
 
     def mouseDoubleClickEvent(self, event):
