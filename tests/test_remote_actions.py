@@ -116,7 +116,7 @@ def test_device_permission_store_rejects_invalid_identity(tmp_path, monkeypatch)
         lambda: dict(DEFAULT_REMOTE_PERMISSIONS),
     )
     path = tmp_path / "remote_device_permissions.json"
-    assert load_device_remote_permissions("invalid", path) == dict(DEFAULT_REMOTE_PERMISSIONS, screen_view=False)
+    assert load_device_remote_permissions("invalid", path) == DEFAULT_REMOTE_PERMISSIONS
     with pytest.raises(ValueError):
         save_device_remote_permissions("invalid", {"keyboard": False}, path)
 

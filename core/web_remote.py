@@ -269,7 +269,6 @@ class WebRemoteServer:
             if session is None or session.get("closed", False):
                 return False
             device_id = str(session.get("device_id") or "")
-            current_permissions = session.get("permissions") or {}
             normalized = dict(DEFAULT_REMOTE_PERMISSIONS)
             for name in normalized:
                 value = permissions.get(name)
@@ -397,7 +396,7 @@ class WebRemoteServer:
             streams = []
             seen: set[int] = set()
             for session in self._sessions.values():
-                for stream in (session.get("stream_ws")):
+                for stream in (session.get("stream_ws"),):
                     if stream is not None and id(stream) not in seen:
                         seen.add(id(stream))
                         streams.append(stream)
@@ -441,7 +440,7 @@ class WebRemoteServer:
                         getattr(mapper, method_name)()
                     except Exception:
                         pass
-            for stream in (session.get("stream_ws")):
+            for stream in (session.get("stream_ws"),):
                 if stream is not None:
                     try:
                         stream.close(reason=1001, message=b"Session disconnected")
