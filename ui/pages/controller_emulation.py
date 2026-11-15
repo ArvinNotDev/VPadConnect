@@ -963,6 +963,7 @@ class RemoteDeviceRow(QWidget):
 class ControllerEmulation(QWidget):
     vigem_recheck_requested = Signal()
     raw_hid_report = Signal(str, bytes)
+    notification_requested = Signal(str, str, str)
 
     def __init__(
         self, settings, controllers_page, hotkey_page, *,
@@ -1511,6 +1512,8 @@ class ControllerEmulation(QWidget):
         if not path or path in self.mappers:
             return False
 
+        reconnecting = bool(record and record.get("waiting"))
+
         try:
             controller = hid.hid_manager.start_polling(
                 device.get("vendor_id"),
@@ -1548,10 +1551,14 @@ class ControllerEmulation(QWidget):
             "last_device": device,
             "path": path,
             "waiting": False,
+            "battery_state": None,
+            "low_battery_notified": False,
         }
         record["last_device"] = device
         record["path"] = path
         record["waiting"] = False
+        record["battery_state"] = None
+        record["low_battery_notified"] = False
         self._mapping_records[key] = record
         self._path_records[path] = key
         self.mappers[path] = mapper
@@ -1577,6 +1584,12 @@ class ControllerEmulation(QWidget):
         mapper.start()
         widget.set_connection_state(True)
         widget.set_battery(None)
+        if reconnecting:
+            self.notification_requested.emit(
+                "Controller reconnected",
+                f"{self._controller_display_name(record)} is connected again.",
+                "success",
+            )
         return True
 
     def _stop_mapping(self, path: str) -> None:
@@ -1638,8 +1651,39 @@ class ControllerEmulation(QWidget):
         if key is None:
             return
         record = self._mapping_records.get(key)
-        if record:
-            record["widget"].set_battery(percent, charging)
+        if not record or record.get("waiting"):
+            return
+
+        level = int(percent)
+        record["widget"].set_battery(level, charging)
+        controller_type = self._controller_type(record.get("last_device") or {})
+        if controller_type not in {"Dualsense", "Dualshock4"}:
+            return
+
+        if level <= 0 or level > 100:
+            # Unknown DualSense battery states decode to zero. Treat that value
+            # as unavailable so it cannot trigger false low-battery alerts.
+            return
+
+        previous = record.get("battery_state")
+        if level <= 5 and not record.get("low_battery_notified", False):
+            record["low_battery_notified"] = True
+            self.notification_requested.emit(
+                "Low controller battery",
+                f"{self._controller_display_name(record)} is at {level}% battery.",
+                "battery",
+            )
+        elif level > 5:
+            record["low_battery_notified"] = False
+
+        if previous is not None and not previous[1] and bool(charging):
+            self.notification_requested.emit(
+                "Charging started",
+                f"{self._controller_display_name(record)} is charging.",
+                "charging",
+            )
+
+        record["battery_state"] = (level, bool(charging))
 
     def _on_device_error(self, path: str, message: str) -> None:
         key = self._path_records.get(path)
@@ -1649,16 +1693,34 @@ class ControllerEmulation(QWidget):
         record = self._mapping_records.get(key)
         if not record:
             return
+        if record.get("waiting"):
+            return
 
         logger.warning("Controller device lost at %s: %s", path, message)
+        self.notification_requested.emit(
+            "Controller disconnected",
+            f"{self._controller_display_name(record)} disconnected.",
+            "warning",
+        )
         self._stop_mapping(path)
         self._stop_lightbar_output(path)
         record["waiting"] = True
         record["path"] = None
+        record["battery_state"] = None
+        record["low_battery_notified"] = False
         record["widget"].set_connection_state(False)
         record["widget"].set_battery(None)
         if self._auto_reconnect_enabled():
             self._ensure_reconnect_timer()
+
+    @staticmethod
+    def _controller_display_name(record: dict) -> str:
+        return str(
+            record.get("hid_choice")
+            or getattr(record.get("widget"), "hid", None)
+            or (record.get("last_device") or {}).get("product_string")
+            or "Controller"
+        )
 
     def _ensure_reconnect_timer(self) -> None:
         if not self._reconnect_timer_active:

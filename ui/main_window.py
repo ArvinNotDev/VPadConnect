@@ -26,6 +26,7 @@ from ui.theme_manager import ThemeManager
 from ui.animations import AnimatedStackedWidget, AnimatedTabBar, ButtonHoverAnimations
 from ui.cursor_spotlight import CursorSpotlight
 from ui.icons import ICON_SIZE, icon
+from ui.notifications import StatusToast
 from ui.pages.controller_emulation import ControllerEmulation
 from ui.pages.controllers import ControllersPage
 from ui.pages.settings import SettingsPage
@@ -278,6 +279,9 @@ class MainWindow(QMainWindow):
             self.settings, controllers_page, hotkey_page,
             vigem_available=self.vigem_available,
         )
+        self.controller_emulation_page.notification_requested.connect(
+            self._show_status_notification
+        )
         self.controller_emulation_page.vigem_recheck_requested.connect(
             self._refresh_vigem_status
         )
@@ -357,6 +361,7 @@ class MainWindow(QMainWindow):
         self._cursor_spotlight = CursorSpotlight(central)
         self._cursor_spotlight.setGeometry(central.rect())
         self._cursor_spotlight.lower()
+        self._status_toast = StatusToast(self)
         for widget in (self, *self.findChildren(QWidget)):
             widget.setMouseTracking(True)
         app.installEventFilter(self)
@@ -374,6 +379,8 @@ class MainWindow(QMainWindow):
             self._preferred_window_size = event.size()
         if hasattr(self, "_cursor_spotlight"):
             self._cursor_spotlight.setGeometry(self.centralWidget().rect())
+        if hasattr(self, "_status_toast"):
+            self._status_toast.reposition()
         if hasattr(self, "_main_layout"):
             compact = self.width() < 1000
             self._main_layout.setContentsMargins(
@@ -397,6 +404,19 @@ class MainWindow(QMainWindow):
         if hasattr(self, "_cursor_spotlight"):
             self._cursor_spotlight.hide_spotlight()
         super().hideEvent(event)
+
+    def _show_status_notification(
+        self, title: str, message: str, kind: str = "success"
+    ) -> None:
+        if (not self.isVisible() or self.isMinimized()) and self.tray_icon is not None:
+            self.tray_icon.showMessage(
+                title,
+                message,
+                QSystemTrayIcon.MessageIcon.Information,
+                StatusToast.DISPLAY_MS,
+            )
+            return
+        self._status_toast.notify(title, message, kind)
 
     def eventFilter(self, watched, event):
         if isinstance(watched, QWidget) and self._widget_is_in_window(watched):
