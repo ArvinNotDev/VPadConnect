@@ -43,6 +43,44 @@ class _WheelSafeSlider(QSlider):
         event.ignore()
 
 
+
+
+
+def _numeric_stepper(control: QAbstractSpinBox) -> QHBoxLayout:
+    """Build a compact custom decrement/increment control for a numeric setting."""
+    control.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
+    control.setFixedWidth(112)
+    control.setFixedHeight(36)
+
+    row = QHBoxLayout()
+    row.setContentsMargins(0, 0, 0, 0)
+    row.setSpacing(5)
+    row.addWidget(control)
+
+    for symbol, direction, accessible_name in (
+        ("−", -1, "Decrease setting"),
+        ("+", 1, "Increase setting"),
+    ):
+        button = QPushButton(symbol)
+        button.setObjectName("settings_stepper_button")
+        button.setFixedSize(32, 32)
+        button.setCursor(Qt.CursorShape.PointingHandCursor)
+        button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        button.setAutoDefault(False)
+        button.setDefault(False)
+        button.setToolTip(accessible_name)
+        button.setAccessibleName(accessible_name)
+        button.clicked.connect(
+            lambda _checked=False, step=direction: control.setValue(
+                control.value() + control.singleStep() * step
+            )
+        )
+        row.addWidget(button)
+
+    row.addStretch(1)
+    return row
+
+
 class SettingsPage(QWidget):
     vibration_enabled_changed = Signal(bool)
     raw_hid_monitor_state_changed = Signal(bool)
@@ -87,6 +125,22 @@ class SettingsPage(QWidget):
             QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 5px; }
             QCheckBox { padding: 5px 2px; spacing: 9px; }
             QSlider { min-height: 24px; }
+            QPushButton#settings_stepper_button {
+                color: #dceaff;
+                background: rgba(79, 120, 180, 22%);
+                border: 1px solid rgba(133, 193, 255, 34%);
+                border-radius: 9px;
+                font-size: 17px;
+                font-weight: 800;
+                padding: 0;
+            }
+            QPushButton#settings_stepper_button:hover {
+                background: rgba(79, 145, 220, 42%);
+                border-color: rgba(133, 193, 255, 75%);
+            }
+            QPushButton#settings_stepper_button:pressed {
+                background: rgba(55, 110, 185, 55%);
+            }
             QPushButton#settings_primary { min-height: 36px; padding: 7px 15px; border-radius: 9px; }
             QPushButton#settings_secondary { min-height: 36px; padding: 7px 12px; border-radius: 9px; }
             QLabel#settings_page_heading { font-size: 19px; font-weight: 750; padding: 5px 0 2px; }
@@ -142,10 +196,8 @@ class SettingsPage(QWidget):
         # Input poll interval
         poll_row = QHBoxLayout()
         self.spin_poll = _WheelSafeSpinBox()
-        self.spin_poll.setButtonSymbols(QAbstractSpinBox.UpDownArrows)
         self.spin_poll.setRange(1, 1000)
-        self.spin_poll.setFixedWidth(110)
-        poll_row.addWidget(self.spin_poll)
+        poll_row.addLayout(_numeric_stepper(self.spin_poll))
         poll_row.addStretch()
         device_form.addRow("Input poll interval (ms)", poll_row)
 
@@ -168,12 +220,10 @@ class SettingsPage(QWidget):
         # Mouse sensitivity
         sens_row = QHBoxLayout()
         self.spin_mouse_sens = _WheelSafeDoubleSpinBox()
-        self.spin_mouse_sens.setButtonSymbols(QAbstractSpinBox.UpDownArrows)
         self.spin_mouse_sens.setRange(0.1, 10.0)
         self.spin_mouse_sens.setSingleStep(0.1)
         self.spin_mouse_sens.setDecimals(2)
-        self.spin_mouse_sens.setFixedWidth(110)
-        sens_row.addWidget(self.spin_mouse_sens)
+        sens_row.addLayout(_numeric_stepper(self.spin_mouse_sens))
         sens_row.addStretch()
         device_form.addRow("Mouse sensitivity", sens_row)
 
