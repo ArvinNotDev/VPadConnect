@@ -6,7 +6,7 @@ from typing import Optional, Tuple
 from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QLabel, QListWidget, QPushButton,
     QDialog, QListWidgetItem, QSizePolicy, QMessageBox, QFrame, QCheckBox,
-    QColorDialog, QDialogButtonBox
+    QColorDialog, QDialogButtonBox, QSplitter
 )
 from PySide6.QtCore import Qt, Signal, Slot, QTimer, QThread, QObject, QUrl
 from PySide6.QtGui import QDesktopServices, QColor
@@ -951,9 +951,26 @@ class ControllerEmulation(QWidget):
         self.vigem_gate.set_vigem_available(
             is_vigem_installed() if vigem_available is None else vigem_available
         )
-        layout_dashboard.addWidget(self.vigem_gate, 1)
-        # HidHide is an independent optional feature and stays usable without XInput.
-        layout_dashboard.addWidget(self.hidhide_card)
+        self.content_splitter = QSplitter(Qt.Orientation.Vertical, self)
+        self.content_splitter.setObjectName("controllerContentSplitter")
+        self.content_splitter.setChildrenCollapsible(False)
+        self.content_splitter.setCollapsible(0, False)
+        self.content_splitter.setCollapsible(1, False)
+        self.content_splitter.setHandleWidth(7)
+        self.content_splitter.addWidget(self.vigem_gate)
+        # HidHide remains available without XInput and can be resized or collapsed.
+        self.content_splitter.addWidget(self.hidhide_card)
+        self.content_splitter.setStretchFactor(0, 5)
+        self.content_splitter.setStretchFactor(1, 1)
+        self.content_splitter.setSizes([520, 58])
+        self.content_splitter.setStyleSheet(
+            "QSplitter::handle:vertical { "
+            "background: rgba(133, 193, 255, 38%); "
+            "height: 7px; margin: 1px 120px; border-radius: 3px; } "
+            "QSplitter::handle:vertical:hover { "
+            "background: rgba(133, 193, 255, 85%); }"
+        )
+        layout_dashboard.addWidget(self.content_splitter, 1)
 
     def set_vigem_available(self, available: bool) -> None:
         self.vigem_gate.set_vigem_available(available)
