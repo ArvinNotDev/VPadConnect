@@ -175,8 +175,8 @@ class HidHideCard(QFrame):
         self._expanded = False
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(16, 14, 16, 14)
-        root.setSpacing(8)
+        root.setContentsMargins(10, 7, 10, 7)
+        root.setSpacing(5)
 
         header = QHBoxLayout()
         header.setSpacing(10)
