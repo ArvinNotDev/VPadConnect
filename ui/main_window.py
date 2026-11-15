@@ -45,12 +45,11 @@ class MainWindow(QMainWindow):
     WINDOW_TITLE = APP_NAME
     WINDOW_WIDTH = 1180
     WINDOW_HEIGHT = 760
-    NAV_PAGE_INDICES = (0, 1, 3)
+    NAV_PAGE_INDICES = (0, 1, 3, 4)
     IDX_CONTROLLER_EMULATION = 0
     IDX_HOTKEY = 1
     IDX_INPUT_TEST = 2
     IDX_PROFILES_PAGE = 2
-    IDX_SETTINGS_PAGE = 4
 
     def __init__(self, app: QApplication) -> None:
         super().__init__()
@@ -179,15 +178,6 @@ class MainWindow(QMainWindow):
         avatar_layout.addLayout(profile_copy)
         header_layout.addWidget(self._avatar_container)
 
-        self._settings_button = QPushButton("⚙")
-        self._settings_button.setObjectName("settings_gear")
-        self._settings_button.setToolTip("Settings")
-        self._settings_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._settings_button.setFixedSize(38, 38)
-        self._settings_button.clicked.connect(
-            lambda: self._show_special_page(self.IDX_SETTINGS_PAGE)
-        )
-        header_layout.addWidget(self._settings_button)
         header_layout.addLayout(window_controls)
 
         main_layout.addWidget(header)
@@ -205,6 +195,7 @@ class MainWindow(QMainWindow):
         self.menu.addTab("Controller Emulation")
         self.menu.addTab("Hotkeys")
         self.menu.addTab("Input Test")
+        self.menu.addTab("Settings")
         self.menu.setMinimumHeight(38)
         self.menu.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
 
@@ -224,7 +215,7 @@ class MainWindow(QMainWindow):
         navigation_layout.addWidget(self.donate_button, 0, Qt.AlignmentFlag.AlignRight)
         main_layout.addWidget(navigation_row)
 
-        # Pages are kept in one stack; Profiles and Settings open from the title bar.
+        # Pages are kept in one stack; Profiles open from the title bar.
         self.pages = AnimatedStackedWidget()
         self.pages.setObjectName("content_stack")
 
