@@ -171,7 +171,8 @@ class HidHideCard(QFrame):
 
         self.setObjectName("hidhideCard")
         self.setFrameShape(QFrame.StyledPanel)
-        self.setMinimumHeight(156)
+        self.setMinimumHeight(0)
+        self._expanded = False
 
         root = QVBoxLayout(self)
         root.setContentsMargins(16, 14, 16, 14)
@@ -188,14 +189,27 @@ class HidHideCard(QFrame):
         self.status.setObjectName("hidhideStatus")
         self.status.setWordWrap(True)
         header.addWidget(self.status, 1)
+
+        self.toggle_button = QPushButton("▸")
+        self.toggle_button.setObjectName("hidhideToggle")
+        self.toggle_button.setFixedSize(30, 30)
+        self.toggle_button.setToolTip("Expand HidHide controls")
+        self.toggle_button.setAccessibleName("Expand HidHide controls")
+        self.toggle_button.clicked.connect(self._toggle_expanded)
+        header.addWidget(self.toggle_button)
         root.addLayout(header)
+
+        self._content = QWidget(self)
+        content_layout = QVBoxLayout(self._content)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setSpacing(8)
 
         self.detail = QLabel(
             "Hide each physical controller independently. VPadConnect stays whitelisted so it can continue reading hidden controllers."
         )
         self.detail.setObjectName("hidhideDetail")
         self.detail.setWordWrap(True)
-        root.addWidget(self.detail)
+        content_layout.addWidget(self.detail)
 
         actions = QHBoxLayout()
         actions.setSpacing(8)
@@ -222,13 +236,15 @@ class HidHideCard(QFrame):
         )
         actions.addWidget(self.open_link_button)
         actions.addStretch(1)
-        root.addLayout(actions)
+        content_layout.addLayout(actions)
 
         self.devices_container = QWidget(self)
         self.devices_layout = QVBoxLayout(self.devices_container)
         self.devices_layout.setContentsMargins(0, 2, 0, 0)
         self.devices_layout.setSpacing(6)
-        root.addWidget(self.devices_container)
+        content_layout.addWidget(self.devices_container)
+        root.addWidget(self._content)
+        self._content.setVisible(False)
 
         self._apply_style()
 
@@ -278,6 +294,19 @@ class HidHideCard(QFrame):
                 color: #cbd5e1;
                 background: rgba(148, 163, 184, 16%);
             }
+            QPushButton#hidhideToggle {
+                background: rgba(133, 193, 255, 10%);
+                color: #a9cfff;
+                border: 1px solid rgba(133, 193, 255, 28%);
+                border-radius: 8px;
+                font-size: 16px;
+                font-weight: 800;
+                padding: 0;
+            }
+            QPushButton#hidhideToggle:hover {
+                background: rgba(133, 193, 255, 18%);
+                border-color: rgba(133, 193, 255, 60%);
+            }
             QPushButton#hidhidePrimary {
                 background: #5390ff;
                 color: white;
@@ -309,6 +338,14 @@ class HidHideCard(QFrame):
             }
             """
         )
+
+    def _toggle_expanded(self) -> None:
+        self._expanded = not self._expanded
+        self._content.setVisible(self._expanded)
+        self.toggle_button.setText("▾" if self._expanded else "▸")
+        action = "Collapse" if self._expanded else "Expand"
+        self.toggle_button.setToolTip(f"{action} HidHide controls")
+        self.toggle_button.setAccessibleName(f"{action} HidHide controls")
 
     def _set_status(self, text: str):
         self.status.setText(text)
