@@ -399,10 +399,15 @@ test("desktop QR link pre-fills its pairing code and verifies its fingerprint", 
 
   const pairRequest = harness.calls.find(({ url }) => url === "/api/pair");
   assert.ok(pairRequest);
-  assert.deepEqual(JSON.parse(pairRequest.options.body), {
-    code: "123456",
-    name: "Web Controller",
-  });
+  const pairPayload = JSON.parse(pairRequest.options.body);
+  assert.deepEqual(Object.keys(pairPayload).sort(), ["code", "device_id", "name"]);
+  assert.equal(pairPayload.code, "123456");
+  assert.equal(pairPayload.name, "Web Controller");
+  assert.match(pairPayload.device_id, /^[a-f0-9]{32}$/);
+  assert.equal(
+    pairPayload.device_id,
+    harness.preferenceValues.get("vpadconnect.companion.id"),
+  );
   assert.equal(harness.window.confirmCalls, 0);
   assert.equal(harness.sessionValues.get("ib.web.token"), "paired-session-token");
 });
