@@ -8,7 +8,10 @@ from PySide6.QtWidgets import (
     QDialog, QListWidgetItem, QSizePolicy, QMessageBox, QFrame, QCheckBox,
     QColorDialog, QDialogButtonBox, QSplitter
 )
-from PySide6.QtCore import Qt, Signal, Slot, QTimer, QThread, QObject, QUrl
+from PySide6.QtCore import (
+    Qt, Signal, Slot, QTimer, QThread, QObject, QUrl, QEasingCurve,
+    QPropertyAnimation,
+)
 from PySide6.QtGui import QDesktopServices, QColor
 
 from ui.pages.modal.add_controller import AddControllerDialog
@@ -27,6 +30,7 @@ from core.dualsense_lightbar import (
 from ui.i18n import tr
 from core.vigem import is_vigem_installed
 from ui.vigem_gate import VigemGate
+from ui.animations import animations_enabled
 
 from core.hidhide import HIDHIDE_RELEASES_URL, HidHideError, HidHideManager
 
@@ -152,6 +156,20 @@ class HidHideDeviceRow(QFrame):
         self.toggle_requested.emit(self.hid_device)
 
 
+class _HidHideHeader(QWidget):
+    clicked = Signal()
+
+    def mouseReleaseEvent(self, event):
+        if (
+            event.button() == Qt.MouseButton.LeftButton
+            and self.rect().contains(event.position().toPoint())
+        ):
+            self.clicked.emit()
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
+
 class HidHideCard(QFrame):
     """Professional HidHide control with per-controller hide/unhide state."""
 
@@ -178,16 +196,25 @@ class HidHideCard(QFrame):
         root.setContentsMargins(10, 7, 10, 7)
         root.setSpacing(5)
 
-        header = QHBoxLayout()
+        header_widget = _HidHideHeader(self)
+        self.header_widget = header_widget
+        header_widget.setObjectName("hidhideHeader")
+        header_widget.setCursor(Qt.CursorShape.PointingHandCursor)
+        header_widget.setProperty("expanded", False)
+        header_widget.clicked.connect(self._toggle_expanded)
+        header = QHBoxLayout(header_widget)
+        header.setContentsMargins(0, 0, 0, 0)
         header.setSpacing(10)
 
         title = QLabel("HidHide")
         title.setObjectName("hidhideTitle")
+        title.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         header.addWidget(title)
 
         self.status = QLabel("Click HidHide to detect the driver.")
         self.status.setObjectName("hidhideStatus")
         self.status.setWordWrap(True)
+        self.status.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         header.addWidget(self.status, 1)
 
         self.toggle_button = QPushButton("▸")
@@ -197,9 +224,10 @@ class HidHideCard(QFrame):
         self.toggle_button.setAccessibleName("Expand HidHide controls")
         self.toggle_button.clicked.connect(self._toggle_expanded)
         header.addWidget(self.toggle_button)
-        root.addLayout(header)
+        root.addWidget(header_widget)
 
         self._content = QWidget(self)
+        self._content_animation: QPropertyAnimation | None = None
         content_layout = QVBoxLayout(self._content)
         content_layout.setContentsMargins(0, 0, 0, 0)
         content_layout.setSpacing(8)
@@ -259,6 +287,15 @@ class HidHideCard(QFrame):
             QLabel#hidhideTitle {
                 font-size: 15px;
                 font-weight: 700;
+            }
+            QWidget#hidhideHeader {
+                border-radius: 8px;
+            }
+            QWidget#hidhideHeader:hover {
+                background: rgba(133, 193, 255, 5%);
+            }
+            QWidget#hidhideHeader[expanded="true"] {
+                background: rgba(133, 193, 255, 7%);
             }
             QLabel#hidhideStatus {
                 font-size: 12px;
@@ -341,11 +378,43 @@ class HidHideCard(QFrame):
 
     def _toggle_expanded(self) -> None:
         self._expanded = not self._expanded
-        self._content.setVisible(self._expanded)
+        self.header_widget.setProperty("expanded", self._expanded)
+        self.header_widget.style().unpolish(self.header_widget)
+        self.header_widget.style().polish(self.header_widget)
+        self.header_widget.update()
         self.toggle_button.setText("▾" if self._expanded else "▸")
         action = "Collapse" if self._expanded else "Expand"
         self.toggle_button.setToolTip(f"{action} HidHide controls")
         self.toggle_button.setAccessibleName(f"{action} HidHide controls")
+
+        if self._content_animation is not None:
+            self._content_animation.stop()
+
+        if not animations_enabled():
+            self._content.setVisible(self._expanded)
+            self._content.setMaximumHeight(16777215)
+            return
+
+        if self._expanded:
+            self._content.setMaximumHeight(0)
+            self._content.setVisible(True)
+            self._animate_content(0, max(1, self._content.sizeHint().height()))
+        else:
+            self._animate_content(self._content.height(), 0)
+
+    def _animate_content(self, start: int, end: int) -> None:
+        animation = QPropertyAnimation(self._content, b"maximumHeight", self)
+        animation.setDuration(170)
+        animation.setStartValue(start)
+        animation.setEndValue(end)
+        animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+        animation.finished.connect(self._finish_content_animation)
+        self._content_animation = animation
+        animation.start()
+
+    def _finish_content_animation(self) -> None:
+        self._content.setVisible(self._expanded)
+        self._content.setMaximumHeight(16777215)
 
     def _set_status(self, text: str):
         self.status.setText(text)
