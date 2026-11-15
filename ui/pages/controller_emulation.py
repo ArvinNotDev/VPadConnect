@@ -715,6 +715,7 @@ class RemoteDeviceRow(QWidget):
     """Controller-list row for one independently managed browser session."""
 
     disconnect_requested = Signal(str)
+    permissions_requested = Signal(str)
 
     def __init__(self, session: dict, parent=None):
         super().__init__(parent)
@@ -744,7 +745,17 @@ class RemoteDeviceRow(QWidget):
         )
         layout.addWidget(self.state_label)
 
-        self.delete_button = QPushButton("Delete")
+        self.permissions_button = QPushButton("Permissions")
+        self.permissions_button.setToolTip(
+            "Configure PC actions allowed for this mobile companion only"
+        )
+        self.permissions_button.setMinimumWidth(94)
+        self.permissions_button.clicked.connect(
+            lambda: self.permissions_requested.emit(self.session_id)
+        )
+        layout.addWidget(self.permissions_button)
+
+        self.delete_button = QPushButton("Disconnect")
         self.delete_button.setToolTip("Disconnect this phone and remove its virtual controller")
         self.delete_button.clicked.connect(
             lambda: self.disconnect_requested.emit(self.session_id)
@@ -757,7 +768,8 @@ class RemoteDeviceRow(QWidget):
 
     def set_busy(self, busy: bool) -> None:
         self.delete_button.setEnabled(not bool(busy))
-        self.delete_button.setText("Disconnecting…" if busy else "Delete")
+        self.permissions_button.setEnabled(not bool(busy))
+        self.delete_button.setText("Disconnecting…" if busy else "Disconnect")
 
 
 class ControllerEmulation(QWidget):
@@ -891,38 +903,11 @@ class ControllerEmulation(QWidget):
         controller_actions.addWidget(mobile_btn, 1)
         gamepad_layout.addLayout(controller_actions)
 
-        permissions_row = QHBoxLayout()
-        permissions_row.addStretch(1)
-        self.remote_permissions_button = QPushButton("Remote Permissions  ›")
-        self.remote_permissions_button.setObjectName("remotePermissionsAction")
-        self.remote_permissions_button.setToolTip(
-            "Manage which Windows actions connected phones are allowed to perform."
-        )
-        self.remote_permissions_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.remote_permissions_button.setEnabled(False)
-        self.remote_permissions_button.setMinimumHeight(32)
-        self.remote_permissions_button.setStyleSheet("""
-            QPushButton#remotePermissionsAction {
-                background:transparent;
-                color:#9eb7d5;
-                border:1px solid #30435f;
-                border-radius:8px;
-                padding:4px 12px;
-                font-size:11px;
-                font-weight:650;
-            }
-            QPushButton#remotePermissionsAction:hover:enabled {
-                background:#1a2a40;
-                color:#dceaff;
-                border-color:#4b6688;
-            }
-        """)
-        self.remote_permissions_button.clicked.connect(self._open_remote_permissions)
-        permissions_row.addWidget(self.remote_permissions_button)
-        gamepad_layout.addLayout(permissions_row)
-
         gamepad_layout.addWidget(emu_label)
-        gamepad_layout.addWidget(self.emu_list)
+        self.emu_list.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
+        gamepad_layout.addWidget(self.emu_list, 1)
 
         self.vigem_gate = VigemGate(gamepad_content)
         self.vigem_gate.recheck_requested.connect(self.vigem_recheck_requested.emit)
@@ -1061,7 +1046,6 @@ class ControllerEmulation(QWidget):
             except (RuntimeError, TypeError):
                 pass
         self.web_remote_service = service
-        self.remote_permissions_button.setEnabled(service is not None)
         if service is None:
             return
         service.mobile_session_added.connect(self._add_remote_device_row)
@@ -1069,9 +1053,9 @@ class ControllerEmulation(QWidget):
         for session in service.sessions_snapshot():
             self._add_remote_device_row(session)
 
-    def _open_remote_permissions(self) -> None:
+    def _open_remote_permissions(self, session_id: str) -> None:
         if self.web_remote_service is not None:
-            self.web_remote_service.open_permissions_dialog()
+            self.web_remote_service.open_session_permissions_dialog(session_id, self)
 
     def _start_mobile_pairing(self) -> None:
         if self.web_remote_service is None:
@@ -1098,6 +1082,7 @@ class ControllerEmulation(QWidget):
         item = QListWidgetItem()
         widget = RemoteDeviceRow(session, self.emu_list)
         widget.disconnect_requested.connect(self._disconnect_remote_device)
+        widget.permissions_requested.connect(self._open_remote_permissions)
         item.setSizeHint(widget.sizeHint())
         item.setData(
             Qt.ItemDataRole.UserRole,
