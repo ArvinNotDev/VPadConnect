@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QSizeGrip,
 )
-from PySide6.QtCore import Qt, QUrl, Signal
+from PySide6.QtCore import Qt, QUrl, QSize, Signal
 from PySide6.QtGui import (
     QDesktopServices, QIcon, QAction, QActionGroup, QPixmap, QPainter,
     QBrush, QPen, QColor, QFont,
@@ -49,6 +49,8 @@ class MainWindow(QMainWindow):
     WINDOW_TITLE = APP_NAME
     WINDOW_WIDTH = 1180
     WINDOW_HEIGHT = 760
+    MIN_WINDOW_WIDTH = 820
+    MIN_WINDOW_HEIGHT = 540
     NAV_PAGE_INDICES = (0, 1, 3, 4, 2)
     IDX_CONTROLLER_EMULATION = 0
     IDX_HOTKEY = 1
@@ -80,18 +82,25 @@ class MainWindow(QMainWindow):
 
         # quitting flag
         self._is_quitting = False
+        self._tracked_screens = []
+        self._screen_signal_connected = False
+        self._screen_adjusting = False
+        self._preferred_window_size = QSize(self.WINDOW_WIDTH, self.WINDOW_HEIGHT)
 
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.FramelessWindowHint)
         self.setWindowTitle(self.WINDOW_TITLE)
         # Keep the shell usable in compact windows; individual settings pages
         # now scroll independently instead of clipping lower controls.
-        self.setMinimumSize(820, 540)
+        self.setMinimumSize(self.MIN_WINDOW_WIDTH, self.MIN_WINDOW_HEIGHT)
         self.resize(self.WINDOW_WIDTH, self.WINDOW_HEIGHT)
         app_icon = QIcon(str(resource_path("ui", "assets", "vpadconnect-icon.ico")))
         self.setWindowIcon(app_icon)
         app.setWindowIcon(app_icon)
 
         self._shown_tray_hint = False
+        for screen in app.screens():
+            self._track_screen(screen)
+        app.screenAdded.connect(self._track_screen)
 
         # Main application shell
         central = QWidget(self)
@@ -334,6 +343,8 @@ class MainWindow(QMainWindow):
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
+        if not self._screen_adjusting and not self.isMaximized():
+            self._preferred_window_size = event.size()
         if hasattr(self, "_main_layout"):
             compact = self.width() < 1000
             self._main_layout.setContentsMargins(
@@ -347,6 +358,61 @@ class MainWindow(QMainWindow):
         # donation action when the window becomes compact.
         if hasattr(self, "donate_button"):
             self.donate_button.setVisible(self.width() >= 1000)
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        handle = self.windowHandle()
+        if handle is not None:
+            if not self._screen_signal_connected:
+                handle.screenChanged.connect(self._on_screen_changed)
+                self._screen_signal_connected = True
+            self._on_screen_changed(handle.screen() or self.screen())
+
+    def _track_screen(self, screen) -> None:
+        if screen is None or screen in self._tracked_screens:
+            return
+        self._tracked_screens.append(screen)
+        screen.availableGeometryChanged.connect(self._on_screen_metrics_changed)
+        screen.logicalDotsPerInchChanged.connect(self._on_screen_metrics_changed)
+
+    def _on_screen_metrics_changed(self, *_args) -> None:
+        handle = self.windowHandle()
+        screen = handle.screen() if handle is not None else self.screen()
+        self._on_screen_changed(screen)
+
+    def _on_screen_changed(self, screen) -> None:
+        if screen is None:
+            return
+        self._track_screen(screen)
+        available = screen.availableGeometry()
+        self.setMinimumSize(
+            min(self.MIN_WINDOW_WIDTH, max(1, available.width())),
+            min(self.MIN_WINDOW_HEIGHT, max(1, available.height())),
+        )
+        if self.isMaximized():
+            return
+
+        target_size = QSize(
+            min(self._preferred_window_size.width(), available.width()),
+            min(self._preferred_window_size.height(), available.height()),
+        )
+        if self.size() != target_size:
+            self._screen_adjusting = True
+            self.resize(target_size)
+            self._screen_adjusting = False
+
+        # Use Qt's logical desktop coordinates so mixed-DPI screens need no
+        # physical-pixel conversions. Keep the title bar reachable if a
+        # display is removed or its work area changes.
+        frame = self.frameGeometry()
+        visible_width = min(160, max(1, frame.width()))
+        min_x = available.left() - frame.width() + visible_width
+        max_x = available.right() - visible_width + 1
+        max_y = max(available.top(), available.bottom() - 52 + 1)
+        x = min(max(frame.left(), min_x), max_x)
+        y = min(max(frame.top(), available.top()), max_y)
+        if x != frame.left() or y != frame.top():
+            self.move(x, y)
 
     # --------------------
     # ViGEmBus prerequisite
@@ -390,6 +456,10 @@ class MainWindow(QMainWindow):
         if self.isMaximized():
             self.showNormal()
             self._size_grip.setVisible(True)
+            handle = self.windowHandle()
+            self._on_screen_changed(
+                handle.screen() if handle is not None else self.screen()
+            )
         else:
             self.showMaximized()
             self._size_grip.setVisible(False)
