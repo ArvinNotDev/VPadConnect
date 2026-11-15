@@ -783,6 +783,7 @@ class RemoteDeviceRow(QWidget):
         layout.addWidget(self.state_label)
 
         self.permissions_button = QPushButton("Permissions")
+        self.permissions_button.setObjectName("remotePermissionsButton")
         self.permissions_button.setToolTip(
             "Configure PC actions allowed for this mobile companion only"
         )
@@ -793,15 +794,57 @@ class RemoteDeviceRow(QWidget):
         layout.addWidget(self.permissions_button)
 
         self.delete_button = QPushButton("Disconnect")
+        self.delete_button.setObjectName("remoteDisconnectButton")
         self.delete_button.setToolTip("Disconnect this phone and remove its virtual controller")
         self.delete_button.clicked.connect(
             lambda: self.disconnect_requested.emit(self.session_id)
         )
         layout.addWidget(self.delete_button)
 
-        self.setStyleSheet(
-            "QWidget { background:#172338; border:1px solid #30435f; border-radius:10px; }"
-        )
+        self.setObjectName("remoteDeviceRow")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setStyleSheet("""
+            QWidget#remoteDeviceRow {
+                background:#172338;
+                border:1px solid #30435f;
+                border-radius:10px;
+            }
+            QWidget#remoteDeviceRow QLabel {
+                background:transparent;
+                border:none;
+            }
+            QWidget#remoteDeviceRow QPushButton {
+                color:#dceaff;
+                background:#22344c;
+                border:1px solid #405976;
+                border-radius:8px;
+                padding:6px 10px;
+                font-size:11px;
+                font-weight:700;
+            }
+            QWidget#remoteDeviceRow QPushButton:hover:enabled {
+                background:#2c4665;
+                border-color:#6e91bb;
+            }
+            QWidget#remoteDeviceRow QPushButton#remotePermissionsButton {
+                color:#dff3ff;
+                background:#1d5271;
+                border-color:#347ea7;
+            }
+            QWidget#remoteDeviceRow QPushButton#remotePermissionsButton:hover:enabled {
+                background:#276b91;
+                border-color:#62b2df;
+            }
+            QWidget#remoteDeviceRow QPushButton#remoteDisconnectButton {
+                color:#ffd9df;
+                background:#472735;
+                border-color:#744051;
+            }
+            QWidget#remoteDeviceRow QPushButton#remoteDisconnectButton:hover:enabled {
+                background:#663141;
+                border-color:#ad596b;
+            }
+        """)
 
     def set_busy(self, busy: bool) -> None:
         self.delete_button.setEnabled(not bool(busy))
