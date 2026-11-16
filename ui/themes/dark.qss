@@ -1078,3 +1078,10 @@ QMenu#profile_selector_menu::item:checked {
     background: rgba(83, 111, 183, 35%);
     color: #ffffff;
 }
+
+
+/* Framed desktop shell with a restrained outline beneath the native title bar. */
+#app_root {
+    border: 1px solid #344b61;
+    border-radius: 14px;
+}

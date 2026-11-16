@@ -13,7 +13,6 @@ from PySide6.QtWidgets import (
     QLabel,
     QPushButton,
     QSizePolicy,
-    QSizeGrip,
 )
 from PySide6.QtCore import QEvent, Qt, QUrl, QSize, Signal
 from PySide6.QtGui import (
@@ -90,7 +89,9 @@ class MainWindow(QMainWindow):
         self._screen_adjusting = False
         self._preferred_window_size = QSize(self.WINDOW_WIDTH, self.WINDOW_HEIGHT)
 
-        self.setWindowFlags(self.windowFlags() | Qt.WindowType.FramelessWindowHint)
+        # Keep the native Windows non-client frame for standard caption controls,
+        # system dragging, and resize hit-testing on every edge and corner.
+        self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.FramelessWindowHint)
         self.setWindowTitle(self.WINDOW_TITLE)
         # Keep the shell usable in compact windows; individual settings pages
         # now scroll independently instead of clipping lower controls.
@@ -114,33 +115,12 @@ class MainWindow(QMainWindow):
         main_layout.setSpacing(10)
         self.setCentralWidget(central)
 
-        # Compact, frameless title bar inspired by macOS.
+        # In-app header: blank areas remain draggable; profile controls stay interactive.
         header = _DraggableTitleBar(self)
         header.setObjectName("app_header")
         header_layout = QHBoxLayout(header)
         header_layout.setContentsMargins(4, 2, 4, 8)
         header_layout.setSpacing(10)
-
-        window_controls = QHBoxLayout()
-        window_controls.setContentsMargins(3, 0, 4, 0)
-        window_controls.setSpacing(7)
-        self._window_minimize = QPushButton()
-        self._window_minimize.setObjectName("window_minimize")
-        self._window_minimize.setFixedSize(14, 14)
-        self._window_minimize.setToolTip("Minimize")
-        self._window_minimize.clicked.connect(self.showMinimized)
-        self._window_maximize = QPushButton()
-        self._window_maximize.setObjectName("window_maximize")
-        self._window_maximize.setFixedSize(14, 14)
-        self._window_maximize.setToolTip("Maximize / restore")
-        self._window_maximize.clicked.connect(self._toggle_window_maximized)
-        self._window_close = QPushButton()
-        self._window_close.setObjectName("window_close")
-        self._window_close.setFixedSize(14, 14)
-        self._window_close.setToolTip("Close")
-        self._window_close.clicked.connect(self.close)
-        for control in (self._window_close, self._window_minimize, self._window_maximize):
-            window_controls.addWidget(control)
 
         self._brand_mark = QLabel()
         self._brand_mark.setObjectName("brand_mark")
@@ -218,7 +198,6 @@ class MainWindow(QMainWindow):
         self._avatar_container.setMenu(self._profile_selector_menu)
         header_layout.addWidget(self._avatar_container)
 
-        header_layout.addLayout(window_controls)
 
         main_layout.addWidget(header)
 
@@ -330,19 +309,6 @@ class MainWindow(QMainWindow):
 
         main_layout.addWidget(self.pages, 1)
 
-        # Keep the frameless window resizable without restoring the native title bar.
-        resize_row = QHBoxLayout()
-        resize_row.setContentsMargins(0, 0, 0, 0)
-        resize_row.setSpacing(0)
-        resize_row.addStretch(1)
-        self._size_grip = QSizeGrip(central)
-        self._size_grip.setFixedSize(12, 12)
-        resize_row.addWidget(
-            self._size_grip, 0,
-            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom,
-        )
-        main_layout.addLayout(resize_row)
-
         self.menu.currentChanged.connect(self._on_menu_index_changed)
         self.menu.setCurrentIndex(self.IDX_CONTROLLER_EMULATION)
         self.pages.setCurrentIndex(0)
@@ -389,12 +355,54 @@ class MainWindow(QMainWindow):
 
     def showEvent(self, event) -> None:
         super().showEvent(event)
+        self._apply_native_window_chrome()
         handle = self.windowHandle()
         if handle is not None:
             if not self._screen_signal_connected:
                 handle.screenChanged.connect(self._on_screen_changed)
                 self._screen_signal_connected = True
             self._on_screen_changed(handle.screen() or self.screen())
+
+    def _apply_native_window_chrome(self) -> None:
+        """Request rounded Windows corners and a theme-matched native border."""
+        if sys.platform != "win32":
+            return
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            dwmapi = ctypes.WinDLL("dwmapi")
+            dwmapi.DwmSetWindowAttribute.argtypes = [
+                wintypes.HWND, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD
+            ]
+            dwmapi.DwmSetWindowAttribute.restype = wintypes.HRESULT
+            hwnd = wintypes.HWND(int(self.winId()))
+
+            # DWMWA_WINDOW_CORNER_PREFERENCE / DWMWCP_ROUND (Windows 11).
+            corner_preference = ctypes.c_int(2)
+            dwmapi.DwmSetWindowAttribute(
+                hwnd, 33, ctypes.byref(corner_preference),
+                ctypes.sizeof(corner_preference),
+            )
+
+            theme = self.settings.get_ui_theme()
+            border_hex = "#3b5269" if theme == "dark" else "#c8d5e6"
+            red = int(border_hex[1:3], 16)
+            green = int(border_hex[3:5], 16)
+            blue = int(border_hex[5:7], 16)
+            # DWM expects COLORREF (0x00BBGGRR).
+            border_color = ctypes.c_uint(red | (green << 8) | (blue << 16))
+            dwmapi.DwmSetWindowAttribute(
+                hwnd, 34, ctypes.byref(border_color), ctypes.sizeof(border_color)
+            )
+
+            dark_mode = ctypes.c_int(1 if theme == "dark" else 0)
+            dwmapi.DwmSetWindowAttribute(
+                hwnd, 20, ctypes.byref(dark_mode), ctypes.sizeof(dark_mode)
+            )
+        except (AttributeError, OSError, TypeError, ValueError):
+            # Older Windows builds may not expose every DWM attribute.
+            logger.debug("Native Windows window styling is unavailable", exc_info=True)
 
     def hideEvent(self, event) -> None:
         if hasattr(self, "_cursor_spotlight"):
@@ -528,14 +536,12 @@ class MainWindow(QMainWindow):
     def _toggle_window_maximized(self) -> None:
         if self.isMaximized():
             self.showNormal()
-            self._size_grip.setVisible(True)
             handle = self.windowHandle()
             self._on_screen_changed(
                 handle.screen() if handle is not None else self.screen()
             )
         else:
             self.showMaximized()
-            self._size_grip.setVisible(False)
 
     # --------------------
     # Tray
@@ -619,6 +625,7 @@ class MainWindow(QMainWindow):
         try:
             theme = self.settings.get_ui_theme()
             self.theme_manager.apply_theme(theme)
+            self._apply_native_window_chrome()
         except Exception:
             pass
 
@@ -793,7 +800,7 @@ class MainWindow(QMainWindow):
 
 
 # ------------------------------------------------------------------
-# Frameless title bar drag behavior
+# In-app draggable header behavior
 # ------------------------------------------------------------------
 
 class _DraggableTitleBar(QWidget):
@@ -804,15 +811,19 @@ class _DraggableTitleBar(QWidget):
         self._native_move_started = False
 
     def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton and not self._window.isMaximized():
+        if event.button() == Qt.MouseButton.LeftButton:
             handle = self._window.windowHandle()
             if handle is not None and handle.startSystemMove():
                 self._native_move_started = True
                 event.accept()
                 return
-            self._drag_offset = event.globalPosition().toPoint() - self._window.frameGeometry().topLeft()
-            event.accept()
-            return
+            if not self._window.isMaximized():
+                self._drag_offset = (
+                    event.globalPosition().toPoint()
+                    - self._window.frameGeometry().topLeft()
+                )
+                event.accept()
+                return
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
