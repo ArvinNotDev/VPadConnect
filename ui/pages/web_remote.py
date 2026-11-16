@@ -442,7 +442,7 @@ class WebRemotePage(QWidget):
             QMessageBox.information(
                 parent or self,
                 "Device disconnected",
-                "This mobile companion is no longer connected.",
+                "This remote companion is no longer connected.",
             )
             return
 
