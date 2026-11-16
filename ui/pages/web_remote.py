@@ -497,15 +497,34 @@ class WebRemotePage(QWidget):
         session = self._mobile_sessions.get(session_id, {})
         device_name = str(session.get("name") or "Mobile Companion")
         dialog = AnimatedDialog(parent or self)
+        dialog.setObjectName("remotePermissionsDialog")
         dialog.setWindowTitle(f"Remote permissions · {device_name}")
         dialog.setModal(True)
         dialog.setMinimumWidth(360)
+        app = QApplication.instance()
+        light = bool(app is not None and app.property("vpadTheme") == "light")
+        dialog_text = "#263650" if light else "#eaf1ff"
+        dialog_muted = "#64758b" if light else "#91a2bc"
+        dialog.setStyleSheet(f"""
+            QDialog#remotePermissionsDialog {{ background:{'#f3f6fc' if light else '#111c2c'}; }}
+            QLabel {{ color:{dialog_text}; background:transparent; }}
+            QCheckBox {{ color:{dialog_text}; spacing:8px; padding:4px; }}
+            QPushButton {{
+                color:{'#344c6b' if light else '#eaf1ff'};
+                background:{'#e7eef8' if light else '#1b2b42'};
+                border:1px solid {'#cbd8e8' if light else '#354964'};
+                border-radius:8px; padding:7px 12px;
+            }}
+            QPushButton:hover:enabled {{
+                background:{'#dbe9f8' if light else '#263d5e'};
+            }}
+        """)
         layout = QVBoxLayout(dialog)
         layout.setContentsMargins(20, 18, 20, 16)
         layout.setSpacing(9)
 
         title = QLabel(f"Permissions for {device_name}")
-        title.setStyleSheet("font-size: 16px; font-weight: 750;")
+        title.setStyleSheet(f"font-size:16px; font-weight:750; color:{dialog_text};")
         title.setWordWrap(True)
         layout.addWidget(title)
         description = QLabel(
@@ -513,7 +532,7 @@ class WebRemotePage(QWidget):
             "Other mobile companions keep their own settings."
         )
         description.setWordWrap(True)
-        description.setStyleSheet("color: #91a2bc; font-size: 11px;")
+        description.setStyleSheet(f"color:{dialog_muted}; font-size:11px;")
         layout.addWidget(description)
 
         checks = {}
