@@ -88,6 +88,15 @@ A Windows restart may be required after driver installation. Setup does **not** 
 
 The installed application runs as your regular Windows user. Administrator approval is requested only for setup operations that require elevation.
 
+### Application data
+
+VPadConnect stores settings, hotkeys, custom controller mappings, and
+user-created profiles in `%APPDATA%\VPadConnect`. Logs, trusted-client state,
+remote permissions, and generated TLS certificates and private keys are stored
+in `%LOCALAPPDATA%\VPadConnect`. On first launch, existing settings and
+profiles from earlier installations are copied to these locations without
+overwriting existing AppData files or deleting the legacy copies.
+
 ## Features
 
 ### Desktop controller emulation
@@ -397,8 +406,8 @@ Please avoid attaching pairing codes, session tokens, private TLS keys, or other
 
 ## Release notes
 
-- [Latest release — VPadConnect 0.2.1 Beta 3](https://github.com/ArvinNotDev/VPadConnect/releases/tag/0.2.1-beta.3)
-- [Beta 3 release notes](.github/release-notes/0.2.1-beta.3.md)
+- [Latest published release — VPadConnect 0.2.1 Beta 3](https://github.com/ArvinNotDev/VPadConnect/releases/tag/v0.2.1-beta.3)
+- [Prepared Beta 4 release notes](.github/release-notes/0.2.1-beta.4.md)
 - [Full changelog](CHANGELOG.md)
 
 ## License

@@ -1,8 +1,8 @@
 #ifndef ProductVersion
-  #define ProductVersion "0.2.1-beta.3"
+  #define ProductVersion "0.2.1-beta.4"
 #endif
 #ifndef ProductFileVersion
-  #define ProductFileVersion "0.2.1.3"
+  #define ProductFileVersion "0.2.1.4"
 #endif
 
 #define AppExe "VPadConnect.exe"

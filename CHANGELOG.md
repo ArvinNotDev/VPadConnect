@@ -3,6 +3,33 @@
 All notable user-facing changes to VPadConnect are documented
 here. Version numbers follow semantic-versioning conventions where practical.
 
+## [0.2.1-beta.4] — 2026-11-16
+
+### New features
+
+- Added the supplied artwork as a native PyInstaller bootloader splash screen
+  for the Windows executable.
+- Moved settings, hotkeys, custom controller mappings, and user-created
+  profiles to `%APPDATA%\VPadConnect`.
+
+### Improvements and compatibility
+
+- Added first-launch migration from the previous executable-directory and
+  Local AppData layouts. Existing AppData files take precedence; migration
+  copies are verified and the legacy files are retained.
+- Kept built-in profiles and the default settings template packaged as
+  read-only application resources. Logs, trusted-client state, remote
+  permissions, and TLS identity files use `%LOCALAPPDATA%\VPadConnect`.
+- Improved compatibility with protected installation directories such as
+  Program Files by keeping application-managed writes in AppData.
+- Kept the existing Inno Setup and ViGEmBus 1.22.0 detection and installation
+  workflow.
+
+### Validation
+
+See the release notes for test results and environment-specific validation
+limits.
+
 ## [0.2.1-beta.3] — 2026-11-04
 
 ### New features
@@ -167,6 +194,7 @@ current desktop and Web Companion work into a fresh downloadable Windows release
 - Added live vibration settings and XInput vibration testing.
 
 [0.2.1-beta.1]: https://github.com/ArvinNotDev/VPadConnect/releases/tag/v0.2.1-beta.1
+[0.2.1-beta.4]: https://github.com/ArvinNotDev/VPadConnect/releases/tag/v0.2.1-beta.4
 [0.2.1-beta.3]: https://github.com/ArvinNotDev/VPadConnect/releases/tag/v0.2.1-beta.3
 [2.0.8]: https://github.com/ArvinNotDev/VPadConnect/tree/3d4b900c1725c762c184bdd638288e07ebbcd906
 [2.0.7]: https://github.com/ArvinNotDev/VPadConnect/tree/58d071976700fab8bd41c7e1a3b8ecf098c29c4d
