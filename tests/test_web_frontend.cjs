@@ -537,6 +537,7 @@ test("a quick second tap held on the touchpad starts a left-button drag", async 
   assert.equal(stateRequests(harness).at(-1).mouse.left, 1);
 
   harness.touchpad.dispatch("pointermove", { pointerId: 72, clientX: 130, clientY: 118 });
+  harness.tickFrame();
   await settle();
   assert.equal(stateRequests(harness).at(-1).mouse.left, 1);
   assert.ok(stateRequests(harness).at(-1).mouse.dx > 0);
