@@ -52,50 +52,8 @@ class PressTwoButtonsAtTheSameTime(AnimatedDialog):
         self.setWindowTitle("Press Hotkey Combination")
         self.resize(520, 380)
 
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #2b2b2b;
-            }
-            QLabel {
-                color: #f0f0f0;
-                font-size: 12px;
-            }
-            QLabel#TitleLabel {
-                font-size: 16px;
-                font-weight: bold;
-            }
-            QLabel#StepLabel {
-                font-size: 13px;
-            }
-            QLabel#PressedLabel {
-                font-size: 18px;
-                font-weight: bold;
-                color: #2ecc71;
-            }
-            QLabel#StatusLabel {
-                font-size: 11px;
-                color: #bbbbbb;
-            }
-            QPushButton {
-                background-color: #444;
-                color: white;
-                border: 1px solid #555;
-                border-radius: 4px;
-                padding: 6px 14px;
-            }
-            QPushButton:hover {
-                background-color: #555;
-            }
-            QPushButton:disabled {
-                background-color: #333;
-                color: #777;
-                border: 1px solid #444;
-            }
-            QFrame#OuterFrame {
-                border: 1px solid #555;
-                border-radius: 6px;
-            }
-        """)
+        self._theme = "dark"
+
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(20, 18, 20, 18)
@@ -231,6 +189,43 @@ class PressTwoButtonsAtTheSameTime(AnimatedDialog):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_view)
         self.timer.start(30)
+        self.apply_theme()
+
+    def apply_theme(self, theme_name: str | None = None) -> None:
+        app = QApplication.instance()
+        self._theme = theme_name or (
+            app.property("vpadTheme") if app is not None else "dark"
+        )
+        light = self._theme == "light"
+        background = "#f3f6fc" if light else "#2b2b2b"
+        text = "#263650" if light else "#f0f0f0"
+        muted = "#667892" if light else "#bbbbbb"
+        panel = "#ffffff" if light else "#2b2b2b"
+        border = "#d2deed" if light else "#555555"
+        button_bg = "#e7eef8" if light else "#444444"
+        button_text = "#344c6b" if light else "#ffffff"
+        hover = "#dbe9f8" if light else "#555555"
+        self.setStyleSheet(f"""
+            QDialog {{ background:{background}; }}
+            QLabel {{ color:{text}; font-size:12px; }}
+            QLabel#TitleLabel {{ font-size:16px; font-weight:bold; }}
+            QLabel#StepLabel {{ font-size:13px; }}
+            QLabel#PressedLabel {{ font-size:18px; font-weight:bold; color:#16835d; }}
+            QLabel#StatusLabel {{ font-size:11px; color:{muted}; }}
+            QPushButton {{
+                background:{button_bg}; color:{button_text};
+                border:1px solid {border}; border-radius:7px; padding:6px 14px;
+            }}
+            QPushButton:hover:enabled {{ background:{hover}; }}
+            QPushButton:disabled {{
+                background:{'#edf1f6' if light else '#333333'};
+                color:{'#8795a9' if light else '#777777'};
+                border:1px solid {border};
+            }}
+            QFrame#OuterFrame {{ background:{panel}; border:1px solid {border}; border-radius:8px; }}
+        """)
+        for _name, label in self.button_map:
+            self._set_pressed_style(label, bool(getattr(label, "_vpad_pressed", False)))
 
     def _set_pressed_style(self, label: QLabel, pressed: bool) -> None:
         """
@@ -239,20 +234,20 @@ class PressTwoButtonsAtTheSameTime(AnimatedDialog):
         :param label: QLabel representing the button.
         :param pressed: True if the button should be shown as pressed.
         """
-        if pressed:
-            label.setStyleSheet("""
-                background:#2ecc71;
-                color:black;
-                border-radius:6px;
-                padding:4px 8px;
-            """)
-        else:
-            label.setStyleSheet("""
-                background:#444;
-                color:white;
-                border-radius:6px;
-                padding:4px 8px;
-            """)
+        label._vpad_pressed = bool(pressed)
+        light = getattr(self, "_theme", "dark") == "light"
+        background = "#bdebd1" if light else "#2ecc71"
+        text = "#155b3d" if light else "#000000"
+        border = "#4f9a72" if light else "#2ecc71"
+        idle_background = "#e6edf7" if light else "#444444"
+        idle_text = "#425773" if light else "#ffffff"
+        idle_border = "#c2d0e2" if light else "#555555"
+        label.setStyleSheet(
+            f"background:{background if pressed else idle_background}; "
+            f"color:{text if pressed else idle_text}; "
+            f"border:1px solid {border if pressed else idle_border}; "
+            "border-radius:6px; padding:4px 8px;"
+        )
 
     def _render_locked_state(self) -> None:
         """
@@ -396,57 +391,8 @@ class HotkeyDialog(AnimatedDialog):
         self.setWindowTitle(f"Hotkey Settings - {name}")
         self.setMinimumSize(750, 450)
 
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #2b2b2b;
-            }
-            QLabel {
-                color: #f0f0f0;
-                font-size: 11px;
-            }
-            QLabel#MainTitle {
-                font-size: 16px;
-                font-weight: bold;
-            }
-            QLabel#Subtitle {
-                font-size: 11px;
-                color: #cccccc;
-            }
-            QGroupBox {
-                color: #f0f0f0;
-                border: 1px solid #555;
-                border-radius: 6px;
-                margin-top: 1ex;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 3px 0 3px;
-            }
-            QPushButton {
-                background-color: #444;
-                color: white;
-                border: 1px solid #555;
-                border-radius: 4px;
-                padding: 6px 12px;
-            }
-            QPushButton:hover {
-                background-color: #555;
-            }
-            QComboBox {
-                background-color: #444;
-                color: white;
-                border: 1px solid #555;
-                border-radius: 4px;
-                padding: 4px;
-            }
-            QListWidget {
-                background-color: #333;
-                color: #f0f0f0;
-                border: 1px solid #555;
-                border-radius: 4px;
-            }
-        """)
+        self._theme = "dark"
+
 
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(12)
@@ -540,6 +486,45 @@ class HotkeyDialog(AnimatedDialog):
         main_layout.addItem(QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding))
 
         self.refresh_hotkey_list()
+        self.apply_theme()
+
+    def apply_theme(self, theme_name: str | None = None) -> None:
+        app = QApplication.instance()
+        self._theme = theme_name or (
+            app.property("vpadTheme") if app is not None else "dark"
+        )
+        light = self._theme == "light"
+        background = "#f3f6fc" if light else "#2b2b2b"
+        text = "#263650" if light else "#f0f0f0"
+        muted = "#667892" if light else "#cccccc"
+        border = "#d2deed" if light else "#555555"
+        panel = "#ffffff" if light else "#333333"
+        button_bg = "#e7eef8" if light else "#444444"
+        button_text = "#344c6b" if light else "#ffffff"
+        hover = "#dbe9f8" if light else "#555555"
+        field_bg = "#ffffff" if light else "#444444"
+        self.setStyleSheet(f"""
+            QDialog {{ background:{background}; }}
+            QLabel {{ color:{text}; font-size:11px; }}
+            QLabel#MainTitle {{ font-size:16px; font-weight:bold; }}
+            QLabel#Subtitle {{ font-size:11px; color:{muted}; }}
+            QGroupBox {{
+                color:{text}; border:1px solid {border}; border-radius:8px; margin-top:1ex;
+            }}
+            QGroupBox::title {{ subcontrol-origin:margin; left:10px; padding:0 3px; }}
+            QPushButton {{
+                background:{button_bg}; color:{button_text}; border:1px solid {border};
+                border-radius:7px; padding:6px 12px;
+            }}
+            QPushButton:hover:enabled {{ background:{hover}; }}
+            QComboBox {{
+                background:{field_bg}; color:{text}; border:1px solid {border};
+                border-radius:7px; padding:5px;
+            }}
+            QListWidget {{
+                background:{panel}; color:{text}; border:1px solid {border}; border-radius:7px;
+            }}
+        """)
 
     def refresh_hotkey_list(self) -> None:
         """
