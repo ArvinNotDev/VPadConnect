@@ -125,7 +125,7 @@ jobs:
       - name: Install project and test dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install "Flask>=3.0,<4.0" "cryptography>=42.0" "simple-websocket>=1.1,<2.0" "hidapi>=0.14.0" "PySide6>=6.6,<7" "qtawesome>=1.4.2,<2" pytest
+          python -m pip install "Flask>=3.0,<4.0" "cryptography>=42.0" "simple-websocket>=1.1,<2.0" "hidapi>=0.14.0" "PySide6>=6.6,<7" "qtawesome>=1.4.2,<2" "qrcode[pil]>=7.4" pytest
 
       - name: Compile changed Python modules
         run: |
