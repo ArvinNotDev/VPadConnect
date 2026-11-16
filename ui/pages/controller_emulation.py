@@ -308,6 +308,9 @@ class HidHideCard(QFrame):
         self._content.setVisible(False)
 
         self._apply_style()
+        # Keep the collapsed card sized to its header so the vertical splitter
+        # can reclaim the space instead of leaving hidden content underneath.
+        self.setMaximumHeight(self._collapsed_card_height())
 
     def _apply_style(self):
         self.setStyleSheet(
@@ -409,6 +412,16 @@ class HidHideCard(QFrame):
             """
         )
 
+    def _collapsed_card_height(self) -> int:
+        margins = self.layout().contentsMargins()
+        return max(
+            38,
+            self.header_widget.sizeHint().height()
+            + margins.top()
+            + margins.bottom()
+            + 2,
+        )
+
     def _toggle_expanded(self) -> None:
         self._expanded = not self._expanded
         self.header_widget.setProperty("expanded", self._expanded)
@@ -424,32 +437,59 @@ class HidHideCard(QFrame):
 
         if self._content_animation is not None:
             self._content_animation.stop()
+            self._content_animation.deleteLater()
+            self._content_animation = None
 
+        collapsed_height = self._collapsed_card_height()
         if not animations_enabled():
             self._content.setVisible(self._expanded)
-            self._content.setMaximumHeight(16777215)
+            self.setMaximumHeight(16777215 if self._expanded else collapsed_height)
+            self._refresh_splitter_layout()
             return
 
+        current_height = max(self.height(), collapsed_height)
+        self.setMaximumHeight(current_height)
         if self._expanded:
-            self._content.setMaximumHeight(0)
             self._content.setVisible(True)
-            self._animate_content(0, max(1, self._content.sizeHint().height()))
+            target_height = max(current_height, self.sizeHint().height())
         else:
-            self._animate_content(self._content.height(), 0)
+            target_height = collapsed_height
+        self._animate_card_height(current_height, target_height)
 
-    def _animate_content(self, start: int, end: int) -> None:
-        animation = QPropertyAnimation(self._content, b"maximumHeight", self)
+    def _animate_card_height(self, start: int, end: int) -> None:
+        animation = QPropertyAnimation(self, b"maximumHeight", self)
         animation.setDuration(170)
-        animation.setStartValue(start)
-        animation.setEndValue(end)
+        animation.setStartValue(max(1, start))
+        animation.setEndValue(max(1, end))
         animation.setEasingCurve(QEasingCurve.Type.OutCubic)
-        animation.finished.connect(self._finish_content_animation)
+        animation.finished.connect(
+            lambda active=animation: self._finish_card_animation(active)
+        )
         self._content_animation = animation
         animation.start()
 
-    def _finish_content_animation(self) -> None:
-        self._content.setVisible(self._expanded)
-        self._content.setMaximumHeight(16777215)
+    def _finish_card_animation(self, animation) -> None:
+        if self._content_animation is not animation:
+            return
+        self._content_animation = None
+        animation.deleteLater()
+        if self._expanded:
+            self._content.setVisible(True)
+            self.setMaximumHeight(16777215)
+        else:
+            self._content.setVisible(False)
+            self.setMaximumHeight(self._collapsed_card_height())
+        self._refresh_splitter_layout()
+
+    def _refresh_splitter_layout(self) -> None:
+        self.updateGeometry()
+        parent = self.parentWidget()
+        if isinstance(parent, QSplitter):
+            parent.updateGeometry()
+            parent.update()
+            grandparent = parent.parentWidget()
+            if grandparent is not None:
+                grandparent.updateGeometry()
 
     def _set_status(self, text: str):
         self.status.setText(text)
