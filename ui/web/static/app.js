@@ -132,21 +132,108 @@ function pointerUp(e){if(pointerId!==e.pointerId)return;reset(true);}
 registerInputReset(function(){reset(false);});
 area.addEventListener("pointerdown",function(e){e.preventDefault();if(pointerId!==null)return;pointerId=e.pointerId;try{area.setPointerCapture(e.pointerId);}catch(_){}move(e);sendState(true);});area.addEventListener("pointermove",function(e){if(pointerId===e.pointerId){e.preventDefault();move(e);sendState(false);}});area.addEventListener("pointerup",pointerUp);area.addEventListener("pointercancel",pointerUp);area.addEventListener("lostpointercapture",pointerUp);
 area.addEventListener("keydown",function(e){var map={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]};if(!map[e.key])return;e.preventDefault();keys.add(e.key);var x=(keys.has("ArrowRight")?1:0)-(keys.has("ArrowLeft")?1:0),y=(keys.has("ArrowDown")?1:0)-(keys.has("ArrowUp")?1:0);render(x,y);sendState(true);});area.addEventListener("keyup",function(e){if(!keys.delete(e.key))return;e.preventDefault();var x=(keys.has("ArrowRight")?1:0)-(keys.has("ArrowLeft")?1:0),y=(keys.has("ArrowDown")?1:0)-(keys.has("ArrowUp")?1:0);render(x,y);sendState(true);});area.addEventListener("blur",function(){if(keys.size)reset(true);});}
-function attachMouse(padId,bindControls){var pad=$(padId||"touchpad"),active=new Map(),scrollRemainder=0,multiGesture=false;if(!pad)return;
-function down(e){e.preventDefault();if(active.size>0)multiGesture=true;active.set(e.pointerId,{x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY,start:performance.now(),moved:false});try{pad.setPointerCapture(e.pointerId);}catch(_){}}
-function move(e){var point=active.get(e.pointerId);if(!point)return;e.preventDefault();var dx=e.clientX-point.x,dy=e.clientY-point.y;point.x=e.clientX;point.y=e.clientY;if(Math.hypot(e.clientX-point.startX,e.clientY-point.startY)>8)point.moved=true;
-if(active.size>=2){multiGesture=true;scrollRemainder+=(-dy*scrollSensitivity*(reverseScroll?-1:1))/active.size;var scrollSteps=scrollRemainder<0?Math.ceil(scrollRemainder):Math.floor(scrollRemainder);if(scrollSteps){scrollRemainder-=scrollSteps;var boundedSteps=Math.max(-20,Math.min(20,scrollSteps));state.mouse.scroll=Math.max(-20,Math.min(20,state.mouse.scroll+boundedSteps));}}
-else if(!airMouseEnabled){state.mouse.dx+=Math.round(dx*mouseSensitivity);state.mouse.dy+=Math.round(dy*mouseSensitivity);}
-sendState(false);
+function attachMouse(padId,bindControls){
+var pad=$(padId||"touchpad"),active=new Map(),scrollRemainder=0,gesturePoints=[],gestureHadMultiple=false,twoFingerTapCandidate=false,lastTapAt=0,lastTapX=0,lastTapY=0,tapDragCandidate=null,tapDragTimer=null,draggingPointer=null;
+if(!pad)return;
+function clearTapDragTimer(){if(tapDragTimer!==null){clearTimeout(tapDragTimer);tapDragTimer=null;}}
+function clickMouse(button){
+if(button==="right")state.mouse.left=0;
+state.mouse[button]=1;sendState(true);clearTimeout(tapTimeout);
+tapTimeout=setTimeout(function(){state.mouse[button]=0;sendState(true);},100);
 }
-function finishGesture(){if(active.size===0){multiGesture=false;scrollRemainder=0;}}
-function up(e){var point=active.get(e.pointerId);if(!point)return;var tap=active.size===1&&!multiGesture&&!point.moved&&performance.now()-point.start<280;active.delete(e.pointerId);if(active.size===0){if(tap&&tapToClick){state.mouse.left=1;sendState(true);clearTimeout(tapTimeout);tapTimeout=setTimeout(function(){state.mouse.left=0;sendState(true);},100);}finishGesture();}}
-function cancel(e){if(!active.has(e.pointerId))return;active.delete(e.pointerId);multiGesture=true;finishGesture();}
-registerInputReset(function(){active.clear();multiGesture=false;scrollRemainder=0;clearTimeout(tapTimeout);});
-pad.addEventListener("pointerdown",down);pad.addEventListener("pointermove",move);pad.addEventListener("pointerup",up);pad.addEventListener("pointercancel",cancel);pad.addEventListener("lostpointercapture",cancel);
+function startTapDrag(pointerId){
+if(!tapDragCandidate||tapDragCandidate.pointerId!==pointerId||active.size!==1||!active.has(pointerId))return;
+clearTapDragTimer();tapDragCandidate.active=true;draggingPointer=pointerId;clearTimeout(tapTimeout);tapTimeout=null;state.mouse.left=1;sendState(true);
+}
+function resetGesture(){
+if(active.size!==0)return;
+gesturePoints=[];gestureHadMultiple=false;twoFingerTapCandidate=false;scrollRemainder=0;tapDragCandidate=null;draggingPointer=null;clearTapDragTimer();
+}
+function down(e){
+e.preventDefault();
+var now=performance.now();
+if(active.size===0){
+gesturePoints=[];gestureHadMultiple=false;twoFingerTapCandidate=false;scrollRemainder=0;draggingPointer=null;
+var recentTap=tapToClick&&lastTapAt>0&&now-lastTapAt<=450&&Math.hypot(e.clientX-lastTapX,e.clientY-lastTapY)<=36;
+tapDragCandidate=recentTap?{pointerId:e.pointerId,lastX:e.clientX,lastY:e.clientY,active:false}:null;
+if(!recentTap)lastTapAt=0;
+}else{
+gestureHadMultiple=true;
+if(tapDragCandidate){clearTapDragTimer();tapDragCandidate=null;lastTapAt=0;}
+var first=active.values().next().value;
+twoFingerTapCandidate=active.size===1&&now-first.started<=150&&!first.moved;
+}
+var point={x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY,started:now,moved:false,upAt:null};
+active.set(e.pointerId,point);gesturePoints.push(point);
+if(tapDragCandidate&&active.size===1){
+var pointerId=e.pointerId;
+tapDragTimer=setTimeout(function(){startTapDrag(pointerId);},240);
+}
+try{pad.setPointerCapture(e.pointerId);}catch(_){}
+}
+function move(e){
+var point=active.get(e.pointerId);if(!point)return;e.preventDefault();
+var dx=e.clientX-point.x,dy=e.clientY-point.y;
+if(Math.hypot(e.clientX-point.startX,e.clientY-point.startY)>8)point.moved=true;
+if(active.size>=2){
+gestureHadMultiple=true;
+scrollRemainder+=(-dy*scrollSensitivity*(reverseScroll?-1:1))/active.size;
+if(point.moved)twoFingerTapCandidate=false;
+if(!twoFingerTapCandidate){
+var scrollSteps=scrollRemainder<0?Math.ceil(scrollRemainder):Math.floor(scrollRemainder);
+if(scrollSteps){scrollRemainder-=scrollSteps;var boundedSteps=Math.max(-20,Math.min(20,scrollSteps));state.mouse.scroll=Math.max(-20,Math.min(20,state.mouse.scroll+boundedSteps));}
+}
+}else if(gestureHadMultiple){
+/* Do not convert the remaining finger of a multi-touch gesture into pointer movement. */
+}else if(tapDragCandidate&&tapDragCandidate.pointerId===e.pointerId){
+if(point.moved&&!tapDragCandidate.active)startTapDrag(e.pointerId);
+if(draggingPointer===e.pointerId&&tapDragCandidate.active&&!airMouseEnabled){
+var dragDx=e.clientX-tapDragCandidate.lastX,dragDy=e.clientY-tapDragCandidate.lastY;
+state.mouse.dx+=Math.round(dragDx*mouseSensitivity);state.mouse.dy+=Math.round(dragDy*mouseSensitivity);
+tapDragCandidate.lastX=e.clientX;tapDragCandidate.lastY=e.clientY;
+}
+}else if(!airMouseEnabled){
+state.mouse.dx+=Math.round(dx*mouseSensitivity);state.mouse.dy+=Math.round(dy*mouseSensitivity);
+}
+point.x=e.clientX;point.y=e.clientY;sendState(false);
+}
+function finishPointer(e){
+var point=active.get(e.pointerId);if(!point)return;
+point.upAt=performance.now();
+var wasDragging=draggingPointer===e.pointerId;
+active.delete(e.pointerId);
+if(wasDragging){draggingPointer=null;state.mouse.left=0;sendState(true);tapDragCandidate=null;clearTapDragTimer();}
+if(active.size!==0)return;
+clearTapDragTimer();
+if(gestureHadMultiple){
+var validTwoFingerTap=twoFingerTapCandidate&&gesturePoints.length===2&&gesturePoints.every(function(item){return item.upAt!==null&&!item.moved&&item.upAt-item.started<=280;})&&Math.abs(gesturePoints[0].started-gesturePoints[1].started)<=150&&Math.abs(gesturePoints[0].upAt-gesturePoints[1].upAt)<=180;
+if(validTwoFingerTap)clickMouse("right");
+lastTapAt=0;
+}else if(!wasDragging){
+var tap=!point.moved&&point.upAt-point.started<280;
+if(tap&&tapToClick){
+clickMouse("left");lastTapAt=point.upAt;lastTapX=point.startX;lastTapY=point.startY;
+}else{lastTapAt=0;}
+}
+resetGesture();
+}
+function cancel(e){
+if(!active.has(e.pointerId))return;
+active.delete(e.pointerId);
+if(draggingPointer===e.pointerId){draggingPointer=null;state.mouse.left=0;sendState(true);}
+clearTapDragTimer();tapDragCandidate=null;lastTapAt=0;gestureHadMultiple=true;twoFingerTapCandidate=false;
+if(active.size===0)resetGesture();
+}
+registerInputReset(function(){
+active.clear();gesturePoints=[];gestureHadMultiple=false;twoFingerTapCandidate=false;scrollRemainder=0;lastTapAt=0;tapDragCandidate=null;draggingPointer=null;clearTapDragTimer();clearTimeout(tapTimeout);state.mouse.left=0;state.mouse.right=0;
+});
+pad.addEventListener("pointerdown",down);pad.addEventListener("pointermove",move);pad.addEventListener("pointerup",finishPointer);pad.addEventListener("pointercancel",cancel);pad.addEventListener("lostpointercapture",cancel);
 pad.addEventListener("wheel",function(e){e.preventDefault();state.mouse.scroll+=Math.max(-20,Math.min(20,Math.round((-e.deltaY/35)*scrollSensitivity*(reverseScroll?-1:1))));sendState(false);},{passive:false});
-if(bindControls!==false){document.querySelectorAll("[data-mouse]").forEach(function(el){var k=el.getAttribute("data-mouse"),pointers=new Set();registerInputReset(function(){pointers.clear();state.mouse[k]=0;el.classList.remove("pressed");});el.addEventListener("pointerdown",function(e){e.preventDefault();if(pointers.has(e.pointerId))return;pointers.add(e.pointerId);try{el.setPointerCapture(e.pointerId);}catch(_){}triggerHaptic(8);state.mouse[k]=1;el.classList.add("pressed");sendState(true);});function release(e){if(!pointers.delete(e.pointerId)||pointers.size)return;state.mouse[k]=0;el.classList.remove("pressed");sendState(true);}el.addEventListener("pointerup",release);el.addEventListener("pointercancel",release);el.addEventListener("lostpointercapture",release);});
-$("scrollUp").onclick=function(){state.mouse.scroll=3;sendState(true);};$("scrollDown").onclick=function(){state.mouse.scroll=-3;sendState(true);};$("mouseMode").onclick=function(){var nextMode=mode==="mouse"?"gamepad":"mouse";if(nextMode==="gamepad"&&!gamepadAvailable){toast("Install ViGEmBus on the Windows PC to enable virtual gamepad output.");return;}if(nextMode!=="mouse"&&airMouseEnabled)setAirMouseEnabled(false,false);mode=nextMode;$("mouseMode").textContent=mode==="mouse"?"Use gamepad output":"Use mouse output";toast(mode==="mouse"?"Mouse output enabled":"Gamepad output enabled");sendState(true);};}}
+if(bindControls!==false){
+document.querySelectorAll("[data-mouse]").forEach(function(el){var k=el.getAttribute("data-mouse"),pointers=new Set();registerInputReset(function(){pointers.clear();state.mouse[k]=0;el.classList.remove("pressed");});el.addEventListener("pointerdown",function(e){e.preventDefault();if(pointers.has(e.pointerId))return;pointers.add(e.pointerId);try{el.setPointerCapture(e.pointerId);}catch(_){}triggerHaptic(8);state.mouse[k]=1;el.classList.add("pressed");sendState(true);});function release(e){if(!pointers.delete(e.pointerId)||pointers.size)return;state.mouse[k]=0;el.classList.remove("pressed");sendState(true);}el.addEventListener("pointerup",release);el.addEventListener("pointercancel",release);el.addEventListener("lostpointercapture",release);});
+$("scrollUp").onclick=function(){state.mouse.scroll=3;sendState(true);};$("scrollDown").onclick=function(){state.mouse.scroll=-3;sendState(true);};$("mouseMode").onclick=function(){var nextMode=mode==="mouse"?"gamepad":"mouse";if(nextMode==="gamepad"&&!gamepadAvailable){toast("Install ViGEmBus on the Windows PC to enable virtual gamepad output.");return;}if(nextMode!=="mouse"&&airMouseEnabled)setAirMouseEnabled(false,false);mode=nextMode;$("mouseMode").textContent=mode==="mouse"?"Use gamepad output":"Use mouse output";toast(mode==="mouse"?"Mouse output enabled":"Gamepad output enabled");sendState(true);};
+}
+}
 function tab(name){if(name!=="mouse"&&airMouseEnabled)setAirMouseEnabled(false,false);if(name!=="screen")currentTab=name;document.querySelectorAll(".tab").forEach(function(el){el.classList.toggle("active",el.getAttribute("data-tab")===name);});document.querySelectorAll(".view").forEach(function(el){el.classList.toggle("active",el.id==="view-"+name);});if(name==="mouse"){mode="mouse";$("mouseMode").textContent="Use gamepad output";}if(name==="gamepad"){if(!gamepadAvailable){mode="mouse";$("mouseMode").textContent="Virtual gamepad unavailable";neutral();sendState(true);return;}mode="gamepad";$("mouseMode").textContent="Use mouse output";}if(name==="session")sendAction("pc_status",{}).catch(function(){});sendState(true);}
 function actionConfirm(name,payload,warning){if(warning&&!confirm(warning))return;sendAction(name,payload).catch(function(){});}
 function remoteBindings(){$("sendText").onclick=function(){actionConfirm("keyboard_text",{text:$("remoteText").value});};document.querySelectorAll("[data-key]").forEach(function(el){el.onclick=function(){actionConfirm("keyboard_key",{key:el.getAttribute("data-key")});};});$("sendShortcut").onclick=function(){actionConfirm("keyboard_shortcut",{shortcut:$("shortcut").value});};document.querySelectorAll("[data-media]").forEach(function(el){el.onclick=function(){actionConfirm("media",{command:el.getAttribute("data-media")});};});document.querySelectorAll("[data-modifier]").forEach(function(el){var key=el.getAttribute("data-modifier"),pointers=new Set(),queue=Promise.resolve();registerInputReset(function(){if(!pointers.size)return;pointers.clear();el.classList.remove("pressed");queue=queue.then(function(){return sendAction("keyboard_modifier",{key:key,pressed:false});}).catch(function(){});});el.addEventListener("pointerdown",function(e){e.preventDefault();if(pointers.has(e.pointerId))return;var wasHeld=pointers.size>0;pointers.add(e.pointerId);try{el.setPointerCapture(e.pointerId);}catch(_){}if(wasHeld)return;el.classList.add("pressed");queue=queue.then(function(){return sendAction("keyboard_modifier",{key:key,pressed:true});}).catch(function(){});});function release(e){if(!pointers.delete(e.pointerId)||pointers.size)return;el.classList.remove("pressed");queue=queue.then(function(){return sendAction("keyboard_modifier",{key:key,pressed:false});}).catch(function(){});}el.addEventListener("pointerup",release);el.addEventListener("pointercancel",release);el.addEventListener("lostpointercapture",release);});$("clipSend").onclick=function(){actionConfirm("clipboard_set",{text:$("clipboardText").value});};$("clipRead").onclick=function(){actionConfirm("clipboard_get",{});};document.querySelectorAll("[data-app]").forEach(function(el){el.onclick=function(){actionConfirm("launch_app",{app:el.getAttribute("data-app")});};});document.querySelectorAll("[data-presentation]").forEach(function(el){el.onclick=function(){actionConfirm("presentation",{command:el.getAttribute("data-presentation")});};});document.querySelectorAll("[data-power]").forEach(function(el){el.onclick=function(){var c=el.getAttribute("data-power"),w=c==="shutdown"?"Shut down this PC now?":c==="restart"?"Restart this PC now?":c==="sleep"?"Put this PC to sleep?":c==="logoff"?"Log off this Windows session now?":c==="display_off"?"Turn off the PC display now?":null;actionConfirm("power_action",{command:c},w);};});}
