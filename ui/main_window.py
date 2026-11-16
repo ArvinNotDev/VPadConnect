@@ -359,8 +359,6 @@ class MainWindow(QMainWindow):
         self._button_hover_animations = ButtonHoverAnimations(self)
 
         self._cursor_spotlight = CursorSpotlight(central)
-        self._cursor_spotlight.setGeometry(central.rect())
-        self._cursor_spotlight.lower()
         self._status_toast = StatusToast(self)
         for widget in (self, *self.findChildren(QWidget)):
             widget.setMouseTracking(True)
@@ -377,8 +375,6 @@ class MainWindow(QMainWindow):
         super().resizeEvent(event)
         if not self._screen_adjusting and not self.isMaximized():
             self._preferred_window_size = event.size()
-        if hasattr(self, "_cursor_spotlight"):
-            self._cursor_spotlight.setGeometry(self.centralWidget().rect())
         if hasattr(self, "_status_toast"):
             self._status_toast.reposition()
         if hasattr(self, "_main_layout"):
@@ -424,19 +420,16 @@ class MainWindow(QMainWindow):
                 watched.setMouseTracking(True)
             elif event.type() == QEvent.Type.MouseMove:
                 global_position = event.globalPosition().toPoint()
-                target = QApplication.widgetAt(global_position)
-                if self._widget_is_in_window(target):
-                    central = self.centralWidget()
-                    local_position = central.mapFromGlobal(global_position)
-                    if central.rect().contains(local_position):
-                        self._cursor_spotlight.set_target(local_position)
-                    else:
-                        self._cursor_spotlight.hide_spotlight()
+                central = self.centralWidget()
+                local_position = central.mapFromGlobal(global_position)
+                if central.rect().contains(local_position):
+                    self._cursor_spotlight.set_target(local_position)
                 else:
                     self._cursor_spotlight.hide_spotlight()
             elif event.type() == QEvent.Type.Leave:
-                target = QApplication.widgetAt(QCursor.pos())
-                if not self._widget_is_in_window(target):
+                central = self.centralWidget()
+                local_position = central.mapFromGlobal(QCursor.pos())
+                if not central.rect().contains(local_position):
                     self._cursor_spotlight.hide_spotlight()
         return super().eventFilter(watched, event)
 
