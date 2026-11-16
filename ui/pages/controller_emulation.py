@@ -873,6 +873,7 @@ class EmuListItemWidget(QWidget):
         self.status.setFixedSize(12, 12)
         self.status.setToolTip("Running status")
         self._connected = True
+        self._theme = "dark"
         self._update_status_style(False)
         layout.addWidget(self.status, alignment=Qt.AlignRight)
         self.apply_theme()
