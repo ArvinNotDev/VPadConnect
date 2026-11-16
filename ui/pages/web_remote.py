@@ -235,50 +235,98 @@ class WebRemotePage(QWidget):
         root.addWidget(pairing)
 
 
-        self.setStyleSheet("""
-            QWidget#webCompanionPage { background: transparent; }
-            QFrame#webHero { border: 1px solid #2a3d5b; border-radius: 15px;
-                background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #172841,stop:1 #211a3b); }
-            QFrame#webCard, QFrame#webPairingCard { border: 1px solid #2b3b53;
-                border-radius: 13px; background: #121c2b; }
-            QFrame#webPairingCard:disabled { border-color: #292f3a; background: #1a202b; }
-            QLabel { background: transparent; color: #eaf1ff; }
-            QLabel#webEyebrow { color: #91b3ff; font-size: 9px; font-weight: 800; letter-spacing: 2px; }
-            QLabel#webTitle { font-size: 21px; font-weight: 800; }
-            QLabel#webMuted { color: #a5b4cb; font-size: 11px; }
-            QLabel#webCaption { color: #8296b4; font-size: 9px; font-weight: 800; }
-            QLabel#webSectionTitle { color: #f0f4ff; font-size: 14px; font-weight: 750; }
-            QLabel#webUrl { color: #85bcff; font-size: 12px; font-weight: 700; }
-            QLabel#webFingerprint { color: #879ab7; font-family: Consolas; font-size: 9px; }
-            QLabel#webStatusStopped { color: #ff9cac; font-size: 11px; font-weight: 800; }
-            QLabel#webStatusRunning { color: #68e3b7; font-size: 11px; font-weight: 800; }
-            QLabel#webPairCode { color: #8ab8ff; font-family: Consolas; font-size: 23px; font-weight: 900; letter-spacing: 3px; }
-            QLabel#webQrImage { padding: 6px; color: #637996; background: #fff; border-radius: 10px; }
-            QListWidget#webClientsList { background: #0d1623; border: 1px solid #28374d;
-                border-radius: 8px; padding: 3px; color: #c9d6e9; }
-            QListWidget#webClientsList::item { padding: 4px 6px; border-radius: 5px; }
-            QListWidget#webClientsList::item:selected { background: #2a4165; }
-            QWidget:disabled { color: #69778c; }
-            QPushButton { border: 1px solid #354964; border-radius: 8px; padding: 7px 11px;
-                color: #eef4ff; background: #1a2940; font-weight: 650; }
-            QPushButton:hover:enabled { background: #263d5e; }
-            QPushButton:disabled { color: #667790; background: #202633; border-color: #303746; }
-            QPushButton#webStartButton { background: #17845d; border-color: #35b987;
-                color: white; font-weight: 800; }
-            QPushButton#webStartButton:hover:enabled { background: #1ca370; }
-            QPushButton#webStartButton[running="true"] { background: #bd394b; border-color: #e65a6a; }
-            QPushButton#webStartButton[running="true"]:hover:enabled { background: #d34859; }
-            QPushButton#webCopyButton { padding: 4px 8px; font-size: 11px; }
-            QFrame#webVigemNotice { border: 1px solid #806239; border-radius: 12px;
-                background: #2a2119; }
-            QLabel#webVigemNoticeTitle { color: #ffd49a; font-size: 12px; font-weight: 800; }
-            QLabel#webVigemNoticeDetail { color: #d8c5aa; font-size: 11px; }
-            QPushButton#webVigemInstall { background: #77501e; border-color: #ae7a37;
-                color: #fff3df; font-weight: 800; }
-            QPushButton#webVigemInstall:hover:enabled { background: #8b612a; }
-            QPushButton#webVigemRecheck { background: #1b283a; }
-        """)
+        self.apply_theme()
+
         self._set_vigem_available(self._vigem_available)
+
+    def apply_theme(self, theme_name: str | None = None) -> None:
+        app = QApplication.instance()
+        theme = theme_name or (
+            app.property("vpadTheme") if app is not None else "dark"
+        )
+        light = theme == "light"
+        border = "#d4dfed" if light else "#2b3b53"
+        card = "#ffffff" if light else "#121c2b"
+        text = "#263650" if light else "#eaf1ff"
+        muted = "#64758f" if light else "#a5b4cb"
+        caption = "#536985" if light else "#8296b4"
+        section = "#344b68" if light else "#f0f4ff"
+        eyebrow = "#315f9b" if light else "#91b3ff"
+        url = "#245f9d" if light else "#85bcff"
+        fingerprint = "#526782" if light else "#879ab7"
+        code = "#285f9e" if light else "#8ab8ff"
+        list_bg = "#f1f5fb" if light else "#0d1623"
+        list_text = "#3e5574" if light else "#c9d6e9"
+        button_bg = "#e7eef8" if light else "#1a2940"
+        button_text = "#344c6b" if light else "#eef4ff"
+        button_border = "#cbd8e8" if light else "#354964"
+        button_hover = "#dbe9f8" if light else "#263d5e"
+        disabled_bg = "#edf1f6" if light else "#202633"
+        disabled_text = "#8795a9" if light else "#667790"
+        vigem_bg = "#fff5e6" if light else "#2a2119"
+        vigem_border = "#e7c991" if light else "#806239"
+        vigem_title = "#86531b" if light else "#ffd49a"
+        vigem_detail = "#715c3d" if light else "#d8c5aa"
+        vigem_button_bg = "#865819" if light else "#77501e"
+        vigem_button_border = "#bc8c43" if light else "#ae7a37"
+        vigem_recheck_bg = "#f1e7d5" if light else "#1b283a"
+        self.setStyleSheet(f"""
+            QWidget#webCompanionPage {{ background:transparent; }}
+            QFrame#webHero {{
+                border:1px solid {border}; border-radius:15px;
+                background:{'#e9f1fc' if light else 'qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #172841,stop:1 #211a3b)'};
+            }}
+            QFrame#webCard, QFrame#webPairingCard {{
+                border:1px solid {border}; border-radius:13px; background:{card};
+            }}
+            QFrame#webPairingCard:disabled {{
+                border-color:{'#e1e7f0' if light else '#292f3a'};
+                background:{'#f2f5fa' if light else '#1a202b'};
+            }}
+            QLabel {{ background:transparent; color:{text}; }}
+            QLabel#webEyebrow {{ color:{eyebrow}; font-size:9px; font-weight:800; letter-spacing:2px; }}
+            QLabel#webTitle {{ color:{text}; font-size:21px; font-weight:800; }}
+            QLabel#webMuted {{ color:{muted}; font-size:11px; }}
+            QLabel#webCaption {{ color:{caption}; font-size:9px; font-weight:800; }}
+            QLabel#webSectionTitle {{ color:{section}; font-size:14px; font-weight:750; }}
+            QLabel#webUrl {{ color:{url}; font-size:12px; font-weight:700; }}
+            QLabel#webFingerprint {{ color:{fingerprint}; font-family:Consolas; font-size:9px; }}
+            QLabel#webStatusStopped {{ color:#b43a4c; font-size:11px; font-weight:800; }}
+            QLabel#webStatusRunning {{ color:#16835d; font-size:11px; font-weight:800; }}
+            QLabel#webPairCode {{ color:{code}; font-family:Consolas; font-size:23px; font-weight:900; letter-spacing:3px; }}
+            QLabel#webQrImage {{ padding:6px; color:#637996; background:#ffffff; border-radius:10px; }}
+            QListWidget#webClientsList {{
+                background:{list_bg}; border:1px solid {border};
+                border-radius:8px; padding:3px; color:{list_text};
+            }}
+            QListWidget#webClientsList::item {{ padding:4px 6px; border-radius:5px; }}
+            QListWidget#webClientsList::item:selected {{ background:{'#d6e6fa' if light else '#2a4165'}; color:{text}; }}
+            QWidget:disabled {{ color:{disabled_text}; }}
+            QPushButton {{
+                border:1px solid {button_border}; border-radius:8px; padding:7px 11px;
+                color:{button_text}; background:{button_bg}; font-weight:650;
+            }}
+            QPushButton:hover:enabled {{ background:{button_hover}; }}
+            QPushButton:disabled {{
+                color:{disabled_text}; background:{disabled_bg}; border-color:{border};
+            }}
+            QPushButton#webStartButton {{ background:#17845d; border-color:#35b987; color:white; font-weight:800; }}
+            QPushButton#webStartButton:hover:enabled {{ background:#1ca370; }}
+            QPushButton#webStartButton[running="true"] {{ background:#bd394b; border-color:#e65a6a; }}
+            QPushButton#webStartButton[running="true"]:hover:enabled {{ background:#d34859; }}
+            QPushButton#webCopyButton {{ padding:4px 8px; font-size:11px; }}
+            QFrame#webVigemNotice {{
+                border:1px solid {vigem_border}; border-radius:12px; background:{vigem_bg};
+            }}
+            QLabel#webVigemNoticeTitle {{ color:{vigem_title}; font-size:12px; font-weight:800; }}
+            QLabel#webVigemNoticeDetail {{ color:{vigem_detail}; font-size:11px; }}
+            QPushButton#webVigemInstall {{
+                background:{vigem_button_bg}; border-color:{vigem_button_border};
+                color:#fff3df; font-weight:800;
+            }}
+            QPushButton#webVigemInstall:hover:enabled {{ background:{'#9a6927' if light else '#8b612a'}; }}
+            QPushButton#webVigemRecheck {{ background:{vigem_recheck_bg}; }}
+        """)
 
     def set_vigem_available(self, available: bool) -> None:
         self._vigem_available = bool(available)
