@@ -130,6 +130,30 @@ def test_raw_hid_terminal_and_notifications_use_light_palette(qapp):
     _flush_deferred_deletes(qapp)
 
 
+def test_hotkey_dialogs_support_light_theme(qapp):
+    from types import SimpleNamespace
+
+    with patch.dict(sys.modules, _native_input_stubs()):
+        hotkey_module = importlib.import_module("ui.pages.hotkey")
+        instance = SimpleNamespace(is_monitoring=False, _last_monitor=None)
+
+        capture = hotkey_module.PressTwoButtonsAtTheSameTime(instance)
+        capture.apply_theme("light")
+        assert "#f3f6fc" in capture.styleSheet()
+        assert "#e6edf7" in capture.lbl_a.styleSheet()
+        capture.timer.stop()
+        capture.deleteLater()
+
+        instance.is_monitoring = False
+        manager = SimpleNamespace(list_hotkeys=lambda: [])
+        dialog = hotkey_module.HotkeyDialog(instance, "DualSense", manager)
+        dialog.apply_theme("light")
+        assert "#f3f6fc" in dialog.styleSheet()
+        assert "#ffffff" in dialog.hotkey_list.styleSheet() or "#ffffff" in dialog.styleSheet()
+        dialog.deleteLater()
+        _flush_deferred_deletes(qapp)
+
+
 def test_new_controller_mapping_starts_emulation_immediately(qapp):
     with patch.dict(sys.modules, _native_input_stubs()):
         module = importlib.import_module("ui.pages.controller_emulation")
