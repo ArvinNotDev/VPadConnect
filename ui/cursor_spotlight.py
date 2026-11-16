@@ -28,7 +28,7 @@ class CursorSpotlight(QLabel):
         self.setStyleSheet(
             "QLabel#cursorSpotlight { background: transparent; border: none; }"
         )
-        self.setPixmap(self._build_gradient_pixmap())
+        self.apply_theme()
 
         self._position = QPointF()
         self._target = QPointF()
@@ -38,8 +38,18 @@ class CursorSpotlight(QLabel):
         self._timer.timeout.connect(self._advance)
         self.hide()
 
+    def apply_theme(self, theme_name: str | None = None) -> None:
+        app = self.parentWidget().window().windowHandle()
+        del app  # QApplication theme is read from the global application property below.
+        from PySide6.QtWidgets import QApplication
+        application = QApplication.instance()
+        theme = theme_name or (
+            application.property("vpadTheme") if application is not None else "dark"
+        )
+        self.setPixmap(self._build_gradient_pixmap(theme == "light"))
+
     @classmethod
-    def _build_gradient_pixmap(cls) -> QPixmap:
+    def _build_gradient_pixmap(cls, light: bool = False) -> QPixmap:
         """Create the translucent spotlight once instead of repainting it per frame."""
         pixmap = QPixmap(cls.DIAMETER, cls.DIAMETER)
         pixmap.fill(Qt.GlobalColor.transparent)
@@ -48,10 +58,16 @@ class CursorSpotlight(QLabel):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         center = QPointF(cls.RADIUS, cls.RADIUS)
         gradient = QRadialGradient(center, cls.RADIUS)
-        gradient.setColorAt(0.0, QColor(34, 211, 238, 43))
-        gradient.setColorAt(0.34, QColor(6, 182, 212, 25))
-        gradient.setColorAt(0.72, QColor(8, 145, 178, 9))
-        gradient.setColorAt(1.0, QColor(8, 145, 178, 0))
+        if light:
+            gradient.setColorAt(0.0, QColor(37, 99, 235, 48))
+            gradient.setColorAt(0.34, QColor(37, 99, 235, 28))
+            gradient.setColorAt(0.72, QColor(29, 78, 216, 11))
+            gradient.setColorAt(1.0, QColor(29, 78, 216, 0))
+        else:
+            gradient.setColorAt(0.0, QColor(34, 211, 238, 43))
+            gradient.setColorAt(0.34, QColor(6, 182, 212, 25))
+            gradient.setColorAt(0.72, QColor(8, 145, 178, 9))
+            gradient.setColorAt(1.0, QColor(8, 145, 178, 0))
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(gradient)
         painter.drawEllipse(0, 0, cls.DIAMETER, cls.DIAMETER)
@@ -62,17 +78,20 @@ class CursorSpotlight(QLabel):
         circle.addEllipse(0.5, 0.5, cls.DIAMETER - 1, cls.DIAMETER - 1)
         painter.setClipPath(circle)
         painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.setPen(QPen(QColor(103, 232, 249, 5), 1))
+        texture_color = QColor(29, 78, 216, 13) if light else QColor(103, 232, 249, 5)
+        ring_color = QColor(29, 78, 216, 25) if light else QColor(103, 232, 249, 10)
+        outer_ring_color = QColor(29, 78, 216, 14) if light else QColor(103, 232, 249, 6)
+        painter.setPen(QPen(texture_color, 1))
         for offset in range(-cls.DIAMETER, cls.DIAMETER * 2, 12):
             painter.drawLine(offset, cls.DIAMETER, offset + cls.DIAMETER, 0)
 
-        painter.setPen(QPen(QColor(103, 232, 249, 10), 1))
+        painter.setPen(QPen(ring_color, 1))
         painter.drawEllipse(
             center,
             cls.RADIUS * 0.43,
             cls.RADIUS * 0.43,
         )
-        painter.setPen(QPen(QColor(103, 232, 249, 6), 1))
+        painter.setPen(QPen(outer_ring_color, 1))
         painter.drawEllipse(
             center,
             cls.RADIUS * 0.76,
