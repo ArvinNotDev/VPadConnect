@@ -104,6 +104,9 @@ def test_input_test_uses_light_palette_and_hides_web_only_fields(qapp):
         physical_card.deleteLater()
 
         page = page_module.ControllersPage(None, vigem_available=False)
+        page.apply_theme("dark")
+        assert "#172b46" in page.cards_container.styleSheet()
+        assert "#101a2b" not in page.cards_container.styleSheet()
         page.apply_theme("light")
         assert "#eaf1fb" in page.cards_container.styleSheet()
         page.refresh_timer.stop()
