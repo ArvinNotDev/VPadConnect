@@ -3,7 +3,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem, QDialog, QGridLayout, QFrame, QPushButton, QSpinBox,
     QScrollArea, QSlider, QCheckBox, QComboBox
 )
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import Qt, QTimer, Signal, QSize
 from PySide6.QtGui import QColor, QPainter, QPen
 
 from core import emulator
@@ -11,6 +11,8 @@ from core.vigem import is_vigem_installed
 from ui.vigem_gate import VigemGate
 from ui.icons import SMALL_ICON_SIZE, battery_icon_name, icon
 from ui.animations import AnimatedDialog
+
+BATTERY_ICON_SIZE = QSize(22, 22)
 
 
 class X360MonitorDialog(AnimatedDialog):
@@ -253,12 +255,18 @@ class X360TestRow(QWidget):
         self.name_label.setStyleSheet("font-weight: bold;")
         header.addWidget(self.name_label)
 
+        battery_info = QWidget(self)
+        battery_layout = QHBoxLayout(battery_info)
+        battery_layout.setContentsMargins(2, 0, 2, 0)
+        battery_layout.setSpacing(3)
         self.battery_icon = QLabel()
-        self.battery_icon.setFixedSize(SMALL_ICON_SIZE)
-        header.addWidget(self.battery_icon)
+        self.battery_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.battery_icon.setFixedSize(BATTERY_ICON_SIZE)
+        battery_layout.addWidget(self.battery_icon)
         self.battery_label = QLabel("Battery: —")
-        self.battery_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        header.addWidget(self.battery_label)
+        self.battery_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        battery_layout.addWidget(self.battery_label)
+        header.addWidget(battery_info)
         root.addLayout(header)
 
         motor_row = QHBoxLayout()
@@ -308,7 +316,7 @@ class X360TestRow(QWidget):
     def set_battery(self, percent: int | None, charging: bool = False) -> None:
         tint = "#4ade80" if charging else "#aabbd2"
         self.battery_icon.setPixmap(
-            icon(battery_icon_name(percent, charging), tint).pixmap(SMALL_ICON_SIZE)
+            icon(battery_icon_name(percent, charging), tint).pixmap(BATTERY_ICON_SIZE)
         )
         if percent is None:
             self.battery_label.setText("Battery: —")
@@ -503,6 +511,7 @@ class X360TestCard(QFrame):
         self.controller_name = name
         self._vibration_enabled = vibration_enabled
         self._vibration_dialog = None
+        self._is_remote = self._is_remote_instance(instance)
         self._gyro = getattr(instance, "gyro_steering", None)
         self.setStyleSheet(
             "QFrame { background:#1a2538; border:1px solid #344866; border-radius:16px; } "
@@ -517,12 +526,20 @@ class X360TestCard(QFrame):
         self.name_label.setStyleSheet("font-size:15px; font-weight:700;")
         header.addWidget(self.name_label)
         header.addStretch(1)
+        self.battery_info = QWidget(self)
+        battery_layout = QHBoxLayout(self.battery_info)
+        battery_layout.setContentsMargins(2, 0, 2, 0)
+        battery_layout.setSpacing(3)
         self.battery_icon = QLabel()
-        self.battery_icon.setFixedSize(SMALL_ICON_SIZE)
-        header.addWidget(self.battery_icon)
+        self.battery_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.battery_icon.setFixedSize(BATTERY_ICON_SIZE)
+        battery_layout.addWidget(self.battery_icon)
         self.battery_label = QLabel("Battery: —")
         self.battery_label.setStyleSheet("color:#aabbd2;")
-        header.addWidget(self.battery_label)
+        self.battery_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        battery_layout.addWidget(self.battery_label)
+        header.addWidget(self.battery_info)
+        self.battery_info.setVisible(not self._is_remote)
         self.gyro_toggle = QCheckBox("Gyro Steering")
         self.gyro_toggle.setToolTip(
             "When enabled, gyro controls left-stick horizontal steering. "
@@ -540,6 +557,7 @@ class X360TestCard(QFrame):
         header.addWidget(self.gyro_calibrate_button)
         self.vibration_button = QPushButton("Vibration Test")
         self.vibration_button.clicked.connect(self.open_vibration_test)
+        self.vibration_button.setVisible(not self._is_remote)
         header.addWidget(self.vibration_button)
         root.addLayout(header)
 
@@ -687,6 +705,11 @@ class X360TestCard(QFrame):
         self.view_timer.timeout.connect(self.update_view)
         self.view_timer.start(30)
 
+    @staticmethod
+    def _is_remote_instance(instance) -> bool:
+        path = str(getattr(instance, "device_path", "") or "")
+        return bool(getattr(instance, "is_remote", False) or path.startswith("web-"))
+
     def _set_gyro_enabled(self, enabled: bool) -> None:
         if self._gyro is None:
             return
@@ -763,6 +786,9 @@ class X360TestCard(QFrame):
     def set_instance(self, instance) -> None:
         """Replace a reconnecting emulator and its per-connection gyro state."""
         self.instance = instance
+        self._is_remote = self._is_remote_instance(instance)
+        self.battery_info.setVisible(not self._is_remote)
+        self.vibration_button.setVisible(not self._is_remote)
         self._gyro = getattr(instance, "gyro_steering", None)
         available = self._gyro is not None
         self.gyro_toggle.setVisible(available)
@@ -784,7 +810,7 @@ class X360TestCard(QFrame):
     def set_battery(self, percent: int | None, charging: bool = False) -> None:
         tint = "#4ade80" if charging else "#aabbd2"
         self.battery_icon.setPixmap(
-            icon(battery_icon_name(percent, charging), tint).pixmap(SMALL_ICON_SIZE)
+            icon(battery_icon_name(percent, charging), tint).pixmap(BATTERY_ICON_SIZE)
         )
         if percent is None:
             self.battery_label.setText("Battery: —")
@@ -804,12 +830,18 @@ class X360TestCard(QFrame):
 
     def set_vibration_enabled(self, enabled: bool) -> None:
         self._vibration_enabled = bool(enabled)
-        available = bool(getattr(self.instance, "supports_rumble", False))
+        available = (
+            not self._is_remote
+            and bool(getattr(self.instance, "supports_rumble", False))
+        )
+        self.vibration_button.setVisible(not self._is_remote)
         self.vibration_button.setEnabled(available and self._vibration_enabled)
         if self._vibration_dialog is not None:
             self._vibration_dialog.set_vibration_enabled(available and self._vibration_enabled)
 
     def open_vibration_test(self) -> None:
+        if self._is_remote:
+            return
         if self._vibration_dialog is None:
             self._vibration_dialog = VibrationTestDialog(
                 self.instance, self.controller_name,
