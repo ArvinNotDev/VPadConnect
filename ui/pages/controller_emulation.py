@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QColorDialog, QDialogButtonBox, QSplitter
 )
 from PySide6.QtCore import (
-    Qt, Signal, Slot, QTimer, QThread, QObject, QUrl, QEasingCurve,
+    Qt, Signal, Slot, QTimer, QThread, QObject, QUrl, QEasingCurve, QSize,
     QPropertyAnimation,
 )
 from PySide6.QtGui import QDesktopServices, QColor
@@ -37,6 +37,7 @@ from ui.icons import ICON_SIZE, SMALL_ICON_SIZE, battery_icon_name, icon
 from core.hidhide import HIDHIDE_RELEASES_URL, HidHideError, HidHideManager
 
 logger = logging.getLogger("vpadconnect.controller_emulation")
+BATTERY_ICON_SIZE = QSize(22, 22)
 
 
 class HidHideWorker(QObject):
@@ -806,21 +807,54 @@ class EmuListItemWidget(QWidget):
         self._battery = None
         self.device = device
 
+        self.setObjectName("physicalControllerRow")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setStyleSheet("""
+            QWidget#physicalControllerRow {
+                background: #172338;
+                border: 1px solid #30435f;
+                border-radius: 10px;
+            }
+            QWidget#physicalControllerRow QLabel {
+                color: #eaf1ff;
+                background: transparent;
+                border: none;
+            }
+            QWidget#physicalControllerRow QPushButton {
+                color: #dceaff;
+                background: #22344c;
+                border: 1px solid #405976;
+                border-radius: 8px;
+                padding: 6px 10px;
+                font-size: 11px;
+                font-weight: 700;
+            }
+            QWidget#physicalControllerRow QPushButton:hover:enabled {
+                background: #2c4665;
+                border-color: #6e91bb;
+            }
+        """)
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 4, 8, 4)
+        layout.setContentsMargins(10, 6, 10, 6)
         layout.setSpacing(8)
 
         self.lbl_text = QLabel(f"{hid} → {emu}")
         self.lbl_text.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         layout.addWidget(self.lbl_text)
 
+        self.battery_info = QWidget(self)
+        battery_layout = QHBoxLayout(self.battery_info)
+        battery_layout.setContentsMargins(2, 0, 2, 0)
+        battery_layout.setSpacing(3)
         self.battery_icon = QLabel()
-        self.battery_icon.setFixedSize(SMALL_ICON_SIZE)
-        layout.addWidget(self.battery_icon)
+        self.battery_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.battery_icon.setFixedSize(BATTERY_ICON_SIZE)
+        battery_layout.addWidget(self.battery_icon)
         self.lbl_battery = QLabel("Battery: --")
-        self.lbl_battery.setMinimumWidth(115)
-        self.lbl_battery.setAlignment(Qt.AlignCenter)
-        layout.addWidget(self.lbl_battery)
+        self.lbl_battery.setMinimumWidth(0)
+        self.lbl_battery.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        battery_layout.addWidget(self.lbl_battery)
+        layout.addWidget(self.battery_info)
 
         self.btn_lightbar = QPushButton("Lightbar")
         self.btn_lightbar.setToolTip("Configure this controller's Lightbar")
@@ -871,7 +905,7 @@ class EmuListItemWidget(QWidget):
             self._battery = None
             self.lbl_battery.setText("Battery: --")
             self.battery_icon.setPixmap(
-                icon(battery_icon_name(None), "#91a2bc").pixmap(SMALL_ICON_SIZE)
+                icon(battery_icon_name(None), "#91a2bc").pixmap(BATTERY_ICON_SIZE)
             )
             return
         self._battery = (int(percent), bool(charging))
@@ -879,7 +913,7 @@ class EmuListItemWidget(QWidget):
             icon(
                 battery_icon_name(int(percent), charging),
                 "#4ade80" if charging else "#aabbd2",
-            ).pixmap(SMALL_ICON_SIZE)
+            ).pixmap(BATTERY_ICON_SIZE)
         )
         suffix = " · Charging" if charging else ""
         self.lbl_battery.setText(f"Battery: {int(percent)}%{suffix}")
@@ -892,7 +926,7 @@ class EmuListItemWidget(QWidget):
             "border-radius: 6px; background-color: #f59e0b;"
         )
         self.battery_icon.setPixmap(
-            icon(battery_icon_name(None), "#91a2bc").pixmap(SMALL_ICON_SIZE)
+            icon(battery_icon_name(None), "#91a2bc").pixmap(BATTERY_ICON_SIZE)
         )
         self.lbl_battery.setText("Waiting for reconnect…")
 
@@ -1214,72 +1248,66 @@ class ControllerEmulation(QWidget):
 
         return supported
 
-    def open_add_controller_dialog(self):
-        dialog = AddControllerDialog(self)
-
-        hid_list_display = []
-        hid_path_list = []
-
+    def _scan_addable_hid_devices(self) -> tuple[list[str], list[dict]]:
+        """Return supported connected HID controllers and their matching device records."""
+        labels: list[str] = []
+        paths: list[dict] = []
         devices = hid.hid_manager.scan_devices() or []
+        name_counts: dict[str, int] = {}
 
-        name_counts = {}
-        for dev in devices:
-            if not is_preferred_sony_gamepad_interface(dev):
+        def as_int(value):
+            try:
+                return int(value) if isinstance(value, int) else int(str(value), 0)
+            except (TypeError, ValueError):
+                try:
+                    return int(value)
+                except (TypeError, ValueError):
+                    return None
+
+        for device in devices:
+            if not is_preferred_sony_gamepad_interface(device):
                 logger.debug(
                     "Skipping non-gamepad Sony USB HID collection: "
                     "usage_page=%s usage=%s interface=%s",
-                    dev.get("usage_page"),
-                    dev.get("usage"),
-                    dev.get("interface_number"),
+                    device.get("usage_page"),
+                    device.get("usage"),
+                    device.get("interface_number"),
                 )
                 continue
 
-            vid = dev.get("vendor_id")
-            pid = dev.get("product_id")
-
-            try:
-                vid_int = int(vid) if isinstance(vid, (int,)) else int(str(vid), 0)
-            except Exception:
-                try:
-                    vid_int = int(vid)
-                except Exception:
-                    vid_int = None
-            try:
-                pid_int = int(pid) if isinstance(pid, (int,)) else int(str(pid), 0)
-            except Exception:
-                try:
-                    pid_int = int(pid)
-                except Exception:
-                    pid_int = None
-
-            if vid_int == 0x054C and pid_int in (0x05C4, 0x09CC):
+            vendor_id = as_int(device.get("vendor_id"))
+            product_id = as_int(device.get("product_id"))
+            if vendor_id == 0x054C and product_id in (0x05C4, 0x09CC):
                 name = "Dualshock4 (PS4 Controller)"
-            elif vid_int == 0x054C and pid_int == 0x0CE6:
+            elif vendor_id == 0x054C and product_id == 0x0CE6:
                 name = "Dualsense (PS5 Controller)"
-            elif vid_int == 0x054C and pid_int == 0x0DF2:
+            elif vendor_id == 0x054C and product_id == 0x0DF2:
                 name = "DualSense Edge (PS5 Controller)"
-            elif vid_int == 0x10C4 and pid_int == 0x82C0:
+            elif vendor_id == 0x10C4 and product_id == 0x82C0:
                 name = "UnoJoy Controller (Arduino)"
             else:
-                name = "Not Supported"
-            
-            # --- Skip unsupported devices entirely ---
-            if name == "Not Supported":
                 continue
-            
+
             count = name_counts.get(name, 0)
             name_counts[name] = count + 1
-            display = name if count == 0 else f"{name} ({count})"
-            
-            hid_list_display.append(display)
-            hid_path_list.append(dev)
+            labels.append(name if count == 0 else f"{name} ({count})")
+            paths.append(device)
 
-        hid_list_display.reverse()
-        hid_path_list.reverse()
-        dialog.hid_list.addItems(hid_list_display)
-        dialog.emu_list.addItems(["Emulate Xbox"])
-        if dialog.emu_list.count():
-            dialog.emu_list.setCurrentRow(0)
+        return list(reversed(labels)), list(reversed(paths))
+
+    def open_add_controller_dialog(self):
+        dialog = AddControllerDialog(self)
+        dialog.emu_list.addItem("Emulate Xbox")
+        dialog.emu_list.setCurrentRow(0)
+        hid_path_list: list[dict] = []
+
+        def refresh_hid_devices() -> None:
+            nonlocal hid_path_list
+            labels, hid_path_list = self._scan_addable_hid_devices()
+            dialog.set_hid_devices(labels)
+
+        dialog.refresh_requested.connect(refresh_hid_devices)
+        refresh_hid_devices()
 
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
@@ -1289,16 +1317,11 @@ class ControllerEmulation(QWidget):
             return
 
         selected_index = dialog.hid_list.currentRow()
-        if selected_index is None or selected_index < 0:
-            try:
-                selected_index = hid_list_display.index(hid_choice)
-            except ValueError:
-                selected_index = -1
-
-        device = None
-        if 0 <= selected_index < len(hid_path_list):
-            device = hid_path_list[selected_index]
-
+        device = (
+            hid_path_list[selected_index]
+            if 0 <= selected_index < len(hid_path_list)
+            else None
+        )
         added = self.add_emulated_mapping(hid_choice, emu_choice, device)
         if not added:
             return
