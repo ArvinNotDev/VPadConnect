@@ -4,7 +4,7 @@ import time
 from typing import Optional, Tuple
 
 from PySide6.QtWidgets import (
-    QWidget, QHBoxLayout, QVBoxLayout, QLabel, QListWidget, QPushButton,
+    QApplication, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QListWidget, QPushButton,
     QDialog, QListWidgetItem, QSizePolicy, QMessageBox, QFrame, QCheckBox,
     QColorDialog, QDialogButtonBox, QSplitter
 )
@@ -313,105 +313,105 @@ class HidHideCard(QFrame):
         # can reclaim the space instead of leaving hidden content underneath.
         self.setMaximumHeight(self._collapsed_card_height())
 
-    def _apply_style(self):
-        self.setStyleSheet(
-            """
-            QFrame#hidhideCard {
-                background: rgba(255, 255, 255, 12%);
-                border: 1px solid rgba(255, 255, 255, 20%);
+    def _apply_style(self, theme_name: str | None = None):
+        app = QApplication.instance()
+        theme = theme_name or (
+            app.property("vpadTheme") if app is not None else "dark"
+        )
+        dark = theme != "light"
+        if dark:
+            card_bg, card_border = "#172338", "#30435f"
+            primary_text, secondary_text = "#eaf1ff", "#91a2bc"
+            row_bg, row_border = "#1d2b40", "#314762"
+            meta_text = "#a3b4cb"
+            header_hover, header_expanded = "#20354d", "#1c3047"
+            toggle_bg, toggle_text, toggle_border = "#203a55", "#a9cfff", "#3b638d"
+            secondary_button_bg, secondary_button_text = "#1d2d43", "#a9cfff"
+            visible_text, visible_bg = "#58677e", "#e2e8f0"
+        else:
+            card_bg, card_border = "#f7f9fd", "#d7e1f0"
+            primary_text, secondary_text = "#263650", "#61728d"
+            row_bg, row_border = "#ffffff", "#dce5f2"
+            meta_text = "#6d7c94"
+            header_hover, header_expanded = "#edf3fc", "#e7f0fb"
+            toggle_bg, toggle_text, toggle_border = "#e5effb", "#285b8d", "#c2d5ec"
+            secondary_button_bg, secondary_button_text = "#edf3fb", "#315f91"
+            visible_text, visible_bg = "#58677e", "#e9eef6"
+
+        self.setStyleSheet(f"""
+            QFrame#hidhideCard {{
+                background: {card_bg};
+                border: 1px solid {card_border};
                 border-radius: 12px;
-            }
-            QLabel#hidhideTitle {
+            }}
+            QLabel#hidhideTitle {{
+                color: {primary_text};
                 font-size: 15px;
                 font-weight: 700;
-            }
-            QWidget#hidhideHeader {
-                border-radius: 8px;
-            }
-            QWidget#hidhideHeader:hover {
-                background: rgba(133, 193, 255, 5%);
-            }
-            QWidget#hidhideHeader[expanded="true"] {
-                background: rgba(133, 193, 255, 7%);
-            }
-            QLabel#hidhideStatus {
+            }}
+            QWidget#hidhideHeader {{ border-radius: 8px; }}
+            QWidget#hidhideHeader:hover {{ background: {header_hover}; }}
+            QWidget#hidhideHeader[expanded="true"] {{ background: {header_expanded}; }}
+            QLabel#hidhideStatus {{
+                color: {secondary_text};
                 font-size: 12px;
                 font-weight: 600;
-            }
-            QLabel#hidhideDetail {
-                font-size: 11px;
-            }
-            QFrame#hidhideDeviceRow {
-                background: rgba(255, 255, 255, 7%);
-                border: 1px solid rgba(255, 255, 255, 12%);
+            }}
+            QLabel#hidhideDetail {{ color: {secondary_text}; font-size: 11px; }}
+            QFrame#hidhideDeviceRow {{
+                background: {row_bg};
+                border: 1px solid {row_border};
                 border-radius: 9px;
-            }
-            QLabel#hidhideDeviceName {
+            }}
+            QLabel#hidhideDeviceName {{
+                color: {primary_text};
                 font-size: 12px;
                 font-weight: 700;
-            }
-            QLabel#hidhideDeviceMeta {
-                font-size: 10px;
-                color: rgba(255, 255, 255, 62%);
-            }
-            QLabel#hidhideDeviceState {
-                font-size: 10px;
-                font-weight: 700;
-                padding: 4px 7px;
+            }}
+            QLabel#hidhideDeviceMeta {{ color: {meta_text}; font-size: 10px; }}
+            QLabel#hidhideDeviceState {{
+                font-size: 10px; font-weight: 700; padding: 4px 7px;
                 border-radius: 7px;
-            }
-            QLabel#hidhideDeviceState[state="hidden"] {
-                color: #a7f3d0;
-                background: rgba(16, 185, 129, 18%);
-            }
-            QLabel#hidhideDeviceState[state="visible"] {
-                color: #cbd5e1;
-                background: rgba(148, 163, 184, 16%);
-            }
-            QPushButton#hidhideToggle {
-                background: rgba(133, 193, 255, 10%);
-                color: #a9cfff;
-                border: 1px solid rgba(133, 193, 255, 28%);
-                border-radius: 8px;
-                font-size: 16px;
-                font-weight: 800;
-                padding: 0;
-            }
-            QPushButton#hidhideToggle:hover {
-                background: rgba(133, 193, 255, 18%);
-                border-color: rgba(133, 193, 255, 60%);
-            }
-            QPushButton#hidhidePrimary {
-                background: #5390ff;
-                color: white;
-                border: 0;
-                border-radius: 8px;
-                padding: 7px 18px;
-                font-weight: 700;
-            }
-            QPushButton#hidhidePrimary:hover { background: #6aa0ff; }
-            QPushButton#hidhidePrimary:pressed { background: #3d7ce6; }
-            QPushButton#hidhidePrimary:disabled {
-                background: #666a73;
-                color: #d5d7dc;
-            }
-            QPushButton#hidhideSecondary, QPushButton#hidhideDeviceButton {
-                background: transparent;
-                color: #85c1ff;
-                border: 1px solid rgba(133, 193, 255, 55%);
-                border-radius: 8px;
-                padding: 7px 14px;
-                font-weight: 600;
-            }
-            QPushButton#hidhideSecondary:hover, QPushButton#hidhideDeviceButton:hover {
-                background: rgba(133, 193, 255, 10%);
-            }
-            QPushButton#hidhideSecondary:disabled, QPushButton#hidhideDeviceButton:disabled {
-                color: #777b84;
-                border-color: rgba(255, 255, 255, 12%);
-            }
-            """
-        )
+            }}
+            QLabel#hidhideDeviceState[state="hidden"] {{
+                color: #087653; background: #d9f4e8;
+            }}
+            QLabel#hidhideDeviceState[state="visible"] {{
+                color: {visible_text}; background: {visible_bg};
+            }}
+            QPushButton#hidhideToggle {{
+                background: {toggle_bg}; color: {toggle_text};
+                border: 1px solid {toggle_border}; border-radius: 8px;
+                font-size: 16px; font-weight: 800; padding: 0;
+            }}
+            QPushButton#hidhideToggle:hover {{ background: {header_expanded}; }}
+            QPushButton#hidhidePrimary {{
+                background: #3478d4; color: white; border: 0;
+                border-radius: 8px; padding: 7px 18px; font-weight: 700;
+            }}
+            QPushButton#hidhidePrimary:hover {{ background: #4388e5; }}
+            QPushButton#hidhidePrimary:pressed {{ background: #2863b6; }}
+            QPushButton#hidhidePrimary:disabled {{ background: #9ba7b8; color: white; }}
+            QPushButton#hidhideSecondary, QPushButton#hidhideDeviceButton {{
+                background: {secondary_button_bg}; color: {secondary_button_text};
+                border: 1px solid {toggle_border}; border-radius: 8px;
+                padding: 7px 14px; font-weight: 600;
+            }}
+            QPushButton#hidhideSecondary:hover, QPushButton#hidhideDeviceButton:hover {{
+                background: {header_expanded};
+            }}
+            QPushButton#hidhideSecondary:disabled, QPushButton#hidhideDeviceButton:disabled {{
+                color: #8b95a5; border-color: {card_border};
+            }}
+        """)
+
+        self.toggle_button.setIcon(icon("chevron-down" if self._expanded else "chevron-right",
+                                        toggle_text))
+        for row in self._rows.values():
+            row.apply_theme(theme_name or theme)
+
+    def apply_theme(self, theme_name: str) -> None:
+        self._apply_style(theme_name)
 
     def _collapsed_card_height(self) -> int:
         margins = self.layout().contentsMargins()
