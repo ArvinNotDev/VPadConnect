@@ -1,6 +1,7 @@
 """Physical HID controller selection dialog."""
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import QApplication
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -22,88 +23,12 @@ class AddControllerDialog(AnimatedDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setObjectName("addControllerDialog")
         self.setWindowTitle("Add a physical controller")
         self.setWindowModality(Qt.WindowModality.WindowModal)
         self.setMinimumSize(740, 480)
         self.resize(820, 540)
-        self.setStyleSheet(
-            """
-            QDialog {
-                background: #101827;
-                color: #eaf1ff;
-            }
-            QLabel { color: #eaf1ff; background: transparent; }
-            QLabel#dialogTitle {
-                font-size: 22px;
-                font-weight: 800;
-            }
-            QLabel#dialogSubtitle {
-                color: #9aabc4;
-                font-size: 12px;
-            }
-            QLabel#sectionTitle {
-                color: #c9d8eb;
-                font-size: 12px;
-                font-weight: 750;
-            }
-            QLabel#helperText {
-                color: #91a2bc;
-                font-size: 11px;
-            }
-            QListWidget {
-                background: #172338;
-                color: #eaf1ff;
-                border: 1px solid #30435f;
-                border-radius: 11px;
-                padding: 8px;
-                outline: none;
-            }
-            QListWidget::item {
-                min-height: 38px;
-                padding: 5px 9px;
-                margin: 3px 1px;
-                border: 1px solid #2b4260;
-                border-radius: 8px;
-                background: #192b42;
-            }
-            QListWidget::item:hover { background: #203b5a; }
-            QListWidget::item:selected {
-                background: #234b79;
-                color: #ffffff;
-            }
-            QPushButton {
-                min-height: 46px;
-                min-width: 140px;
-                padding: 7px 16px;
-                border-radius: 9px;
-                border: 1px solid #3b5272;
-                background: #22334c;
-                color: #edf4ff;
-                font-size: 13px;\n                font-weight: 750;
-            }
-            QPushButton:hover:enabled { background: #2b4567; }
-            QPushButton#refreshHidButton {
-                min-width: 92px; min-height: 32px; padding: 4px 12px;
-                border-radius: 8px; color: #dff2ff; background: #1d5271;
-                border-color: #347ea7; font-size: 11px;
-            }
-            QPushButton#refreshHidButton:hover:enabled {
-                background: #276b91; border-color: #62b2df;
-            }
-            QPushButton#addControllerConfirm {
-                background: #2674d9;
-                color: #ffffff;
-                border-color: #4995f3;
-            }
-            QPushButton#addControllerConfirm:hover:enabled {
-                background: #3685ec;
-            }
-            QPushButton:disabled {
-                color: #687891;
-                background: #202a39;
-            }
-            """
-        )
+        self.apply_theme()
 
         root = QVBoxLayout(self)
         root.setContentsMargins(26, 22, 26, 20)
@@ -194,6 +119,65 @@ class AddControllerDialog(AnimatedDialog):
 
         self.hid_list.currentItemChanged.connect(self._update_accept_state)
         self.emu_list.currentItemChanged.connect(self._update_accept_state)
+
+    def apply_theme(self, theme_name: str | None = None) -> None:
+        app = QApplication.instance()
+        theme = theme_name or (
+            app.property("vpadTheme") if app is not None else "dark"
+        )
+        light = theme == "light"
+        dialog_bg = "#f3f6fc" if light else "#101827"
+        text = "#263650" if light else "#eaf1ff"
+        muted = "#667892" if light else "#9aabc4"
+        section = "#344966" if light else "#c9d8eb"
+        list_bg = "#ffffff" if light else "#172338"
+        list_border = "#d2deed" if light else "#30435f"
+        row_bg = "#f4f8fd" if light else "#192b42"
+        row_border = "#dce6f2" if light else "#2b4260"
+        hover_bg = "#e5effb" if light else "#203b5a"
+        button_bg = "#e6edf7" if light else "#22334c"
+        button_text = "#344c6b" if light else "#edf4ff"
+        button_border = "#cbd8e8" if light else "#3b5272"
+        refresh_bg = "#dcebf9" if light else "#1d5271"
+        refresh_text = "#245985" if light else "#dff2ff"
+        self.setStyleSheet(f"""
+            QDialog#addControllerDialog {{ background:{dialog_bg}; color:{text}; }}
+            QLabel {{ color:{text}; background:transparent; }}
+            QLabel#dialogTitle {{ font-size:22px; font-weight:800; }}
+            QLabel#dialogSubtitle {{ color:{muted}; font-size:12px; }}
+            QLabel#sectionTitle {{ color:{section}; font-size:12px; font-weight:750; }}
+            QLabel#helperText {{ color:{muted}; font-size:11px; }}
+            QListWidget {{
+                background:{list_bg}; color:{text}; border:1px solid {list_border};
+                border-radius:11px; padding:8px; outline:none;
+            }}
+            QListWidget::item {{
+                min-height:38px; padding:5px 9px; margin:3px 1px;
+                border:1px solid {row_border}; border-radius:8px; background:{row_bg};
+            }}
+            QListWidget::item:hover {{ background:{hover_bg}; }}
+            QListWidget::item:selected {{
+                background:#2674d9; color:#ffffff; border-color:#4995f3;
+            }}
+            QPushButton {{
+                min-height:46px; min-width:140px; padding:7px 16px;
+                border-radius:9px; border:1px solid {button_border};
+                background:{button_bg}; color:{button_text};
+                font-size:13px; font-weight:750;
+            }}
+            QPushButton:hover:enabled {{ background:{hover_bg}; }}
+            QPushButton#refreshHidButton {{
+                min-width:92px; min-height:32px; padding:4px 12px;
+                border-radius:8px; color:{refresh_text}; background:{refresh_bg};
+                border-color:{button_border}; font-size:11px;
+            }}
+            QPushButton#refreshHidButton:hover:enabled {{ background:{hover_bg}; }}
+            QPushButton#addControllerConfirm {{
+                background:#2674d9; color:#ffffff; border-color:#4995f3;
+            }}
+            QPushButton#addControllerConfirm:hover:enabled {{ background:#3685ec; }}
+            QPushButton:disabled {{ color:#8a96a8; background:{dialog_bg}; border-color:{list_border}; }}
+        """)
 
     def set_hid_devices(self, labels: list[str]) -> None:
         """Replace detected HID devices while preserving the selected item."""
