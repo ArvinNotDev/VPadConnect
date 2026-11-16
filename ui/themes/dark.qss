@@ -786,9 +786,9 @@ QTabBar#top_navigation::tab {
     border: none;
     border-bottom: 2px solid transparent;
     color: #929fb7;
-    padding: 10px 13px 9px 13px;
-    margin: 0 3px 0 0;
-    min-width: 58px;
+    padding: 11px 17px 10px 17px;
+    margin: 0 4px 0 0;
+    min-width: 84px;
     font-size: 10pt;
     font-weight: 600;
 }
