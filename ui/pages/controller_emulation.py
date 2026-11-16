@@ -1130,12 +1130,13 @@ class ControllerEmulation(QWidget):
         self.content_splitter = QSplitter(Qt.Orientation.Vertical, self)
         self.content_splitter.setObjectName("controllerContentSplitter")
         self.content_splitter.setChildrenCollapsible(False)
-        self.content_splitter.setCollapsible(0, False)
-        self.content_splitter.setCollapsible(1, False)
         self.content_splitter.setHandleWidth(7)
         self.content_splitter.addWidget(self.vigem_gate)
         # HidHide remains available without XInput and can be resized or collapsed.
         self.content_splitter.addWidget(self.hidhide_card)
+        # Child indices do not exist until both panes have been inserted.
+        self.content_splitter.setCollapsible(0, False)
+        self.content_splitter.setCollapsible(1, False)
         self.content_splitter.setStretchFactor(0, 5)
         self.content_splitter.setStretchFactor(1, 1)
         self.content_splitter.setSizes([520, 58])
