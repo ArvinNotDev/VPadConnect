@@ -54,7 +54,7 @@ class MainWindow(QMainWindow):
     WINDOW_HEIGHT = 760
     MIN_WINDOW_WIDTH = 820
     MIN_WINDOW_HEIGHT = 540
-    NAV_PAGE_INDICES = (0, 1, 3, 4, 2)
+    NAV_PAGE_INDICES = (0, 1, 3, 2, 4)
     IDX_CONTROLLER_EMULATION = 0
     IDX_HOTKEY = 1
     IDX_INPUT_TEST = 2
@@ -236,8 +236,8 @@ class MainWindow(QMainWindow):
             ("gamepad", "Controller Emulation"),
             ("keyboard", "Hotkeys"),
             ("chart-line", "Input Test"),
-            ("sliders", "Settings"),
             ("id-card", "Profiles"),
+            ("sliders", "Settings"),
         ):
             self.menu.addTab(icon(glyph, "#7787a4"), label)
         self.menu.setIconSize(ICON_SIZE)

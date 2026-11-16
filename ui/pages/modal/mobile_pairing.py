@@ -632,7 +632,7 @@ class MobileConnectedDialog(AnimatedDialog):
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
 
-        caption = QLabel("MOBILE COMPANION")
+        caption = QLabel("REMOTE COMPANION")
         caption.setObjectName("successCaption")
         caption.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(caption)

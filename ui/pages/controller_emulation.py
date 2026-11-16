@@ -913,7 +913,7 @@ class RemoteDeviceRow(QWidget):
         self.permissions_button = QPushButton("Permissions")
         self.permissions_button.setObjectName("remotePermissionsButton")
         self.permissions_button.setToolTip(
-            "Configure PC actions allowed for this mobile companion only"
+            "Configure PC actions allowed for this remote companion only"
         )
         self.permissions_button.setMinimumWidth(94)
         self.permissions_button.clicked.connect(
@@ -1075,7 +1075,7 @@ class ControllerEmulation(QWidget):
             }
         """)
 
-        mobile_btn = QPushButton("Mobile Companion")
+        mobile_btn = QPushButton("Remote Companion")
         mobile_btn.setObjectName("mobileCompanionAction")
         mobile_btn.setIcon(icon("plus", "#e4fffb"))
         mobile_btn.setIconSize(ICON_SIZE)

@@ -141,7 +141,7 @@ class AddControllerDialog(AnimatedDialog):
         root.addLayout(columns, 1)
 
         helper = QLabel(
-            "Mobile devices are added separately using the dedicated Mobile Companion action."
+            "Remote devices are added separately using the dedicated Remote Companion action."
         )
         helper.setObjectName("helperText")
         helper.setWordWrap(True)
