@@ -962,6 +962,7 @@ class ControllersPage(QWidget):
 
     def __init__(self, settings=None, *, vigem_available: bool | None = None):
         super().__init__()
+        self.setObjectName("controllersPage")
         self.settings = settings
         try:
             self._vibration_enabled = bool(settings.get_vibration_enabled())
@@ -976,16 +977,20 @@ class ControllersPage(QWidget):
         layout.setSpacing(8)
 
         title = QLabel("XInput Controller Test")
-        title.setStyleSheet("font-weight:700; font-size:20px;")
+        title.setObjectName("inputTestTitle")
         subtitle = QLabel(
             "Live controller state is visualized without interrupting normal input forwarding."
         )
-        subtitle.setStyleSheet("color:#91a2bc;")
+        subtitle.setObjectName("inputTestSubtitle")
 
         self.scroll = QScrollArea()
+        self.scroll.setObjectName("inputTestScroll")
         self.scroll.setWidgetResizable(True)
         self.scroll.setFrameShape(QFrame.NoFrame)
+        self.scroll.setStyleSheet("QScrollArea#inputTestScroll { border:none; background:transparent; }")
         self.cards_container = QWidget()
+        self.cards_container.setObjectName("inputTestCards")
+        self.cards_container.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.cards_layout = QVBoxLayout(self.cards_container)
         self.cards_layout.setContentsMargins(0, 8, 0, 8)
         self.cards_layout.setSpacing(12)
@@ -1018,8 +1023,9 @@ class ControllersPage(QWidget):
         self.empty_label = QLabel(
             "No active XInput controllers. Start controller emulation to inspect one here."
         )
+        self.empty_label.setObjectName("inputTestEmptyState")
+        self.empty_label.setWordWrap(True)
         self.empty_label.setAlignment(Qt.AlignCenter)
-        self.empty_label.setStyleSheet("color:#91a2bc; padding:28px;")
         self.cards_layout.insertWidget(0, self.empty_label)
 
         self.x360_instances = {}
@@ -1031,6 +1037,42 @@ class ControllersPage(QWidget):
         self.refresh_timer = QTimer(self)
         self.refresh_timer.timeout.connect(self.refresh_list)
         self.refresh_timer.start(1000)
+        self.apply_theme()
+
+    def apply_theme(self, theme_name: str | None = None) -> None:
+        app = QApplication.instance()
+        theme = theme_name or (
+            app.property("vpadTheme") if app is not None else "dark"
+        )
+        light = theme == "light"
+        page_text = "#263650" if light else "#eaf1ff"
+        muted = "#61728d" if light else "#91a2bc"
+        list_bg = "#eaf1fb" if light else "#101a2b"
+        list_border = "#d4e0f0" if light else "#2b3e59"
+        self._input_test_theme = theme
+        self._input_test_title = page_text
+        self._input_test_muted = muted
+        self.title_label_color = page_text
+        self.subtitle_label_color = muted
+        self.findChild(QLabel, "inputTestTitle").setStyleSheet(
+            f"color:{page_text}; font-size:20px; font-weight:700;"
+        )
+        self.findChild(QLabel, "inputTestSubtitle").setStyleSheet(
+            f"color:{muted};"
+        )
+        self.scroll.viewport().setStyleSheet("background:transparent; border:none;")
+        self.cards_container.setStyleSheet(f"""
+            QWidget#inputTestCards {{
+                background:{list_bg};
+                border:1px solid {list_border};
+                border-radius:14px;
+            }}
+        """)
+        self.empty_label.setStyleSheet(
+            f"color:{muted}; padding:28px; background:transparent; border:none;"
+        )
+        for card in self._cards.values():
+            card.apply_theme(theme)
 
     def set_vigem_available(self, available: bool) -> None:
         self.vigem_gate.set_vigem_available(available)
