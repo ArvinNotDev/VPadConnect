@@ -6,6 +6,7 @@ from collections import deque
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
+    QApplication,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -81,6 +82,26 @@ class StatusToast(QFrame):
         y = max(16, parent.height() - self.height() - 28)
         self.move(x, y)
 
+    def apply_theme(self, theme_name: str | None = None) -> None:
+        app = QApplication.instance()
+        theme = theme_name or (
+            app.property("vpadTheme") if app is not None else "dark"
+        )
+        light = theme == "light"
+        background = "#ffffff" if light else "#172438"
+        border = "#d4dfed" if light else "#344762"
+        title = "#263650" if light else "#edf4ff"
+        message = "#536782" if light else "#aebdd1"
+        self.setStyleSheet(f"""
+            QFrame#statusToast {{
+                background:{background}; border:1px solid {border};
+                border-left:3px solid #3a8bdb; border-radius:12px;
+            }}
+            QLabel {{ background:transparent; border:none; }}
+            QLabel#toastTitle {{ color:{title}; font-size:12px; font-weight:750; }}
+            QLabel#toastMessage {{ color:{message}; font-size:11px; }}
+        """)
+
     def _show_next(self) -> None:
         if not self._queue:
             self.hide()
@@ -93,19 +114,7 @@ class StatusToast(QFrame):
         self._title.setText(title)
         self._message.setText(message)
         self._icon.setPixmap(icon(icon_name, color).pixmap(ICON_SIZE))
-        self.setStyleSheet(
-            f"""
-            QFrame#statusToast {{
-                background:#172438;
-                border:1px solid #344762;
-                border-left:3px solid {color};
-                border-radius:12px;
-            }}
-            QLabel {{ background:transparent; border:none; }}
-            QLabel#toastTitle {{ color:#edf4ff; font-size:12px; font-weight:750; }}
-            QLabel#toastMessage {{ color:#aebdd1; font-size:11px; }}
-            """
-        )
+        self.apply_theme()
         self.reposition()
         self.show()
         self.raise_()
