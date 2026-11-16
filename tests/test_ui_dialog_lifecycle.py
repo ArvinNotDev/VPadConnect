@@ -8,7 +8,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
 from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QApplication, QDialog, QDialogButtonBox
+from PySide6.QtWidgets import QApplication, QDialog, QDialogButtonBox, QListWidget
 
 from ui.pages.modal.add_controller import AddControllerDialog
 from ui.pages.modal.mobile_pairing import MobilePairingDialog
@@ -65,10 +65,15 @@ def test_input_test_hides_battery_and_vibration_for_web_gamepad(qapp):
         "keyboard": types.ModuleType("keyboard"),
     }):
         X360TestCard = importlib.import_module("ui.pages.controllers").X360TestCard
+        page_module = importlib.import_module("ui.pages.controllers")
+        X360TestCard = page_module.X360TestCard
         web_card = X360TestCard(_FakeXInputInstance("web-session-123"), "Phone", True)
         assert web_card.battery_icon.width() == 22
         assert web_card.battery_info.isHidden()
         assert web_card.vibration_button.isHidden()
+        web_card.apply_theme("light")
+        assert "#ffffff" in web_card.styleSheet()
+        assert "#edf3fc" in web_card.surface.styleSheet()
         web_card.view_timer.stop()
         web_card.deleteLater()
 
@@ -78,8 +83,62 @@ def test_input_test_hides_battery_and_vibration_for_web_gamepad(qapp):
         assert physical_card.battery_icon.width() == 22
         assert not physical_card.battery_info.isHidden()
         assert not physical_card.vibration_button.isHidden()
+        physical_card.apply_theme("light")
+        assert "#ffffff" in physical_card.styleSheet()
         physical_card.view_timer.stop()
         physical_card.deleteLater()
+
+        controllers_page = page_module.ControllersPage(None, vigem_available=False)
+        controllers_page.apply_theme("light")
+        assert "#eaf1fb" in controllers_page.cards_container.styleSheet()
+        controllers_page.refresh_timer.stop()
+        controllers_page.deleteLater()
+
+
+def test_new_controller_mapping_starts_emulation_immediately(qapp):
+    import importlib
+    import sys
+    import types
+    from unittest.mock import patch
+
+    with patch.dict(sys.modules, {
+        "vgamepad": types.ModuleType("vgamepad"),
+        "keyboard": types.ModuleType("keyboard"),
+    }):
+        module = importlib.import_module("ui.pages.controller_emulation")
+        calls = []
+
+        class _FakePage:
+            def __init__(self):
+                self.emu_list = QListWidget()
+
+            def _on_emulate_requested(self, hid, emu, widget):
+                calls.append((hid, emu, widget.is_running()))
+
+            def _on_delete_requested(self, *_args):
+                pass
+
+            def _on_lightbar_requested(self, *_args):
+                pass
+
+        page = _FakePage()
+        assert module.ControllerEmulation.add_emulated_mapping(
+            page,
+            "DualSense",
+            "Emulate Xbox",
+            {"path": "test-hid-path"},
+        )
+        item = page.emu_list.item(0)
+        widget = page.emu_list.itemWidget(item)
+        assert widget.is_running()
+        assert widget.btn_emulate.text() == "Stop"
+        assert calls == [("DualSense", "Emulate Xbox", True)]
+
+        widget.btn_emulate.click()
+        assert not widget.is_running()
+        assert widget.btn_emulate.text() == "Emulate"
+        assert calls[-1] == ("DualSense", "Emulate Xbox", False)
+        page.emu_list.clear()
 
 
 def test_add_controller_cancel_during_entrance_returns_rejected(qapp):
