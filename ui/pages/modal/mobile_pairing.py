@@ -42,122 +42,11 @@ class MobilePairingDialog(AnimatedDialog):
         self.setWindowTitle("Connect a mobile device")
         self.setWindowModality(Qt.WindowModality.WindowModal)
         self.setSizeGripEnabled(True)
-        self.setStyleSheet(
-            """
-            QDialog#mobilePairingDialog {
-                background: #101827;
-                color: #eaf1ff;
-            }
-            QLabel {
-                color: #eaf1ff;
-                background: transparent;
-            }
-            QLabel#pairTitle {
-                font-size: 24px;
-                font-weight: 800;
-            }
-            QLabel#pairSubtitle {
-                color: #9aabc4;
-                font-size: 12px;
-            }
-            QLabel#pairEyebrow {
-                color: #7e9abb;
-                font-size: 9px;
-                font-weight: 800;
-                letter-spacing: 1px;
-            }
-            QLabel#pairStatus {
-                color: #9ac6ff;
-                font-size: 12px;
-                font-weight: 700;
-            }
-            QLabel#pairMuted {
-                color: #9aabc4;
-                font-size: 11px;
-            }
-            QLabel#pairCode {
-                color: #8ab8ff;
-                font-family: Consolas;
-                font-size: 30px;
-                font-weight: 900;
-                letter-spacing: 5px;
-            }
-            QLabel#pairFingerprint {
-                color: #b3c4dc;
-                font-family: Consolas;
-                font-size: 10px;
-            }
-            QLabel#pairQr {
-                background: #ffffff;
-                border: 8px solid #ffffff;
-                border-radius: 16px;
-            }
-            QFrame#pairCard {
-                background: #172338;
-                border: 1px solid #30435f;
-                border-radius: 18px;
-            }
-            QFrame#pairInfoCard {
-                background: #111d2e;
-                border: 1px solid #2b3e59;
-                border-radius: 12px;
-            }
-            QFrame#pairDivider {
-                background: #2b3e59;
-                border: none;
-                min-width: 1px;
-                max-width: 1px;
-            }
-            QPushButton {
-                min-height: 38px;
-                padding: 7px 14px;
-                border-radius: 9px;
-                border: 1px solid #3b5272;
-                background: #22334c;
-                color: #edf4ff;
-                font-weight: 650;
-            }
-            QPushButton:hover:enabled {
-                background: #2b4567;
-                border-color: #5b7ca8;
-            }
-            QPushButton#pairPrimary {
-                background: #2674d9;
-                border-color: #4995f3;
-                color: #ffffff;
-                font-weight: 750;
-            }
-            QPushButton#pairPrimary:hover:enabled {
-                background: #3685ec;
-            }
-            QPushButton#pairCancel {
-                background: transparent;
-                border-color: #34445b;
-                color: #b6c4d8;
-            }
-            QPushButton:disabled {
-                color: #66758b;
-                background: #202a39;
-            }
-            QProgressBar {
-                border: none;
-                border-radius: 2px;
-                background: #24344b;
-                max-height: 4px;
-            }
-            QProgressBar::chunk {
-                border-radius: 2px;
-                background: #4d9bff;
-            }
-            QScrollArea {
-                border: none;
-                background: transparent;
-            }
-            """
-        )
         self.setObjectName("mobilePairingDialog")
+        self.apply_theme()
 
         self._build_ui()
+        self.apply_theme()
         self._connect_service()
         self._start_timers()
 
@@ -178,6 +67,59 @@ class MobilePairingDialog(AnimatedDialog):
         already_running = self.service.begin_mobile_pairing_flow()
         if already_running:
             self._show_pairing_ready()
+
+    def apply_theme(self, theme_name: str | None = None) -> None:
+        app = QApplication.instance()
+        theme = theme_name or (
+            app.property("vpadTheme") if app is not None else "dark"
+        )
+        light = theme == "light"
+        dialog_bg = "#f3f6fc" if light else "#101827"
+        text = "#263650" if light else "#eaf1ff"
+        muted = "#667992" if light else "#9aabc4"
+        eyebrow = "#607b9e" if light else "#7e9abb"
+        status = "#2d649c" if light else "#9ac6ff"
+        code = "#245d9b" if light else "#8ab8ff"
+        fingerprint = "#4e6380" if light else "#b3c4dc"
+        pair_bg = "#ffffff" if light else "#172338"
+        pair_border = "#d4e0ee" if light else "#30435f"
+        info_bg = "#edf3fa" if light else "#111d2e"
+        info_border = "#d5e0ed" if light else "#2b3e59"
+        divider = "#d7e1ee" if light else "#2b3e59"
+        button_bg = "#e7eef8" if light else "#22334c"
+        button_border = "#cbd8e8" if light else "#3b5272"
+        button_text = "#344c6b" if light else "#edf4ff"
+        hover_bg = "#dbe9f8" if light else "#2b4567"
+        cancel_text = "#60758f" if light else "#b6c4d8"
+        progress_bg = "#d5e0ed" if light else "#24344b"
+        self.setStyleSheet(f"""
+            QDialog#mobilePairingDialog {{ background:{dialog_bg}; color:{text}; }}
+            QLabel {{ color:{text}; background:transparent; }}
+            QLabel#pairTitle {{ font-size:24px; font-weight:800; }}
+            QLabel#pairSubtitle {{ color:{muted}; font-size:12px; }}
+            QLabel#pairEyebrow {{ color:{eyebrow}; font-size:9px; font-weight:800; letter-spacing:1px; }}
+            QLabel#pairStatus {{ color:{status}; font-size:12px; font-weight:700; }}
+            QLabel#pairMuted {{ color:{muted}; font-size:11px; }}
+            QLabel#pairCode {{ color:{code}; font-family:Consolas; font-size:30px; font-weight:900; letter-spacing:5px; }}
+            QLabel#pairFingerprint {{ color:{fingerprint}; font-family:Consolas; font-size:10px; }}
+            QLabel#pairQr {{ background:#ffffff; border:8px solid #ffffff; border-radius:16px; }}
+            QFrame#pairCard {{ background:{pair_bg}; border:1px solid {pair_border}; border-radius:18px; }}
+            QFrame#pairInfoCard {{ background:{info_bg}; border:1px solid {info_border}; border-radius:12px; }}
+            QFrame#pairDivider {{ background:{divider}; border:none; min-width:1px; max-width:1px; }}
+            QPushButton {{
+                min-height:38px; padding:7px 14px; border-radius:9px;
+                border:1px solid {button_border}; background:{button_bg};
+                color:{button_text}; font-weight:650;
+            }}
+            QPushButton:hover:enabled {{ background:{hover_bg}; border-color:#7da5d1; }}
+            QPushButton#pairPrimary {{ background:#2674d9; border-color:#4995f3; color:#ffffff; font-weight:750; }}
+            QPushButton#pairPrimary:hover:enabled {{ background:#3685ec; }}
+            QPushButton#pairCancel {{ background:transparent; border-color:{button_border}; color:{cancel_text}; }}
+            QPushButton:disabled {{ color:#8b98aa; background:{dialog_bg}; }}
+            QProgressBar {{ border:none; border-radius:2px; background:{progress_bg}; max-height:4px; }}
+            QProgressBar::chunk {{ border-radius:2px; background:#4d9bff; }}
+            QScrollArea {{ border:none; background:transparent; }}
+        """)
 
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
@@ -592,25 +534,8 @@ class MobileConnectedDialog(AnimatedDialog):
             self.windowFlags() | Qt.WindowType.FramelessWindowHint
         )
         self.setFixedSize(400, 250)
-        self.setStyleSheet(
-            """
-            QDialog {
-                background:#111d2b;
-                border:1px solid #2d7559;
-                border-radius:16px;
-            }
-            QLabel { color:#eaf5ef; background:transparent; }
-            QFrame#successIconContainer {
-                background:#173b31;
-                border:1px solid #285d49;
-                border-radius:30px;
-            }
-            QLabel#successTitle { font-size:19px; font-weight:800; }
-            QLabel#successCaption { color:#8fd3af; font-size:10px; font-weight:750; }
-            QLabel#successDevice { color:#b7c6d8; font-size:13px; font-weight:650; }
-            QLabel#successHint { color:#8799b2; font-size:10px; }
-            """
-        )
+        self.setObjectName("mobileConnectedDialog")
+        self.apply_theme()
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(28, 20, 28, 18)
@@ -652,6 +577,32 @@ class MobileConnectedDialog(AnimatedDialog):
         self._auto_close_timer.setSingleShot(True)
         self._auto_close_timer.timeout.connect(self.accept)
         self._auto_close_timer.start(1800)
+
+    def apply_theme(self, theme_name: str | None = None) -> None:
+        app = QApplication.instance()
+        theme = theme_name or (
+            app.property("vpadTheme") if app is not None else "dark"
+        )
+        light = theme == "light"
+        background = "#ffffff" if light else "#111d2b"
+        border = "#c9e6d8" if light else "#2d7559"
+        text = "#263d34" if light else "#eaf5ef"
+        secondary = "#5e7a70" if light else "#8799b2"
+        device = "#42655a" if light else "#b7c6d8"
+        self.setStyleSheet(f"""
+            QDialog#mobileConnectedDialog {{
+                background:{background}; border:1px solid {border}; border-radius:16px;
+            }}
+            QLabel {{ color:{text}; background:transparent; }}
+            QFrame#successIconContainer {{
+                background:{'#e2f5eb' if light else '#173b31'};
+                border:1px solid {border}; border-radius:30px;
+            }}
+            QLabel#successTitle {{ font-size:19px; font-weight:800; }}
+            QLabel#successCaption {{ color:#16835d; font-size:10px; font-weight:750; }}
+            QLabel#successDevice {{ color:{device}; font-size:13px; font-weight:650; }}
+            QLabel#successHint {{ color:{secondary}; font-size:10px; }}
+        """)
 
     def done(self, result: int) -> None:
         # Manual dismissal or parent shutdown must cancel the delayed accept.
