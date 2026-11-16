@@ -154,7 +154,7 @@ e.preventDefault();
 var now=performance.now();
 if(active.size===0){
 gesturePoints=[];gestureHadMultiple=false;twoFingerTapCandidate=false;scrollRemainder=0;draggingPointer=null;
-var recentTap=tapToClick&&lastTapAt>0&&now-lastTapAt<=320&&Math.hypot(e.clientX-lastTapX,e.clientY-lastTapY)<=36;
+var recentTap=tapToClick&&lastTapAt>0&&now-lastTapAt<=450&&Math.hypot(e.clientX-lastTapX,e.clientY-lastTapY)<=36;
 tapDragCandidate=recentTap?{pointerId:e.pointerId,lastX:e.clientX,lastY:e.clientY,active:false}:null;
 if(!recentTap)lastTapAt=0;
 }else{
