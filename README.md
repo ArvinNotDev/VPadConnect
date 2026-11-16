@@ -406,8 +406,8 @@ Please avoid attaching pairing codes, session tokens, private TLS keys, or other
 
 ## Release notes
 
-- [Latest published release — VPadConnect 0.2.1 Beta 3](https://github.com/ArvinNotDev/VPadConnect/releases/tag/v0.2.1-beta.3)
-- [Prepared Beta 4 release notes](.github/release-notes/0.2.1-beta.4.md)
+- [Latest release — VPadConnect 0.2.1 Beta 4](https://github.com/ArvinNotDev/VPadConnect/releases/latest)
+- [Beta 4 release notes](.github/release-notes/0.2.1-beta.4.md)
 - [Full changelog](CHANGELOG.md)
 
 ## License
