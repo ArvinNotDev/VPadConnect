@@ -157,129 +157,104 @@ class RawHidTerminalDialog(AnimatedDialog):
         footer.addWidget(self.close_button)
         root.addLayout(footer)
 
-        self.setStyleSheet("""
-            QDialog#rawHidTerminal {
-                background: #07111e;
-                color: #dbe8f7;
-            }
-            QFrame#rawTerminalHeader {
-                background: #0c1929;
-                border: 1px solid #1b3046;
-                border-radius: 13px;
-            }
-            QFrame#rawTerminalIcon {
-                background: #102a27;
-                border: 1px solid #225b4a;
-                border-radius: 11px;
-            }
-            QLabel#rawTerminalGlyph {
-                color: #80f5b2;
-                font-family: Consolas;
-                font-weight: 900;
-                font-size: 17px;
-            }
-            QLabel#rawTerminalTitle {
-                color: #eef6ff;
-                font-size: 17px;
-                font-weight: 800;
-            }
-            QLabel#rawTerminalSubtitle {
-                color: #7089a7;
-                font-size: 9px;
-                font-weight: 800;
-                letter-spacing: 2px;
-            }
-            QLabel#rawTerminalDetail {
-                color: #7f94ad;
-                font-size: 10px;
-                padding-left: 3px;
-            }
-            QLabel#rawTerminalStatus {
-                min-width: 82px;
-                padding: 7px 11px;
-                border-radius: 8px;
-                font-size: 10px;
-                font-weight: 900;
-            }
-            QLabel#rawTerminalStatus[state="live"] {
-                color: #a7f3c1;
-                background: #12382d;
-                border: 1px solid #24674d;
-            }
-            QLabel#rawTerminalStatus[state="paused"] {
-                color: #f9d58b;
-                background: #3a2c16;
-                border: 1px solid #735421;
-            }
-            QLabel#rawTerminalStatus[state="disabled"] {
-                color: #aab9cd;
-                background: #1b2a3b;
-                border: 1px solid #34485e;
-            }
-            QFrame#rawTerminalStat {
-                background: #0b1726;
-                border: 1px solid #1a2a3d;
-                border-radius: 10px;
-            }
-            QLabel#rawTerminalStatLabel {
-                color: #7188a5;
-                font-size: 9px;
-                font-weight: 800;
-            }
-            QLabel#rawTerminalStatValue {
-                color: #d8f4e5;
-                font-family: Consolas;
-                font-size: 14px;
-                font-weight: 800;
-            }
-            QPlainTextEdit#rawHidOutput {
-                background: #050b13;
-                color: #9cf7bd;
-                border: 1px solid #1a3041;
-                border-radius: 11px;
-                padding: 12px;
-                selection-background-color: #194b3b;
-                selection-color: #e4fff0;
-            }
-            QCheckBox#rawTerminalAutoScroll {
-                color: #9aadc5;
-                spacing: 7px;
-                padding: 4px;
-            }
-            QPushButton#rawTerminalSecondary, QPushButton#rawTerminalPrimary {
-                min-height: 32px;
-                padding: 5px 11px;
-                border-radius: 8px;
-                font-weight: 650;
-            }
-            QPushButton#rawTerminalSecondary {
-                color: #c3d2e4;
-                background: #142235;
-                border: 1px solid #263b54;
-            }
-            QPushButton#rawTerminalSecondary:hover {
-                background: #1c3047;
-                border-color: #42617e;
-            }
-            QPushButton#rawTerminalPrimary {
-                color: #052015;
-                background: #8cf0b4;
-                border: 1px solid #a7f8c8;
-            }
-            QPushButton#rawTerminalPrimary:hover {
-                background: #a8ffd0;
-            }
-            QPushButton:disabled {
-                color: #627187;
-                background: #111b29;
-                border-color: #1d2b3c;
-            }
-        """)
+        self.apply_theme()
+
 
         self._metrics_timer = QTimer(self)
         self._metrics_timer.setInterval(500)
         self._metrics_timer.timeout.connect(self._update_metrics)
         self._refresh_status()
+
+    def apply_theme(self, theme_name: str | None = None) -> None:
+        app = QApplication.instance()
+        theme = theme_name or (
+            app.property("vpadTheme") if app is not None else "dark"
+        )
+        light = theme == "light"
+        dialog_bg = "#f3f6fc" if light else "#07111e"
+        text = "#263650" if light else "#dbe8f7"
+        muted = "#637792" if light else "#7f94ad"
+        header_bg = "#e8f0fa" if light else "#0c1929"
+        header_border = "#d0deee" if light else "#1b3046"
+        card_bg = "#eaf1fa" if light else "#0b1726"
+        card_border = "#d3deec" if light else "#1a2a3d"
+        terminal_bg = "#ffffff" if light else "#050b13"
+        terminal_text = "#245f43" if light else "#9cf7bd"
+        secondary_bg = "#e7eef8" if light else "#142235"
+        secondary_text = "#344c6b" if light else "#c3d2e4"
+        secondary_border = "#cbd8e8" if light else "#263b54"
+        disabled_bg = "#edf1f6" if light else "#111b29"
+        self.setStyleSheet(f"""
+            QDialog#rawHidTerminal {{ background:{dialog_bg}; color:{text}; }}
+            QFrame#rawTerminalHeader {{
+                background:{header_bg}; border:1px solid {header_border}; border-radius:13px;
+            }}
+            QFrame#rawTerminalIcon {{
+                background:{'#e0f3e8' if light else '#102a27'};
+                border:1px solid {'#b5dec6' if light else '#225b4a'}; border-radius:11px;
+            }}
+            QLabel#rawTerminalGlyph {{
+                color:{'#16744b' if light else '#80f5b2'};
+                font-family:Consolas; font-weight:900; font-size:17px;
+            }}
+            QLabel#rawTerminalTitle {{ color:{text}; font-size:17px; font-weight:800; }}
+            QLabel#rawTerminalSubtitle {{
+                color:{muted}; font-size:9px; font-weight:800; letter-spacing:2px;
+            }}
+            QLabel#rawTerminalDetail {{ color:{muted}; font-size:10px; padding-left:3px; }}
+            QLabel#rawTerminalStatus {{
+                min-width:82px; padding:7px 11px; border-radius:8px;
+                font-size:10px; font-weight:900;
+            }}
+            QLabel#rawTerminalStatus[state="live"] {{
+                color:#16724d; background:{'#d9f3e5' if light else '#12382d'};
+                border:1px solid {'#b4dfc8' if light else '#24674d'};
+            }}
+            QLabel#rawTerminalStatus[state="paused"] {{
+                color:#936317; background:{'#fbefd7' if light else '#3a2c16'};
+                border:1px solid {'#e8cf96' if light else '#735421'};
+            }}
+            QLabel#rawTerminalStatus[state="disabled"] {{
+                color:{'#586b83' if light else '#aab9cd'};
+                background:{'#e8eef6' if light else '#1b2a3b'};
+                border:1px solid {header_border};
+            }}
+            QFrame#rawTerminalStat {{
+                background:{card_bg}; border:1px solid {card_border}; border-radius:10px;
+            }}
+            QLabel#rawTerminalStatLabel {{
+                color:{muted}; font-size:9px; font-weight:800;
+            }}
+            QLabel#rawTerminalStatValue {{
+                color:{'#245d43' if light else '#d8f4e5'};
+                font-family:Consolas; font-size:14px; font-weight:800;
+            }}
+            QPlainTextEdit#rawHidOutput {{
+                background:{terminal_bg}; color:{terminal_text};
+                border:1px solid {card_border}; border-radius:11px; padding:12px;
+                selection-background-color:{'#c7e0fb' if light else '#194b3b'};
+                selection-color:{'#183b62' if light else '#e4fff0'};
+            }}
+            QCheckBox#rawTerminalAutoScroll {{ color:{muted}; spacing:7px; padding:4px; }}
+            QPushButton#rawTerminalSecondary, QPushButton#rawTerminalPrimary {{
+                min-height:32px; padding:5px 11px; border-radius:8px; font-weight:650;
+            }}
+            QPushButton#rawTerminalSecondary {{
+                color:{secondary_text}; background:{secondary_bg}; border:1px solid {secondary_border};
+            }}
+            QPushButton#rawTerminalSecondary:hover {{ background:{'#dbe9f8' if light else '#1c3047'}; }}
+            QPushButton#rawTerminalPrimary {{
+                color:{'#ffffff' if light else '#052015'};
+                background:{'#238b60' if light else '#8cf0b4'};
+                border:1px solid {'#4ba77d' if light else '#a7f8c8'};
+            }}
+            QPushButton#rawTerminalPrimary:hover {{ background:{'#2fa373' if light else '#a8ffd0'}; }}
+            QPushButton:disabled {{
+                color:#8491a3; background:{disabled_bg}; border-color:{card_border};
+            }}
+        """)
+        self._meta_format.setForeground(QColor("#536b86" if light else "#7e94b3"))
+        self._hex_format.setForeground(QColor("#245f43" if light else "#9cf7bd"))
 
     def showEvent(self, event) -> None:
         super().showEvent(event)
