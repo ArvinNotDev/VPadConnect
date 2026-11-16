@@ -13,7 +13,7 @@ from ui.animations import animations_enabled
 
 
 class CursorSpotlight(QLabel):
-    RADIUS = 215
+    RADIUS = 180
     DIAMETER = RADIUS * 2
 
     def __init__(self, parent: QWidget):
