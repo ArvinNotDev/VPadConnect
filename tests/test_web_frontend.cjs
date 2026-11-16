@@ -532,7 +532,7 @@ test("a quick second tap held on the touchpad starts a left-button drag", async 
   assert.equal(stateRequests(harness).at(-1).mouse.left, 0);
 
   harness.touchpad.dispatch("pointerdown", { pointerId: 72, clientX: 101, clientY: 100 });
-  harness.runTimer(240);
+  harness.runTimer(150);
   await settle();
   assert.equal(stateRequests(harness).at(-1).mouse.left, 1);
 
@@ -544,6 +544,28 @@ test("a quick second tap held on the touchpad starts a left-button drag", async 
   assert.ok(stateRequests(harness).at(-1).mouse.dy > 0);
 
   harness.touchpad.dispatch("pointerup", { pointerId: 72, clientX: 130, clientY: 118 });
+  await settle();
+  assert.equal(stateRequests(harness).at(-1).mouse.left, 0);
+});
+
+test("touch movement before the second-tap hold threshold cancels drag mode", async () => {
+  const harness = createHarness();
+  await settle();
+  harness.mouseTab.dispatch("click");
+  await settle();
+
+  harness.touchpad.dispatch("pointerdown", { pointerId: 73, clientX: 100, clientY: 100 });
+  harness.touchpad.dispatch("pointerup", { pointerId: 73, clientX: 100, clientY: 100 });
+  harness.runTimer(100);
+  await settle();
+
+  harness.touchpad.dispatch("pointerdown", { pointerId: 74, clientX: 101, clientY: 100 });
+  harness.touchpad.dispatch("pointermove", { pointerId: 74, clientX: 112, clientY: 104 });
+  await settle();
+  assert.equal(stateRequests(harness).at(-1).mouse.left, 0);
+  assert.ok(stateRequests(harness).at(-1).mouse.dx > 0);
+
+  harness.runTimer(150);
   await settle();
   assert.equal(stateRequests(harness).at(-1).mouse.left, 0);
 });
