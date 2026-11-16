@@ -407,9 +407,6 @@ class HidHideCard(QFrame):
 
         self.toggle_button.setIcon(icon("chevron-down" if self._expanded else "chevron-right",
                                         toggle_text))
-        for row in self._rows.values():
-            row.apply_theme(theme_name or theme)
-
     def apply_theme(self, theme_name: str) -> None:
         self._apply_style(theme_name)
 
@@ -875,14 +872,53 @@ class EmuListItemWidget(QWidget):
         self.status = QLabel()
         self.status.setFixedSize(12, 12)
         self.status.setToolTip("Running status")
+        self._connected = True
         self._update_status_style(False)
         layout.addWidget(self.status, alignment=Qt.AlignRight)
+        self.apply_theme()
+
+    def apply_theme(self, theme_name: str | None = None) -> None:
+        app = QApplication.instance()
+        self._theme = theme_name or (
+            app.property("vpadTheme") if app is not None else "dark"
+        )
+        dark = self._theme != "light"
+        background = "#172338" if dark else "#f7faff"
+        border = "#30435f" if dark else "#d5e1f0"
+        text = "#eaf1ff" if dark else "#263650"
+        muted = "#aabbd2" if dark else "#61728d"
+        button_bg = "#22344c" if dark else "#e8eff9"
+        button_text = "#dceaff" if dark else "#31557e"
+        button_border = "#405976" if dark else "#cbd8e9"
+        hover_bg = "#2c4665" if dark else "#dce9f8"
+        self.setStyleSheet(f"""
+            QWidget#physicalControllerRow {{
+                background: {background};
+                border: 1px solid {border};
+                border-radius: 10px;
+            }}
+            QWidget#physicalControllerRow QLabel {{
+                color: {text}; background: transparent; border: none;
+            }}
+            QWidget#physicalControllerRow QPushButton {{
+                color: {button_text}; background: {button_bg};
+                border: 1px solid {button_border}; border-radius: 8px;
+                padding: 6px 10px; font-size: 11px; font-weight: 700;
+            }}
+            QWidget#physicalControllerRow QPushButton:hover:enabled {{
+                background: {hover_bg}; border-color: #80a5d4;
+            }}
+        """)
+        self.lbl_battery.setStyleSheet(f"color: {muted};")
+        self._update_status_style(self._running)
 
     def _update_status_style(self, running: bool):
         if running:
             color = "#2ecc71"
+        elif not self._connected:
+            color = "#f59e0b"
         else:
-            color = "#9aa0a6"
+            color = "#9aa0a6" if self._theme != "light" else "#9ba9bd"
         self.status.setStyleSheet(
             f"border-radius: 6px; background-color: {color};"
         )
@@ -919,12 +955,11 @@ class EmuListItemWidget(QWidget):
         self.lbl_battery.setText(f"Battery: {int(percent)}%{suffix}")
 
     def set_connection_state(self, connected: bool):
+        self._connected = bool(connected)
         if connected:
             self._update_status_style(self._running)
             return
-        self.status.setStyleSheet(
-            "border-radius: 6px; background-color: #f59e0b;"
-        )
+        self._update_status_style(False)
         self.battery_icon.setPixmap(
             icon(battery_icon_name(None), "#91a2bc").pixmap(BATTERY_ICON_SIZE)
         )
@@ -966,13 +1001,13 @@ class RemoteDeviceRow(QWidget):
         )
         name_row.addWidget(self.device_icon)
         self.name_label = QLabel(str(session.get("name") or "Mobile Device"))
-        self.name_label.setStyleSheet("font-weight:750; color:#eaf1ff;")
+        self.name_label.setStyleSheet("font-weight:750;")
         name_row.addWidget(self.name_label, 1)
         identity.addLayout(name_row)
 
         capabilities = session.get("capabilities") or ["Touch mouse", "Keyboard / PC Remote"]
         self.capabilities_label = QLabel(" · ".join(str(item) for item in capabilities))
-        self.capabilities_label.setStyleSheet("font-size:10px; color:#91a2bc;")
+        self.capabilities_label.setStyleSheet("font-size:10px;")
         self.capabilities_label.setWordWrap(True)
         identity.addWidget(self.capabilities_label)
         layout.addLayout(identity, 1)
@@ -1005,48 +1040,58 @@ class RemoteDeviceRow(QWidget):
 
         self.setObjectName("remoteDeviceRow")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.setStyleSheet("""
-            QWidget#remoteDeviceRow {
-                background:#172338;
-                border:1px solid #30435f;
-                border-radius:10px;
-            }
-            QWidget#remoteDeviceRow QLabel {
-                background:transparent;
-                border:none;
-            }
-            QWidget#remoteDeviceRow QPushButton {
-                color:#dceaff;
-                background:#22344c;
-                border:1px solid #405976;
-                border-radius:8px;
-                padding:6px 10px;
-                font-size:11px;
-                font-weight:700;
-            }
-            QWidget#remoteDeviceRow QPushButton:hover:enabled {
-                background:#2c4665;
-                border-color:#6e91bb;
-            }
-            QWidget#remoteDeviceRow QPushButton#remotePermissionsButton {
-                color:#dff3ff;
-                background:#1d5271;
-                border-color:#347ea7;
-            }
-            QWidget#remoteDeviceRow QPushButton#remotePermissionsButton:hover:enabled {
-                background:#276b91;
-                border-color:#62b2df;
-            }
-            QWidget#remoteDeviceRow QPushButton#remoteDisconnectButton {
-                color:#ffd9df;
-                background:#472735;
-                border-color:#744051;
-            }
-            QWidget#remoteDeviceRow QPushButton#remoteDisconnectButton:hover:enabled {
-                background:#663141;
-                border-color:#ad596b;
-            }
+        self.apply_theme()
+
+    def apply_theme(self, theme_name: str | None = None) -> None:
+        app = QApplication.instance()
+        theme = theme_name or (
+            app.property("vpadTheme") if app is not None else "dark"
+        )
+        dark = theme != "light"
+        background = "#172338" if dark else "#f7faff"
+        border = "#30435f" if dark else "#d5e1f0"
+        text = "#eaf1ff" if dark else "#263650"
+        muted = "#91a2bc" if dark else "#64748b"
+        button_bg = "#22344c" if dark else "#e8eff9"
+        button_text = "#dceaff" if dark else "#31557e"
+        button_border = "#405976" if dark else "#cbd8e9"
+        hover_bg = "#2c4665" if dark else "#dce9f8"
+        self.setStyleSheet(f"""
+            QWidget#remoteDeviceRow {{
+                background: {background};
+                border: 1px solid {border};
+                border-radius: 10px;
+            }}
+            QWidget#remoteDeviceRow QLabel {{
+                background: transparent; border: none; color: {text};
+            }}
+            QWidget#remoteDeviceRow QPushButton {{
+                color: {button_text}; background: {button_bg};
+                border: 1px solid {button_border}; border-radius: 8px;
+                padding: 6px 10px; font-size: 11px; font-weight: 700;
+            }}
+            QWidget#remoteDeviceRow QPushButton:hover:enabled {{
+                background: {hover_bg}; border-color: #80a5d4;
+            }}
+            QWidget#remoteDeviceRow QPushButton#remotePermissionsButton {{
+                color: #ffffff; background: #236b9c; border-color: #4b91bd;
+            }}
+            QWidget#remoteDeviceRow QPushButton#remotePermissionsButton:hover:enabled {{
+                background: #2b7db3; border-color: #78b6de;
+            }}
+            QWidget#remoteDeviceRow QPushButton#remoteDisconnectButton {{
+                color: #ffffff; background: #ad4858; border-color: #c66a79;
+            }}
+            QWidget#remoteDeviceRow QPushButton#remoteDisconnectButton:hover:enabled {{
+                background: #c25465; border-color: #d88692;
+            }}
         """)
+        self.name_label.setStyleSheet(f"font-weight:750; color:{text};")
+        self.capabilities_label.setStyleSheet(f"font-size:10px; color:{muted};")
+        self.state_label.setStyleSheet(
+            "color:#167b55; font-size:11px; font-weight:800; padding:4px 8px; "
+            "background:#d8f3e7; border-radius:8px;"
+        )
 
     def set_busy(self, busy: bool) -> None:
         self.delete_button.setEnabled(not bool(busy))
@@ -1064,6 +1109,7 @@ class ControllerEmulation(QWidget):
         vigem_available: bool | None = None,
     ):
         super().__init__()
+        self.setObjectName("controllerEmulationPage")
         self._raw_hid_report_lock = threading.Lock()
         self._last_raw_hid_emit_at = 0.0
         self._raw_hid_monitor_active = False
@@ -1092,31 +1138,22 @@ class ControllerEmulation(QWidget):
 
         lbl_dashboard = QLabel("Controller Emulation")
         lbl_dashboard.setObjectName("controllerPageTitle")
-        lbl_dashboard.setStyleSheet(
-            "font-size:22px; font-weight:800; color:#eaf1ff; padding:4px 2px;"
-        )
         lbl_dashboard.setAlignment(Qt.AlignLeft)
+        self._page_title = lbl_dashboard
 
         page_subtitle = QLabel(
             "Manage physical controllers and mobile devices from one place."
         )
-        page_subtitle.setStyleSheet("color:#91a2bc; font-size:12px;")
         page_subtitle.setWordWrap(True)
+        self._page_subtitle = page_subtitle
 
         emu_label = QLabel("Connected and configured devices")
-        emu_label.setStyleSheet(
-            "font-size:14px; font-weight:750; color:#dce8f8; padding:6px 2px 2px;"
-        )
         emu_label.setAlignment(Qt.AlignLeft)
+        self._device_section_label = emu_label
 
         self.emu_list = QListWidget()
-        self.emu_list.setStyleSheet("""
-            QListWidget::item {
-                padding: 0px;
-                color: #000000;
-                background-color: transparent;
-        }
-                                    """)
+        self.emu_list.setObjectName("controllerMappingsList")
+        self.emu_list.setSpacing(7)
 
         self.hidhide_card = HidHideCard(self)
 
@@ -1222,6 +1259,45 @@ class ControllerEmulation(QWidget):
             "background: rgba(133, 193, 255, 85%); }"
         )
         layout_dashboard.addWidget(self.content_splitter, 1)
+        self.apply_theme()
+
+    def apply_theme(self, theme_name: str | None = None) -> None:
+        app = QApplication.instance()
+        theme = theme_name or (
+            app.property("vpadTheme") if app is not None else "dark"
+        )
+        dark = theme != "light"
+        title = "#eaf1ff" if dark else "#253650"
+        muted = "#91a2bc" if dark else "#65758f"
+        section = "#dce8f8" if dark else "#354965"
+        list_bg = "#101a2b" if dark else "#eaf1fb"
+        list_border = "#2b3e59" if dark else "#d3e0f0"
+        self._page_title.setStyleSheet(
+            f"font-size:22px; font-weight:800; color:{title}; padding:4px 2px;"
+        )
+        self._page_subtitle.setStyleSheet(f"color:{muted}; font-size:12px;")
+        self._device_section_label.setStyleSheet(
+            f"font-size:14px; font-weight:750; color:{section}; padding:6px 2px 2px;"
+        )
+        self.emu_list.setStyleSheet(f"""
+            QListWidget#controllerMappingsList {{
+                background: {list_bg}; color: {title};
+                border: 1px solid {list_border}; border-radius: 12px;
+                padding: 8px; outline: none;
+            }}
+            QListWidget#controllerMappingsList::item {{
+                padding: 0; margin: 2px 0;
+                background: transparent; border: none;
+            }}
+        """)
+        self.content_splitter.setStyleSheet(
+            "QSplitter::handle:vertical { "
+            f"background: {'rgba(133, 193, 255, 38%)' if dark else 'rgba(64, 116, 177, 32%)'}; "
+            "height: 7px; margin: 1px 120px; border-radius: 3px; } "
+            "QSplitter::handle:vertical:hover { "
+            f"background: {'rgba(133, 193, 255, 85%)' if dark else 'rgba(64, 116, 177, 70%)'}; }}"
+        )
+        self.hidhide_card.apply_theme(theme)
 
     def set_vigem_available(self, available: bool) -> None:
         self.vigem_gate.set_vigem_available(available)
