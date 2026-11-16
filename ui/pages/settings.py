@@ -111,45 +111,7 @@ class SettingsPage(QWidget):
         self._settings_root_layout = root
         root.setContentsMargins(16, 12, 16, 12)
         root.setSpacing(8)
-        self.setStyleSheet("""
-            QWidget#settingsPage { background: transparent; }
-            QTabBar#settings_navigation { background: transparent; border: none; }
-            QTabBar#settings_navigation::tab {
-                padding: 9px 16px; margin: 0 3px 3px 0;
-                border-radius: 9px; border: 1px solid transparent;
-            }
-            QTabBar#settings_navigation::tab:selected {
-                background: rgba(99, 91, 255, 35);
-                border-color: rgba(99, 91, 255, 100);
-            }
-            QScrollArea#settings_scroll { background: transparent; border: none; }
-            QScrollArea#settings_scroll > QWidget > QWidget { background: transparent; }
-            QGroupBox { border-radius: 12px; margin-top: 10px; padding: 14px 10px 10px; }
-            QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 5px; }
-            QCheckBox { padding: 5px 2px; spacing: 9px; }
-            QSlider { min-height: 24px; }
-            QPushButton#settings_stepper_button {
-                color: #dceaff;
-                background: rgba(79, 120, 180, 22%);
-                border: 1px solid rgba(133, 193, 255, 34%);
-                border-radius: 9px;
-                font-size: 17px;
-                font-weight: 800;
-                padding: 0;
-            }
-            QPushButton#settings_stepper_button:hover {
-                background: rgba(79, 145, 220, 42%);
-                border-color: rgba(133, 193, 255, 75%);
-            }
-            QPushButton#settings_stepper_button:pressed {
-                background: rgba(55, 110, 185, 55%);
-            }
-            QPushButton#settings_primary { min-height: 36px; padding: 7px 15px; border-radius: 9px; }
-            QPushButton#settings_secondary { min-height: 36px; padding: 7px 12px; border-radius: 9px; }
-            QLabel#settings_page_heading { font-size: 19px; font-weight: 750; padding: 5px 0 2px; }
-            QLabel#settings_page_description { color: #91a2bc; font-size: 11px; padding-bottom: 3px; }
-            QLabel#settings_logging_status { color: #91a2bc; font-size: 11px; padding: 4px 0; }
-        """)
+
 
         # Compact horizontal sections, with the settings content directly underneath.
         self.menu = AnimatedTabBar()
@@ -726,6 +688,61 @@ class SettingsPage(QWidget):
         self._refresh_logging_status(initial_log_path)
 
         self.btn_save_to_profile.clicked.connect(self._on_save_to_profile)
+        self.apply_theme()
+
+    def apply_theme(self, theme_name: str | None = None) -> None:
+        app = QApplication.instance()
+        theme = theme_name or (
+            app.property("vpadTheme") if app is not None else "dark"
+        )
+        light = theme == "light"
+        muted = "#64758b" if light else "#91a2bc"
+        border = "#d1dbe9" if light else "#344762"
+        stepper_bg = "rgba(63, 112, 176, 14%)" if light else "rgba(79, 120, 180, 22%)"
+        stepper_text = "#31577f" if light else "#dceaff"
+        stepper_border = "rgba(77, 125, 185, 45%)" if light else "rgba(133, 193, 255, 34%)"
+        stepper_hover = "rgba(65, 129, 203, 23%)" if light else "rgba(79, 145, 220, 42%)"
+        stepper_pressed = "rgba(55, 110, 185, 32%)" if light else "rgba(55, 110, 185, 55%)"
+        self.setStyleSheet(f"""
+            QWidget#settingsPage {{ background:transparent; }}
+            QTabBar#settings_navigation {{ background:transparent; border:none; }}
+            QTabBar#settings_navigation::tab {{
+                padding:9px 16px; margin:0 3px 3px 0;
+                border-radius:9px; border:1px solid transparent;
+            }}
+            QTabBar#settings_navigation::tab:selected {{
+                background:rgba(99, 91, 255, {'25' if light else '35'});
+                border-color:rgba(99, 91, 255, {'130' if light else '100'});
+            }}
+            QScrollArea#settings_scroll {{ background:transparent; border:none; }}
+            QScrollArea#settings_scroll > QWidget > QWidget {{ background:transparent; }}
+            QGroupBox {{ border-radius:12px; margin-top:10px; padding:14px 10px 10px; }}
+            QGroupBox::title {{ subcontrol-origin:margin; left:12px; padding:0 5px; }}
+            QCheckBox {{ padding:5px 2px; spacing:9px; }}
+            QSlider {{ min-height:24px; }}
+            QPushButton#settings_stepper_button {{
+                color:{stepper_text}; background:{stepper_bg}; border:1px solid {stepper_border};
+                border-radius:9px; font-size:17px; font-weight:800; padding:0;
+            }}
+            QPushButton#settings_stepper_button:hover {{ background:{stepper_hover}; }}
+            QPushButton#settings_stepper_button:pressed {{ background:{stepper_pressed}; }}
+            QPushButton#settings_primary {{ min-height:36px; padding:7px 15px; border-radius:9px; }}
+            QPushButton#settings_secondary {{ min-height:36px; padding:7px 12px; border-radius:9px; }}
+            QLabel#settings_page_heading {{ font-size:19px; font-weight:750; padding:5px 0 2px; }}
+            QLabel#settings_page_description {{ color:{muted}; font-size:11px; padding-bottom:3px; }}
+            QLabel#settings_logging_status {{ color:{muted}; font-size:11px; padding:4px 0; }}
+        """)
+        self._settings_theme = theme
+        self.lbl_profile_status.setStyleSheet(
+            f"font-size:12px; color:{muted};"
+        )
+        self.lbl_autosave_status.setStyleSheet(f"color:{muted};")
+        separator = self.findChild(QFrame)
+        if separator is not None and separator.frameShape() == QFrame.Shape.HLine:
+            separator.setStyleSheet(f"QFrame {{ color:{border}; margin:4px 0; }}")
+        if self._raw_hid_terminal is not None:
+            self._raw_hid_terminal.apply_theme(theme)
+
 
     # ==========================================================
     # PROFILE HELPERS
