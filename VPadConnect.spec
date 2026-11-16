@@ -1,5 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+import os
 from pathlib import Path
 
 from PyInstaller.building.splash import Splash
@@ -7,6 +8,7 @@ from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs
 
 
 project_root = Path(SPECPATH)
+version_file = os.environ.get("VPADCONNECT_VERSION_FILE")
 
 datas = [
     (str(project_root / "config"), "config"),
@@ -81,6 +83,7 @@ exe = EXE(
     upx=True,
     console=False,
     disable_windowed_traceback=False,
+    version=version_file or None,
 )
 
 coll = COLLECT(

@@ -88,6 +88,39 @@ try {
 
     New-Item -ItemType Directory -Path $vendorDir, $defaultDir, $stagingDir, $distDir -Force | Out-Null
 
+    $versionParts = @($appFileVersion.Split('.') | ForEach-Object { [int]$_ })
+    if ($versionParts.Count -ne 4 -or @($versionParts | Where-Object { $_ -lt 0 -or $_ -gt 65535 }).Count -gt 0) {
+        Stop-Build "Windows file version '$appFileVersion' must contain four 16-bit numeric components."
+    }
+    $versionTuple = '(' + [string]::Join(', ', $versionParts) + ')'
+    $versionResourcePath = Join-Path $defaultDir 'version_info.txt'
+    $versionResource = @"
+VSVersionInfo(
+  ffi=FixedFileInfo(
+    filevers=$versionTuple,
+    prodvers=$versionTuple,
+    mask=0x3f,
+    flags=0x0,
+    OS=0x4,
+    fileType=0x1,
+    subtype=0x0,
+    date=(0, 0)),
+  kids=[
+    StringFileInfo([StringTable('040904e4', [
+      StringStruct('CompanyName', 'VPadConnect'),
+      StringStruct('FileDescription', 'VPadConnect Controller and Remote Companion'),
+      StringStruct('FileVersion', '$appFileVersion'),
+      StringStruct('InternalName', 'VPadConnect'),
+      StringStruct('OriginalFilename', 'VPadConnect.exe'),
+      StringStruct('ProductName', 'VPadConnect'),
+      StringStruct('ProductVersion', '$appVersion')
+    ])]),
+    VarFileInfo([VarStruct('Translation', [1033, 1252])])
+  ]
+)
+"@
+    [System.IO.File]::WriteAllText($versionResourcePath, ($versionResource + "`n"), $utf8NoBom)
+
     # Build against the committed default settings, not the local runtime file,
     # which may contain personal controller preferences.
     $defaultSettings = & git show 'HEAD:config/settings.conf'
@@ -133,6 +166,7 @@ try {
     Remove-Item -LiteralPath $oldPyInstallerExe -Force -ErrorAction SilentlyContinue
 
     $env:VPADCONNECT_DEFAULT_SETTINGS = $defaultsPath
+    $env:VPADCONNECT_VERSION_FILE = $versionResourcePath
     try {
         Write-Host 'Building the VPadConnect one-file executable with PyInstaller...'
         & $python.Source -m PyInstaller --clean --noconfirm `
@@ -144,6 +178,7 @@ try {
         }
     } finally {
         Remove-Item Env:\VPADCONNECT_DEFAULT_SETTINGS -ErrorAction SilentlyContinue
+        Remove-Item Env:\VPADCONNECT_VERSION_FILE -ErrorAction SilentlyContinue
     }
 
     if (-not (Test-Path -LiteralPath $oldPyInstallerExe -PathType Leaf)) {

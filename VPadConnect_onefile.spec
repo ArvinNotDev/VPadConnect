@@ -14,6 +14,7 @@ default_settings = Path(
         str(project_root / "config" / "settings.conf"),
     )
 )
+version_file = os.environ.get("VPADCONNECT_VERSION_FILE")
 
 datas = [
     (str(default_settings), "config"),
@@ -103,4 +104,5 @@ exe = EXE(
     upx=True,
     console=False,
     disable_windowed_traceback=False,
+    version=version_file or None,
 )
