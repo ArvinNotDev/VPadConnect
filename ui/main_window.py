@@ -51,7 +51,7 @@ class MainWindow(QMainWindow):
     WINDOW_TITLE = APP_NAME
     WINDOW_WIDTH = 1180
     WINDOW_HEIGHT = 760
-    MIN_WINDOW_WIDTH = 820
+    MIN_WINDOW_WIDTH = 930
     MIN_WINDOW_HEIGHT = 540
     NAV_PAGE_INDICES = (0, 1, 3, 2, 4)
     IDX_CONTROLLER_EMULATION = 0
@@ -247,7 +247,7 @@ class MainWindow(QMainWindow):
         self.menu.setDrawBase(False)
         self.menu.setExpanding(False)
         self.menu.setMovable(False)
-        self.menu.setUsesScrollButtons(True)
+        self.menu.setUsesScrollButtons(False)
         self.menu.setElideMode(Qt.TextElideMode.ElideNone)
         self.menu.setShape(QTabBar.Shape.RoundedNorth)
         for glyph, label in (
@@ -260,14 +260,14 @@ class MainWindow(QMainWindow):
             self.menu.addTab(icon(glyph, "#7787a4"), label)
         self.menu.setIconSize(ICON_SIZE)
         self.menu.setMinimumHeight(38)
-        self.menu.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
+        self.menu.setMinimumWidth(610)
+        self.menu.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         navigation_row = QWidget()
         navigation_layout = QHBoxLayout(navigation_row)
         navigation_layout.setContentsMargins(0, 0, 0, 0)
         navigation_layout.setSpacing(12)
-        navigation_layout.addWidget(self.menu, 0, Qt.AlignmentFlag.AlignLeft)
-        navigation_layout.addStretch(1)
+        navigation_layout.addWidget(self.menu, 1)
 
         self.donate_button = QPushButton("Buy me a coffee")
         self.donate_button.setObjectName("nav_donate_button")
