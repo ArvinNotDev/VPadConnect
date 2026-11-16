@@ -905,7 +905,13 @@ class X360TestCard(QFrame):
         self._update_gyro_parameters(0)
 
     def set_battery(self, percent: int | None, charging: bool = False) -> None:
-        tint = "#4ade80" if charging else "#aabbd2"
+        light = getattr(self, "_theme", "dark") == "light"
+        tint = (
+            "#16835d" if light and charging
+            else "#4ade80" if charging
+            else "#536b86" if light
+            else "#aabbd2"
+        )
         self.battery_icon.setPixmap(
             icon(battery_icon_name(percent, charging), tint).pixmap(BATTERY_ICON_SIZE)
         )
