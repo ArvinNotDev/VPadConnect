@@ -89,3 +89,24 @@ def test_remote_companion_cancel_cleans_up_and_returns_rejected(qapp):
     assert service.end_calls == 1
     assert not dialog.isVisible()
     dialog.deleteLater()
+
+
+
+def test_add_controller_window_close_returns_rejected(qapp):
+    dialog = AddControllerDialog()
+    QTimer.singleShot(25, dialog.close)
+
+    assert dialog.exec() == QDialog.DialogCode.Rejected
+    assert not dialog.isVisible()
+    dialog.deleteLater()
+
+
+def test_remote_companion_window_close_cleans_up_once(qapp):
+    service = _FakePairingService()
+    dialog = MobilePairingDialog(service)
+
+    QTimer.singleShot(25, dialog.close)
+    assert dialog.exec() == QDialog.DialogCode.Rejected
+    assert service.end_calls == 1
+    assert not dialog.isVisible()
+    dialog.deleteLater()
