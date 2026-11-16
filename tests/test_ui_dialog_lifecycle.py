@@ -11,7 +11,6 @@ from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication, QDialog, QDialogButtonBox
 
 from ui.pages.modal.add_controller import AddControllerDialog
-from ui.pages.controllers import X360TestCard
 from ui.pages.modal.mobile_pairing import MobilePairingDialog
 
 
@@ -55,21 +54,32 @@ class _FakeXInputInstance:
 
 
 def test_input_test_hides_battery_and_vibration_for_web_gamepad(qapp):
-    web_card = X360TestCard(_FakeXInputInstance("web-session-123"), "Phone", True)
-    assert web_card.battery_icon.width() == 22
-    assert web_card.battery_info.isHidden()
-    assert web_card.vibration_button.isHidden()
-    web_card.view_timer.stop()
-    web_card.deleteLater()
+    # Import this Windows-only page with inert stubs for the native input libraries.
+    import importlib
+    import sys
+    import types
+    from unittest.mock import patch
 
-    physical_card = X360TestCard(
-        _FakeXInputInstance("physical-controller"), "DualSense", True
-    )
-    assert physical_card.battery_icon.width() == 22
-    assert not physical_card.battery_info.isHidden()
-    assert not physical_card.vibration_button.isHidden()
-    physical_card.view_timer.stop()
-    physical_card.deleteLater()
+    with patch.dict(sys.modules, {
+        "vgamepad": types.ModuleType("vgamepad"),
+        "keyboard": types.ModuleType("keyboard"),
+    }):
+        X360TestCard = importlib.import_module("ui.pages.controllers").X360TestCard
+        web_card = X360TestCard(_FakeXInputInstance("web-session-123"), "Phone", True)
+        assert web_card.battery_icon.width() == 22
+        assert web_card.battery_info.isHidden()
+        assert web_card.vibration_button.isHidden()
+        web_card.view_timer.stop()
+        web_card.deleteLater()
+
+        physical_card = X360TestCard(
+            _FakeXInputInstance("physical-controller"), "DualSense", True
+        )
+        assert physical_card.battery_icon.width() == 22
+        assert not physical_card.battery_info.isHidden()
+        assert not physical_card.vibration_button.isHidden()
+        physical_card.view_timer.stop()
+        physical_card.deleteLater()
 
 
 def test_add_controller_cancel_during_entrance_returns_rejected(qapp):
