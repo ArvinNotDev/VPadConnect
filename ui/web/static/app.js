@@ -178,7 +178,7 @@ if(Math.hypot(e.clientX-point.startX,e.clientY-point.startY)>8)point.moved=true;
 if(active.size>=2){
 gestureHadMultiple=true;
 scrollRemainder+=(-dy*scrollSensitivity*(reverseScroll?-1:1))/active.size;
-if(point.moved)twoFingerTapCandidate=false;
+if(Math.hypot(e.clientX-point.startX,e.clientY-point.startY)>1)twoFingerTapCandidate=false;
 if(!twoFingerTapCandidate){
 var scrollSteps=scrollRemainder<0?Math.ceil(scrollRemainder):Math.floor(scrollRemainder);
 if(scrollSteps){scrollRemainder-=scrollSteps;var boundedSteps=Math.max(-20,Math.min(20,scrollSteps));state.mouse.scroll=Math.max(-20,Math.min(20,state.mouse.scroll+boundedSteps));}
@@ -228,6 +228,7 @@ registerInputReset(function(){
 active.clear();gesturePoints=[];gestureHadMultiple=false;twoFingerTapCandidate=false;scrollRemainder=0;lastTapAt=0;tapDragCandidate=null;draggingPointer=null;clearTapDragTimer();clearTimeout(tapTimeout);state.mouse.left=0;state.mouse.right=0;
 });
 pad.addEventListener("pointerdown",down);pad.addEventListener("pointermove",move);pad.addEventListener("pointerup",finishPointer);pad.addEventListener("pointercancel",cancel);pad.addEventListener("lostpointercapture",cancel);
+pad.addEventListener("contextmenu",function(e){e.preventDefault();});
 pad.addEventListener("wheel",function(e){e.preventDefault();state.mouse.scroll+=Math.max(-20,Math.min(20,Math.round((-e.deltaY/35)*scrollSensitivity*(reverseScroll?-1:1))));sendState(false);},{passive:false});
 if(bindControls!==false){
 document.querySelectorAll("[data-mouse]").forEach(function(el){var k=el.getAttribute("data-mouse"),pointers=new Set();registerInputReset(function(){pointers.clear();state.mouse[k]=0;el.classList.remove("pressed");});el.addEventListener("pointerdown",function(e){e.preventDefault();if(pointers.has(e.pointerId))return;pointers.add(e.pointerId);try{el.setPointerCapture(e.pointerId);}catch(_){}triggerHaptic(8);state.mouse[k]=1;el.classList.add("pressed");sendState(true);});function release(e){if(!pointers.delete(e.pointerId)||pointers.size)return;state.mouse[k]=0;el.classList.remove("pressed");sendState(true);}el.addEventListener("pointerup",release);el.addEventListener("pointercancel",release);el.addEventListener("lostpointercapture",release);});
