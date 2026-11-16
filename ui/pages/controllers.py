@@ -1094,8 +1094,8 @@ class ControllersPage(QWidget):
         light = theme == "light"
         page_text = "#263650" if light else "#eaf1ff"
         muted = "#61728d" if light else "#91a2bc"
-        list_bg = "#eaf1fb" if light else "#101a2b"
-        list_border = "#d4e0f0" if light else "#2b3e59"
+        list_bg = "#eaf1fb" if light else "#172b46"
+        list_border = "#d4e0f0" if light else "#344f72"
         self._input_test_theme = theme
         self._input_test_title = page_text
         self._input_test_muted = muted
