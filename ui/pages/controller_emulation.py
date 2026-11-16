@@ -941,14 +941,14 @@ class EmuListItemWidget(QWidget):
             self._battery = None
             self.lbl_battery.setText("Battery: --")
             self.battery_icon.setPixmap(
-                icon(battery_icon_name(None), "#91a2bc").pixmap(BATTERY_ICON_SIZE)
+                icon(battery_icon_name(None), "#536b86" if getattr(self, "_theme", "dark") == "light" else "#91a2bc").pixmap(BATTERY_ICON_SIZE)
             )
             return
         self._battery = (int(percent), bool(charging))
         self.battery_icon.setPixmap(
             icon(
                 battery_icon_name(int(percent), charging),
-                "#4ade80" if charging else "#aabbd2",
+                "#16835d" if getattr(self, "_theme", "dark") == "light" and charging else "#4ade80" if charging else "#536b86" if getattr(self, "_theme", "dark") == "light" else "#aabbd2",
             ).pixmap(BATTERY_ICON_SIZE)
         )
         suffix = " · Charging" if charging else ""
@@ -961,7 +961,7 @@ class EmuListItemWidget(QWidget):
             return
         self._update_status_style(False)
         self.battery_icon.setPixmap(
-            icon(battery_icon_name(None), "#91a2bc").pixmap(BATTERY_ICON_SIZE)
+            icon(battery_icon_name(None), "#536b86" if getattr(self, "_theme", "dark") == "light" else "#91a2bc").pixmap(BATTERY_ICON_SIZE)
         )
         self.lbl_battery.setText("Waiting for reconnect…")
 
