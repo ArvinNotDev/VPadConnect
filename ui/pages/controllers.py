@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QListWidget,
+    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QListWidget,
     QListWidgetItem, QDialog, QGridLayout, QFrame, QPushButton, QSpinBox,
     QScrollArea, QSlider, QCheckBox, QComboBox
 )
@@ -365,7 +365,12 @@ class StickIndicator(QWidget):
         self.x_value = 0
         self.y_value = 0
         self.pressed = False
+        self._theme = "dark"
         self.setFixedSize(112, 128)
+
+    def set_theme(self, theme_name: str) -> None:
+        self._theme = theme_name
+        self.update()
 
     def set_state(self, x_value: int, y_value: int, pressed: bool) -> None:
         state = (int(x_value), int(y_value), bool(pressed))
@@ -378,10 +383,11 @@ class StickIndicator(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
         circle = self.rect().adjusted(14, 25, -14, -14)
-        painter.setPen(QPen(QColor("#60708d"), 2))
-        painter.setBrush(QColor("#172033"))
+        light = self._theme == "light"
+        painter.setPen(QPen(QColor("#a8b8ce" if light else "#60708d"), 2))
+        painter.setBrush(QColor("#f2f6fc" if light else "#172033"))
         painter.drawEllipse(circle)
-        painter.setPen(QPen(QColor("#35445f"), 1))
+        painter.setPen(QPen(QColor("#cfdae9" if light else "#35445f"), 1))
         painter.drawLine(circle.center().x(), circle.top() + 7, circle.center().x(), circle.bottom() - 7)
         painter.drawLine(circle.left() + 7, circle.center().y(), circle.right() - 7, circle.center().y())
 
@@ -389,10 +395,10 @@ class StickIndicator(QWidget):
         knob_radius = 14
         x = circle.center().x() + (self.x_value / 32768.0) * (radius - knob_radius - 5)
         y = circle.center().y() - (self.y_value / 32768.0) * (radius - knob_radius - 5)
-        painter.setPen(QPen(QColor("#b7c9e6"), 2))
+        painter.setPen(QPen(QColor("#ffffff" if light else "#b7c9e6"), 2))
         painter.setBrush(QColor("#72d5ff") if self.pressed else QColor("#4d82d9"))
         painter.drawEllipse(int(x - knob_radius), int(y - knob_radius), knob_radius * 2, knob_radius * 2)
-        painter.setPen(QColor("#d8e2f2"))
+        painter.setPen(QColor("#4c5f7d" if light else "#d8e2f2"))
         painter.drawText(self.rect().adjusted(0, 0, 0, -98), Qt.AlignCenter, self.title)
         painter.end()
 
@@ -401,15 +407,24 @@ class ControllerButton(QLabel):
     def __init__(self, text: str, active_color="#5e83ba", parent=None):
         super().__init__(text, parent)
         self.active_color = active_color
+        self._theme = "dark"
+        self._active = False
         self.setAlignment(Qt.AlignCenter)
         self.setFixedSize(38, 38)
         self.set_active(False)
 
+    def set_theme(self, theme_name: str) -> None:
+        self._theme = theme_name
+        self.set_active(self._active)
+
     def set_active(self, active: bool) -> None:
+        self._active = bool(active)
+        light = self._theme == "light"
+        background = self.active_color if active else ("#e6edf7" if light else "#263348")
+        color = "#06111f" if active else ("#42536d" if light else "#d5e1f3")
+        border = "#ffffff" if active else ("#bdcadd" if light else "#53637f")
         self.setStyleSheet(
-            f"background:{self.active_color if active else '#263348'}; "
-            f"color:{'#06111f' if active else '#d5e1f3'}; "
-            f"border:2px solid {'#eaf5ff' if active else '#53637f'}; "
+            f"background:{background}; color:{color}; border:2px solid {border}; "
             "border-radius:19px; font-weight:700;"
         )
 
@@ -513,10 +528,8 @@ class X360TestCard(QFrame):
         self._vibration_dialog = None
         self._is_remote = self._is_remote_instance(instance)
         self._gyro = getattr(instance, "gyro_steering", None)
-        self.setStyleSheet(
-            "QFrame { background:#1a2538; border:1px solid #344866; border-radius:16px; } "
-            "QLabel { color:#dce8f8; } QPushButton { min-height:30px; }"
-        )
+        self.setObjectName("xinputTestCard")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         root = QVBoxLayout(self)
         root.setContentsMargins(16, 14, 16, 16)
         root.setSpacing(10)
@@ -563,30 +576,6 @@ class X360TestCard(QFrame):
 
         self.gyro_settings_row = QWidget()
         self.gyro_settings_row.setObjectName("gyroSettingsRow")
-        self.gyro_settings_row.setStyleSheet("""
-            QWidget#gyroSettingsRow {
-                background: #142136;
-                border: 1px solid #304461;
-                border-radius: 10px;
-            }
-            QWidget#gyroSettingsRow QLabel {
-                color: #aec0d9;
-                font-size: 11px;
-                font-weight: 600;
-            }
-            QWidget#gyroSettingsRow QSlider::groove:horizontal {
-                height: 4px;
-                background: #334761;
-                border-radius: 2px;
-            }
-            QWidget#gyroSettingsRow QSlider::handle:horizontal {
-                width: 13px;
-                margin: -5px 0;
-                border-radius: 6px;
-                background: #79c9ff;
-                border: 1px solid #c8eaff;
-            }
-        """)
         gyro_settings = QHBoxLayout(self.gyro_settings_row)
         gyro_settings.setContentsMargins(10, 6, 10, 6)
         gyro_settings.setSpacing(8)
@@ -619,11 +608,6 @@ class X360TestCard(QFrame):
         self.gyro_live_label.setToolTip(
             "Live roll angle, steering output, and the measured controller sensor report rate."
         )
-        self.gyro_live_label.setStyleSheet(
-            "QLabel#gyroLiveStatus { background:#102b30; color:#83e6c5; "
-            "border:1px solid #2d665f; border-radius:8px; padding:6px 9px; "
-            "font-family:Consolas; font-size:10px; font-weight:700; }"
-        )
         gyro_settings.addWidget(self.gyro_live_label)
         gyro_settings.addStretch(1)
         self.gyro_settings_row.setVisible(self._gyro is not None)
@@ -637,7 +621,8 @@ class X360TestCard(QFrame):
         root.addWidget(self.gyro_settings_row)
 
         surface = QFrame()
-        surface.setStyleSheet("background:#111a29; border:1px solid #2b3e5b; border-radius:28px;")
+        surface.setObjectName("inputTestControllerSurface")
+        self.surface = surface
         layout = QVBoxLayout(surface)
         layout.setContentsMargins(24, 14, 24, 18)
         layout.setSpacing(8)
@@ -704,6 +689,7 @@ class X360TestCard(QFrame):
         self.view_timer = QTimer(self)
         self.view_timer.timeout.connect(self.update_view)
         self.view_timer.start(30)
+        self.apply_theme()
 
     @staticmethod
     def _is_remote_instance(instance) -> bool:
@@ -763,20 +749,90 @@ class X360TestCard(QFrame):
         })
         self._settings.save()
 
-    @staticmethod
-    def _status_label(text: str) -> QLabel:
+    def _status_label(self, text: str) -> QLabel:
         label = QLabel(text)
         label.setAlignment(Qt.AlignCenter)
         label.setMinimumWidth(58)
-        label.setStyleSheet("background:#263348; border:1px solid #53637f; border-radius:8px; padding:5px 9px; font-weight:700;")
+        label._vpad_active = False
+        self._style_status_label(label)
         return label
 
-    @staticmethod
-    def _set_active(label: QLabel, active: bool) -> None:
+    def _style_status_label(self, label: QLabel) -> None:
+        light = getattr(self, "_theme", "dark") == "light"
+        active = bool(getattr(label, "_vpad_active", False))
+        background = "#75a0df" if active else ("#e6edf7" if light else "#263348")
+        color = "#07111e" if active else ("#42536d" if light else "#dce8f8")
+        border = "#e8f4ff" if active else ("#bdcadd" if light else "#53637f")
         label.setStyleSheet(
-            "background:#75a0df; color:#07111e; border:1px solid #e8f4ff; border-radius:8px; padding:5px 9px; font-weight:700;"
-            if active else
-            "background:#263348; border:1px solid #53637f; border-radius:8px; padding:5px 9px; font-weight:700;"
+            f"background:{background}; color:{color}; border:1px solid {border}; "
+            "border-radius:8px; padding:5px 9px; font-weight:700;"
+        )
+
+    def _set_active(self, label: QLabel, active: bool) -> None:
+        label._vpad_active = bool(active)
+        self._style_status_label(label)
+
+    def apply_theme(self, theme_name: str | None = None) -> None:
+        app = QApplication.instance()
+        self._theme = theme_name or (
+            app.property("vpadTheme") if app is not None else "dark"
+        )
+        light = self._theme == "light"
+        card_bg, card_border = (
+            ("#ffffff", "#d5dfed") if light else ("#1a2538", "#344866")
+        )
+        text = "#293a56" if light else "#dce8f8"
+        panel_bg, panel_border = (
+            ("#edf3fc", "#cfdaea") if light else ("#111a29", "#2b3e5b")
+        )
+        gyro_bg, gyro_border = (
+            ("#eaf1fb", "#d1deef") if light else ("#142136", "#304461")
+        )
+        gyro_text = "#536680" if light else "#aec0d9"
+        live_bg, live_text, live_border = (
+            ("#e1f4ec", "#187252", "#b5dfcd")
+            if light else ("#102b30", "#83e6c5", "#2d665f")
+        )
+        self.setStyleSheet(
+            f"QFrame#xinputTestCard {{ background:{card_bg}; border:1px solid {card_border}; border-radius:16px; }}"
+            f"QFrame#xinputTestCard QLabel {{ color:{text}; }}"
+            "QFrame#xinputTestCard QPushButton { min-height:30px; }"
+        )
+        self.gyro_settings_row.setStyleSheet(f"""
+            QWidget#gyroSettingsRow {{
+                background:{gyro_bg}; border:1px solid {gyro_border}; border-radius:10px;
+            }}
+            QWidget#gyroSettingsRow QLabel {{
+                color:{gyro_text}; font-size:11px; font-weight:600;
+            }}
+            QWidget#gyroSettingsRow QSlider::groove:horizontal {{
+                height:4px; background:{'#c6d3e5' if light else '#334761'}; border-radius:2px;
+            }}
+            QWidget#gyroSettingsRow QSlider::handle:horizontal {{
+                width:13px; margin:-5px 0; border-radius:6px;
+                background:#79c9ff; border:1px solid {'#4f95c7' if light else '#c8eaff'};
+            }}
+        """)
+        self.gyro_live_label.setStyleSheet(
+            f"QLabel#gyroLiveStatus {{ background:{live_bg}; color:{live_text}; "
+            f"border:1px solid {live_border}; border-radius:8px; padding:6px 9px; "
+            "font-family:Consolas; font-size:10px; font-weight:700; }"
+        )
+        self.surface.setStyleSheet(
+            f"background:{panel_bg}; border:1px solid {panel_border}; border-radius:28px;"
+        )
+        for button in (
+            self.up, self.down, self.left, self.right, self.y, self.x, self.b, self.a
+        ):
+            button.set_theme(self._theme)
+        self.left_stick.set_theme(self._theme)
+        self.right_stick.set_theme(self._theme)
+        for label in (
+            self.lt_label, self.rb, self.lb, self.rt_label, self.back, self.start
+        ):
+            self._style_status_label(label)
+        self.battery_label.setStyleSheet(
+            f"color:{'#536680' if light else '#aabbd2'};"
         )
 
     def set_name(self, name: str) -> None:
@@ -814,19 +870,29 @@ class X360TestCard(QFrame):
         )
         if percent is None:
             self.battery_label.setText("Battery: —")
-            self.battery_label.setStyleSheet("color:#aabbd2;")
+            self.battery_label.setStyleSheet(
+                f"color:{'#536680' if self._theme == 'light' else '#aabbd2'};"
+            )
             return
 
         percent = max(0, min(100, int(percent)))
         if charging:
             self.battery_label.setText(f"Battery: {percent}% · Charging")
-            self.battery_label.setStyleSheet("color:#4ade80; font-weight:700;")
+            self.battery_label.setStyleSheet(
+                "color:#16835d; font-weight:700;" if self._theme == "light"
+                else "color:#4ade80; font-weight:700;"
+            )
         elif percent >= 100:
             self.battery_label.setText("Battery: 100% · Fully charged")
-            self.battery_label.setStyleSheet("color:#75e0ad; font-weight:700;")
+            self.battery_label.setStyleSheet(
+                "color:#16835d; font-weight:700;" if self._theme == "light"
+                else "color:#75e0ad; font-weight:700;"
+            )
         else:
             self.battery_label.setText(f"Battery: {percent}%")
-            self.battery_label.setStyleSheet("color:#aabbd2;")
+            self.battery_label.setStyleSheet(
+                f"color:{'#536680' if self._theme == 'light' else '#aabbd2'};"
+            )
 
     def set_vibration_enabled(self, enabled: bool) -> None:
         self._vibration_enabled = bool(enabled)
