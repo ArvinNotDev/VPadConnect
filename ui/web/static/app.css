@@ -441,3 +441,28 @@ body.focus-mode #view-mouse .mouse-row .btn{min-height:40px}
   .gamepad-notice-actions{align-items:stretch;flex-direction:column}
   .gamepad-notice-actions .btn{width:100%}
 }
+
+
+/* Keep the remote touch surface clearly blue when the host OS uses a light theme. */
+@media(prefers-color-scheme:light){
+  .touchpad{
+    background:linear-gradient(145deg,#102b4d,#0a1e37);
+    border-color:#315b8a;
+    color:#b3cbea;
+    box-shadow:inset 0 1px #91bdf022;
+  }
+  .touchpad .touchgrid{
+    opacity:.46;
+    background-image:linear-gradient(#7da7d033 1px,transparent 1px),linear-gradient(90deg,#7da7d033 1px,transparent 1px);
+  }
+  .touchpad:hover{
+    border-color:#4f7fb6;
+    box-shadow:inset 0 0 0 1px #4f7fb644,0 8px 24px #19375b20;
+  }
+  .touchpad.air-mouse-active{
+    border-color:#267d69;
+    background:linear-gradient(145deg,#0a292d,#091d31);
+  }
+  .touchpad.air-mouse-active .touchgrid{opacity:.30}
+  .touchpad.air-mouse-active span{color:#b5e9dc}
+}
