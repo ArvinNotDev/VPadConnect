@@ -437,7 +437,7 @@ class VibrationTestDialog(AnimatedDialog):
         self.instance = instance
         self.setWindowTitle(f"Vibration Test — {name}")
         self.setMinimumWidth(480)
-        self.setStyleSheet("QDialog { background:#151d2c; } QLabel { color:#dbe7f7; }")
+        self.setObjectName("vibrationTestDialog")
 
         root = QVBoxLayout(self)
         root.setContentsMargins(20, 18, 20, 18)
@@ -445,10 +445,9 @@ class VibrationTestDialog(AnimatedDialog):
         title = QLabel("Xbox / XInput Vibration Test")
         title.setStyleSheet("font-size:16px; font-weight:700;")
         root.addWidget(title)
-        detail = QLabel("Use independent 0–65535 motor values. The selected test stays active until you press Stop.")
-        detail.setWordWrap(True)
-        detail.setStyleSheet("color:#91a2bc;")
-        root.addWidget(detail)
+        self.detail_label = QLabel("Use independent 0–65535 motor values. The selected test stays active until you press Stop.")
+        self.detail_label.setWordWrap(True)
+        root.addWidget(self.detail_label)
 
         self.left_slider, self.left_spin = self._add_motor(root, "Left motor · deep / strong")
         self.right_slider, self.right_spin = self._add_motor(root, "Right motor · light / high frequency")
@@ -469,9 +468,51 @@ class VibrationTestDialog(AnimatedDialog):
         root.addLayout(actions)
 
         self.status = QLabel()
-        self.status.setStyleSheet("color:#8db5ff;")
         root.addWidget(self.status)
         self.set_vibration_enabled(enabled)
+        self.apply_theme()
+
+    def apply_theme(self, theme_name: str | None = None) -> None:
+        app = QApplication.instance()
+        theme = theme_name or (
+            app.property("vpadTheme") if app is not None else "dark"
+        )
+        light = theme == "light"
+        background = "#f4f7fc" if light else "#151d2c"
+        text = "#263650" if light else "#dbe7f7"
+        muted = "#61728d" if light else "#91a2bc"
+        border = "#d4dfed" if light else "#344866"
+        button_bg = "#e7eef8" if light else "#22344c"
+        button_text = "#344c6b" if light else "#edf4ff"
+        button_border = "#cbd8e8" if light else "#3b5272"
+        self.setStyleSheet(f"""
+            QDialog#vibrationTestDialog {{
+                background:{background}; color:{text};
+                border:1px solid {border}; border-radius:14px;
+            }}
+            QLabel {{ color:{text}; background:transparent; }}
+            QPushButton {{
+                color:{button_text}; background:{button_bg};
+                border:1px solid {button_border}; border-radius:8px;
+                padding:7px 12px; font-weight:650;
+            }}
+            QPushButton:hover:enabled {{ background:{'#dbe9f8' if light else '#2b4567'}; }}
+            QSpinBox {{
+                color:{text}; background:{'#ffffff' if light else '#101a2b'};
+                border:1px solid {button_border}; border-radius:7px; padding:5px;
+            }}
+            QSlider::groove:horizontal {{
+                height:5px; background:{'#d1ddeb' if light else '#334761'}; border-radius:2px;
+            }}
+            QSlider::handle:horizontal {{
+                width:14px; margin:-5px 0; border-radius:7px;
+                background:#4d91e8; border:1px solid #8bb7ed;
+            }}
+        """)
+        self.detail_label.setStyleSheet(f"color:{muted};")
+        self.status.setStyleSheet(
+            f"color:{'#285f9c' if light else '#8db5ff'};"
+        )
 
     @staticmethod
     def _add_motor(root, title: str):
