@@ -1520,6 +1520,12 @@ class ControllerEmulation(QWidget):
         widget.delete_requested.connect(lambda w=widget, i=item: self._on_delete_requested(w, i))
         widget.lightbar_requested.connect(self._on_lightbar_requested)
 
+        # A newly configured, already-detected controller is immediately ready
+        # for use. The same button then becomes Stop if the user wants to pause it.
+        self.emu_list.setCurrentItem(item)
+        widget.set_running(True)
+        self._on_emulate_requested(hid_choice, emu, widget)
+
         return True
 
     def _find_item_by_widget(self, widget: EmuListItemWidget) -> Optional[QListWidgetItem]:
