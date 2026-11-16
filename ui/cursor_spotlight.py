@@ -39,8 +39,6 @@ class CursorSpotlight(QLabel):
         self.hide()
 
     def apply_theme(self, theme_name: str | None = None) -> None:
-        app = self.parentWidget().window().windowHandle()
-        del app  # QApplication theme is read from the global application property below.
         from PySide6.QtWidgets import QApplication
         application = QApplication.instance()
         theme = theme_name or (
