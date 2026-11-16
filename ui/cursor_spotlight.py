@@ -6,14 +6,14 @@ transparent paint pass or backing-store clearing is required.
 """
 
 from PySide6.QtCore import QPointF, QTimer, Qt
-from PySide6.QtGui import QColor, QPainter, QRadialGradient, QPixmap
+from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen, QRadialGradient, QPixmap
 from PySide6.QtWidgets import QLabel, QWidget
 
 from ui.animations import animations_enabled
 
 
 class CursorSpotlight(QLabel):
-    RADIUS = 185
+    RADIUS = 215
     DIAMETER = RADIUS * 2
 
     def __init__(self, parent: QWidget):
@@ -46,15 +46,38 @@ class CursorSpotlight(QLabel):
 
         painter = QPainter(pixmap)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        gradient = QRadialGradient(
-            QPointF(cls.RADIUS, cls.RADIUS), cls.RADIUS
-        )
-        gradient.setColorAt(0.0, QColor(34, 197, 94, 38))
-        gradient.setColorAt(0.48, QColor(34, 197, 94, 19))
-        gradient.setColorAt(1.0, QColor(34, 197, 94, 0))
+        center = QPointF(cls.RADIUS, cls.RADIUS)
+        gradient = QRadialGradient(center, cls.RADIUS)
+        gradient.setColorAt(0.0, QColor(34, 211, 238, 43))
+        gradient.setColorAt(0.34, QColor(6, 182, 212, 25))
+        gradient.setColorAt(0.72, QColor(8, 145, 178, 9))
+        gradient.setColorAt(1.0, QColor(8, 145, 178, 0))
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(gradient)
         painter.drawEllipse(0, 0, cls.DIAMETER, cls.DIAMETER)
+
+        # A restrained technical texture: fine diagonal cyan strokes and two
+        # low-contrast rings, softened by the same circular clipping boundary.
+        circle = QPainterPath()
+        circle.addEllipse(0.5, 0.5, cls.DIAMETER - 1, cls.DIAMETER - 1)
+        painter.setClipPath(circle)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.setPen(QPen(QColor(103, 232, 249, 5), 1))
+        for offset in range(-cls.DIAMETER, cls.DIAMETER * 2, 12):
+            painter.drawLine(offset, cls.DIAMETER, offset + cls.DIAMETER, 0)
+
+        painter.setPen(QPen(QColor(103, 232, 249, 10), 1))
+        painter.drawEllipse(
+            center,
+            cls.RADIUS * 0.43,
+            cls.RADIUS * 0.43,
+        )
+        painter.setPen(QPen(QColor(103, 232, 249, 6), 1))
+        painter.drawEllipse(
+            center,
+            cls.RADIUS * 0.76,
+            cls.RADIUS * 0.76,
+        )
         painter.end()
         return pixmap
 
