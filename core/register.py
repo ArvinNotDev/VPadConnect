@@ -1,6 +1,6 @@
 import json
 
-from core.utils.paths import data_path
+from core.utils.paths import config_path
 
 # map = {"a":index,
 #        "x":"",
@@ -14,14 +14,14 @@ class CustomGamepad:
 
     def save_to_json(self, name, mapping):
         self.config[name] = mapping
-        path = data_path("profiles", "GenericGamepads.json")
+        path = config_path("profiles", "GenericGamepads.json")
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("w", encoding="utf-8") as f:
             json.dump(self.config, f, indent=4)
 
     
     def load_from_json(self):
-        path = data_path("profiles", "GenericGamepads.json")
+        path = config_path("profiles", "GenericGamepads.json")
         try:
             with path.open("r", encoding="utf-8") as f:
                 self.config = json.load(f)

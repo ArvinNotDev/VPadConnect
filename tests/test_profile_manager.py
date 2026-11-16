@@ -68,7 +68,7 @@ class TestProfileManager:
         self.settings = FakeSettingsManager()
         # Patch data_path so profiles go into a temp directory
         self._patcher = mock.patch(
-            "core.profile_manager.data_path",
+            "core.profile_manager.config_path",
             side_effect=lambda *parts: Path(self.tmpdir).joinpath(*parts),
         )
         self._patcher.start()

@@ -36,7 +36,7 @@ from core.settings import SettingsManager
 from core.profile_manager import ProfileManager
 
 from core.utils.hotkeys import Hotkey
-from core.utils.paths import data_path, resource_path
+from core.utils.paths import config_path, resource_path
 from ui.i18n import apply_translations, tr
 from core.version import APP_NAME
 from core.vigem import is_vigem_installed
@@ -72,7 +72,7 @@ class MainWindow(QMainWindow):
                 "previous track": "previous track",
                 "volume mute": "volume mute",
             }
-        self.hotkey = Hotkey(str(data_path("hotkeys.json")))
+        self.hotkey = Hotkey(str(config_path("hotkeys.json")))
         self.settings = SettingsManager()
         self.settings.normalize()
         configure_developer_logging(self.settings)

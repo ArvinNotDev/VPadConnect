@@ -1,27 +1,39 @@
 import configparser
 import hashlib
+import os
 import re
+import tempfile
 from pathlib import Path
 
-from core.utils.paths import ensure_user_file, resolve_data_path
+from core.utils.paths import config_path, ensure_user_file
 
 
 class SettingsManager:
     POLL_INTERVAL_MIN_MS = 1.0
     POLL_INTERVAL_MAX_MS = 1000.0
 
-    def __init__(self, path="config/settings.conf"):
-        self.path = resolve_data_path(path)
+    def __init__(self, path=None):
+        if path is None:
+            self.path = config_path("settings.conf")
+        else:
+            candidate = Path(path).expanduser()
+            self.path = (
+                candidate
+                if candidate.is_absolute()
+                else config_path(*candidate.parts)
+            )
         self.config = configparser.ConfigParser()
 
         if not self.path.exists():
-            default_config = ensure_user_file(
-                "config/settings.conf",
-                "config/settings.conf",
-            )
-            if default_config.exists():
-                self.path = default_config
-            else:
+            if path is None:
+                default_config = ensure_user_file(
+                    "settings.conf",
+                    "config/settings.conf",
+                )
+                if default_config.exists():
+                    self.path = default_config
+
+            if not self.path.exists():
                 self.path.parent.mkdir(parents=True, exist_ok=True)
                 self.config["device"] = {
                     "poll_interval_ms": "1.0",
@@ -49,8 +61,7 @@ class SettingsManager:
                     "log_to_file": "false",
                     "log_file_path": "logs/mapper.log"
                 }
-                with self.path.open("w", encoding="utf-8") as f:
-                    self.config.write(f)
+                self.save()
 
         self.config.read(self.path)
 
@@ -348,8 +359,27 @@ class SettingsManager:
     # -------- save/load --------
     def save(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self.path.open("w", encoding="utf-8") as f:
-            self.config.write(f)
+        temporary = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                "w",
+                encoding="utf-8",
+                dir=self.path.parent,
+                prefix=f".{self.path.name}.",
+                suffix=".tmp",
+                delete=False,
+            ) as stream:
+                temporary = Path(stream.name)
+                self.config.write(stream)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, self.path)
+        finally:
+            if temporary is not None:
+                try:
+                    temporary.unlink(missing_ok=True)
+                except OSError:
+                    pass
 
     # -------- normalization (ensure all keys exist and sane) --------
     def normalize(self):

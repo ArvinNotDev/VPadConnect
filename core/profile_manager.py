@@ -15,7 +15,7 @@ import zipfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from core.utils.paths import data_path
+from core.utils.paths import config_path
 
 
 class ProfileManager:
@@ -35,7 +35,7 @@ class ProfileManager:
             read and apply settings.
         """
         self.settings = settings_manager
-        self._profiles_dir = data_path("profiles", "user")
+        self._profiles_dir = config_path("profiles", "user")
         self._profiles_dir.mkdir(parents=True, exist_ok=True)
         self._images_dir = self._profiles_dir / "_images"
         self._images_dir.mkdir(parents=True, exist_ok=True)
