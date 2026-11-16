@@ -517,6 +517,55 @@ test("a cancelled touchpad gesture does not become a tap-to-click", async () => 
   assert.equal(stateRequests(harness).at(-1).mouse.left, 0);
 });
 
+test("a quick second tap held on the touchpad starts a left-button drag", async () => {
+  const harness = createHarness();
+  await settle();
+  harness.mouseTab.dispatch("click");
+  await settle();
+
+  harness.touchpad.dispatch("pointerdown", { pointerId: 71, clientX: 100, clientY: 100 });
+  harness.touchpad.dispatch("pointerup", { pointerId: 71, clientX: 100, clientY: 100 });
+  await settle();
+  assert.equal(stateRequests(harness).at(-1).mouse.left, 1);
+  harness.runTimer(100);
+  await settle();
+  assert.equal(stateRequests(harness).at(-1).mouse.left, 0);
+
+  harness.touchpad.dispatch("pointerdown", { pointerId: 72, clientX: 101, clientY: 100 });
+  harness.runTimer(240);
+  await settle();
+  assert.equal(stateRequests(harness).at(-1).mouse.left, 1);
+
+  harness.touchpad.dispatch("pointermove", { pointerId: 72, clientX: 130, clientY: 118 });
+  await settle();
+  assert.equal(stateRequests(harness).at(-1).mouse.left, 1);
+  assert.ok(stateRequests(harness).at(-1).mouse.dx > 0);
+  assert.ok(stateRequests(harness).at(-1).mouse.dy > 0);
+
+  harness.touchpad.dispatch("pointerup", { pointerId: 72, clientX: 130, clientY: 118 });
+  await settle();
+  assert.equal(stateRequests(harness).at(-1).mouse.left, 0);
+});
+
+test("a simultaneous two-finger touchpad tap sends a right click, not a scroll", async () => {
+  const harness = createHarness();
+  await settle();
+  harness.mouseTab.dispatch("click");
+  await settle();
+
+  harness.touchpad.dispatch("pointerdown", { pointerId: 81, clientX: 100, clientY: 100 });
+  harness.touchpad.dispatch("pointerdown", { pointerId: 82, clientX: 112, clientY: 100 });
+  harness.touchpad.dispatch("pointerup", { pointerId: 81, clientX: 100, clientY: 100 });
+  harness.touchpad.dispatch("pointerup", { pointerId: 82, clientX: 112, clientY: 100 });
+  await settle();
+
+  assert.equal(stateRequests(harness).at(-1).mouse.right, 1);
+  assert.equal(stateRequests(harness).at(-1).mouse.scroll, 0);
+  harness.runTimer(100);
+  await settle();
+  assert.equal(stateRequests(harness).at(-1).mouse.right, 0);
+});
+
 test("two-finger touchpad movement sends mouse scroll input", async () => {
   const harness = createHarness();
   await settle();
