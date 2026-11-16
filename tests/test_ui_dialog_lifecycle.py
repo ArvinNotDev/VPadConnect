@@ -101,9 +101,15 @@ def test_new_controller_mapping_starts_emulation_immediately(qapp):
     import types
     from unittest.mock import patch
 
+    pyautogui_stub = types.ModuleType("pyautogui")
+    pyautogui_stub.PAUSE = 0.0
+    pyautogui_stub.FAILSAFE = True
+    pyautogui_stub.FailSafeException = type("FailSafeException", (Exception,), {})
+
     with patch.dict(sys.modules, {
         "vgamepad": types.ModuleType("vgamepad"),
         "keyboard": types.ModuleType("keyboard"),
+        "pyautogui": pyautogui_stub,
     }):
         module = importlib.import_module("ui.pages.controller_emulation")
         calls = []
