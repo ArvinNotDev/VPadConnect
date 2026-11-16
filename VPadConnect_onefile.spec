@@ -3,6 +3,7 @@
 import os
 from pathlib import Path
 
+from PyInstaller.building.splash import Splash
 from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs
 
 
@@ -76,9 +77,21 @@ a = Analysis(
 
 pyz = PYZ(a.pure)
 
+splash = Splash(
+    str(project_root / "splash.png"),
+    binaries=a.binaries,
+    datas=a.datas,
+    text_pos=(42, 411),
+    text_size=10,
+    text_color="#C9DFFF",
+    text_default="Starting VPadConnect...",
+)
+
 exe = EXE(
     pyz,
     a.scripts,
+    splash,
+    splash.binaries,
     a.binaries,
     a.datas,
     [],

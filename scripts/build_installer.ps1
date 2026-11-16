@@ -41,6 +41,10 @@ try {
         Stop-Build 'Python 3.12 was not found on PATH.'
     }
 
+    if (-not (Test-Path -LiteralPath (Join-Path $projectRoot 'splash.png') -PathType Leaf)) {
+        Stop-Build 'The root splash.png artwork required by the one-file build was not found.'
+    }
+
     $pythonVersion = (& $python.Source --version 2>&1 | Out-String).Trim()
     if ($pythonVersion -notmatch '^Python 3\.12\.') {
         Stop-Build "Python 3.12 is required; found '$pythonVersion'."
