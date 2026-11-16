@@ -164,31 +164,11 @@ class HidHideDeviceRow(QFrame):
 class _HidHideHeader(QWidget):
     clicked = Signal()
 
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self._left_pressed = False
-
-    def mousePressEvent(self, event):
+    def mouseReleaseEvent(self, event):
         if (
             event.button() == Qt.MouseButton.LeftButton
             and self.rect().contains(event.position().toPoint())
         ):
-            self._left_pressed = True
-            event.accept()
-            return
-        self._left_pressed = False
-        super().mousePressEvent(event)
-
-    def mouseReleaseEvent(self, event):
-        is_click = (
-            event.button() == Qt.MouseButton.LeftButton
-            and self._left_pressed
-            and self.rect().contains(event.position().toPoint())
-        )
-        if event.button() == Qt.MouseButton.LeftButton:
-            self._left_pressed = False
-
-        if is_click:
             self.clicked.emit()
             event.accept()
             return
