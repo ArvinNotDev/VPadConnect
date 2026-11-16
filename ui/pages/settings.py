@@ -472,6 +472,7 @@ class SettingsPage(QWidget):
         # SHARED BOTTOM BAR – Save to Profile
         # ==========================================================
         separator = QFrame()
+        self._settings_separator = separator
         separator.setFrameShape(QFrame.HLine)
         separator.setFrameShadow(QFrame.Sunken)
         separator.setStyleSheet("QFrame { color: #444455; margin: 4px 0; }")
@@ -737,9 +738,10 @@ class SettingsPage(QWidget):
             f"font-size:12px; color:{muted};"
         )
         self.lbl_autosave_status.setStyleSheet(f"color:{muted};")
-        separator = self.findChild(QFrame)
-        if separator is not None and separator.frameShape() == QFrame.Shape.HLine:
-            separator.setStyleSheet(f"QFrame {{ color:{border}; margin:4px 0; }}")
+        if hasattr(self, "_settings_separator"):
+            self._settings_separator.setStyleSheet(
+                f"QFrame {{ color:{border}; margin:4px 0; }}"
+            )
         if self._raw_hid_terminal is not None:
             self._raw_hid_terminal.apply_theme(theme)
 
