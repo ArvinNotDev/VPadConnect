@@ -1085,3 +1085,28 @@ QMenu#profile_selector_menu::item:checked {
     border: 1px solid #ccd8e7;
     border-radius: 14px;
 }
+
+
+/* Standard Windows-like caption actions in the frameless desktop header. */
+QPushButton#window_minimize, QPushButton#window_maximize, QPushButton#window_close {
+    min-width: 42px;
+    max-width: 42px;
+    min-height: 34px;
+    max-height: 34px;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+}
+QPushButton#window_minimize:hover, QPushButton#window_maximize:hover {
+    background: rgba(70, 90, 120, 12%);
+}
+QPushButton#window_close:hover {
+    background: #d94d5b;
+}
+QPushButton#window_minimize:pressed, QPushButton#window_maximize:pressed {
+    background: rgba(70, 90, 120, 18%);
+}
+QPushButton#window_close:pressed {
+    background: #b83c49;
+}

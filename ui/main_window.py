@@ -89,9 +89,9 @@ class MainWindow(QMainWindow):
         self._screen_adjusting = False
         self._preferred_window_size = QSize(self.WINDOW_WIDTH, self.WINDOW_HEIGHT)
 
-        # Keep the native Windows non-client frame for standard caption controls,
-        # system dragging, and resize hit-testing on every edge and corner.
-        self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.FramelessWindowHint)
+        # Keep a compact frameless shell, using Qt's native system move/resize
+        # requests so the OS still handles snapping and resize hit-testing.
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.FramelessWindowHint)
         self.setWindowTitle(self.WINDOW_TITLE)
         # Keep the shell usable in compact windows; individual settings pages
         # now scroll independently instead of clipping lower controls.
@@ -198,6 +198,45 @@ class MainWindow(QMainWindow):
         self._avatar_container.setMenu(self._profile_selector_menu)
         header_layout.addWidget(self._avatar_container)
 
+        # Conventional rectangular caption controls rather than macOS traffic lights.
+        window_controls = QHBoxLayout()
+        window_controls.setContentsMargins(0, 0, 0, 0)
+        window_controls.setSpacing(2)
+
+        self._window_minimize = QPushButton()
+        self._window_minimize.setObjectName("window_minimize")
+        self._window_minimize.setFixedSize(42, 34)
+        self._window_minimize.setIcon(icon("window-minimize", "#bdcbe0"))
+        self._window_minimize.setIconSize(QSize(13, 13))
+        self._window_minimize.setToolTip("Minimize")
+        self._window_minimize.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._window_minimize.clicked.connect(self.showMinimized)
+
+        self._window_maximize = QPushButton()
+        self._window_maximize.setObjectName("window_maximize")
+        self._window_maximize.setFixedSize(42, 34)
+        self._window_maximize.setIcon(icon("window-maximize", "#bdcbe0"))
+        self._window_maximize.setIconSize(QSize(13, 13))
+        self._window_maximize.setToolTip("Maximize")
+        self._window_maximize.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._window_maximize.clicked.connect(self._toggle_window_maximized)
+
+        self._window_close = QPushButton()
+        self._window_close.setObjectName("window_close")
+        self._window_close.setFixedSize(42, 34)
+        self._window_close.setIcon(icon("xmark", "#bdcbe0"))
+        self._window_close.setIconSize(QSize(13, 13))
+        self._window_close.setToolTip("Close")
+        self._window_close.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._window_close.clicked.connect(self.close)
+
+        for control in (
+            self._window_minimize,
+            self._window_maximize,
+            self._window_close,
+        ):
+            window_controls.addWidget(control)
+        header_layout.addLayout(window_controls)
 
         main_layout.addWidget(header)
 
@@ -375,7 +414,7 @@ class MainWindow(QMainWindow):
             dwmapi.DwmSetWindowAttribute.argtypes = [
                 wintypes.HWND, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD
             ]
-            dwmapi.DwmSetWindowAttribute.restype = wintypes.HRESULT
+            dwmapi.DwmSetWindowAttribute.restype = ctypes.c_long
             hwnd = wintypes.HWND(int(self.winId()))
 
             # DWMWA_WINDOW_CORNER_PREFERENCE / DWMWCP_ROUND (Windows 11).
@@ -426,8 +465,25 @@ class MainWindow(QMainWindow):
         if isinstance(watched, QWidget) and self._widget_is_in_window(watched):
             if event.type() == QEvent.Type.Show:
                 watched.setMouseTracking(True)
+            elif event.type() == QEvent.Type.MouseButtonPress:
+                if event.button() == Qt.MouseButton.LeftButton and not self.isMaximized():
+                    edges = self._window_resize_edges(
+                        event.globalPosition().toPoint()
+                    )
+                    handle = self.windowHandle()
+                    if edges and handle is not None and handle.startSystemResize(edges):
+                        event.accept()
+                        return True
             elif event.type() == QEvent.Type.MouseMove:
                 global_position = event.globalPosition().toPoint()
+                if not self.isMaximized() and not event.buttons():
+                    edges = self._window_resize_edges(global_position)
+                    cursor = self._resize_cursor_for_edges(edges)
+                    if cursor is not None:
+                        self.setCursor(cursor)
+                    else:
+                        self.unsetCursor()
+
                 central = self.centralWidget()
                 local_position = central.mapFromGlobal(global_position)
                 if central.rect().contains(local_position):
@@ -440,6 +496,42 @@ class MainWindow(QMainWindow):
                 if not central.rect().contains(local_position):
                     self._cursor_spotlight.hide_spotlight()
         return super().eventFilter(watched, event)
+
+    def _window_resize_edges(self, position):
+        """Return native resize edges for a small hit area around the window."""
+        frame = self.frameGeometry()
+        margin = 8
+        edges = Qt.Edges()
+        left = abs(position.x() - frame.left()) <= margin
+        right = abs(frame.right() - position.x()) <= margin
+        top = abs(position.y() - frame.top()) <= margin
+        bottom = abs(frame.bottom() - position.y()) <= margin
+
+        if left:
+            edges |= Qt.Edge.LeftEdge
+        elif right:
+            edges |= Qt.Edge.RightEdge
+        if top:
+            edges |= Qt.Edge.TopEdge
+        elif bottom:
+            edges |= Qt.Edge.BottomEdge
+        return edges
+
+    @staticmethod
+    def _resize_cursor_for_edges(edges):
+        if not edges:
+            return None
+        left = bool(edges & Qt.Edge.LeftEdge)
+        right = bool(edges & Qt.Edge.RightEdge)
+        top = bool(edges & Qt.Edge.TopEdge)
+        bottom = bool(edges & Qt.Edge.BottomEdge)
+        if (left and top) or (right and bottom):
+            return Qt.CursorShape.SizeFDiagCursor
+        if (right and top) or (left and bottom):
+            return Qt.CursorShape.SizeBDiagCursor
+        if left or right:
+            return Qt.CursorShape.SizeHorCursor
+        return Qt.CursorShape.SizeVerCursor
 
     def _widget_is_in_window(self, widget) -> bool:
         current = widget
@@ -540,8 +632,12 @@ class MainWindow(QMainWindow):
             self._on_screen_changed(
                 handle.screen() if handle is not None else self.screen()
             )
+            self._window_maximize.setIcon(icon("window-maximize", "#bdcbe0"))
+            self._window_maximize.setToolTip("Maximize")
         else:
             self.showMaximized()
+            self._window_maximize.setIcon(icon("window-restore", "#bdcbe0"))
+            self._window_maximize.setToolTip("Restore")
 
     # --------------------
     # Tray
