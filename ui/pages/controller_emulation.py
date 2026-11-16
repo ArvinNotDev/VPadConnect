@@ -1655,14 +1655,16 @@ class ControllerEmulation(QWidget):
             return
 
         level = int(percent)
-        record["widget"].set_battery(level, charging)
         controller_type = self._controller_type(record.get("last_device") or {})
-        if controller_type not in {"Dualsense", "Dualshock4"}:
+        if controller_type in {"Dualsense", "Dualshock4"} and not 1 <= level <= 100:
+            # Unknown Sony battery states can decode to zero. Do not present
+            # them as a real 0% reading or let them affect transition alerts.
+            record["widget"].set_battery(None)
+            record["battery_state"] = None
             return
 
-        if level <= 0 or level > 100:
-            # Unknown DualSense battery states decode to zero. Treat that value
-            # as unavailable so it cannot trigger false low-battery alerts.
+        record["widget"].set_battery(level, charging)
+        if controller_type not in {"Dualsense", "Dualshock4"}:
             return
 
         previous = record.get("battery_state")
@@ -1696,6 +1698,11 @@ class ControllerEmulation(QWidget):
         if record.get("waiting"):
             return
 
+        # Mark the transition first so duplicate worker errors cannot enqueue
+        # multiple disconnect notifications while cleanup is in progress.
+        record["waiting"] = True
+        record["battery_state"] = None
+        record["low_battery_notified"] = False
         logger.warning("Controller device lost at %s: %s", path, message)
         self.notification_requested.emit(
             "Controller disconnected",
@@ -1704,10 +1711,7 @@ class ControllerEmulation(QWidget):
         )
         self._stop_mapping(path)
         self._stop_lightbar_output(path)
-        record["waiting"] = True
         record["path"] = None
-        record["battery_state"] = None
-        record["low_battery_notified"] = False
         record["widget"].set_connection_state(False)
         record["widget"].set_battery(None)
         if self._auto_reconnect_enabled():
