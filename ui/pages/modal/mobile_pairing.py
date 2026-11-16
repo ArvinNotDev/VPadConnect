@@ -648,4 +648,12 @@ class MobileConnectedDialog(AnimatedDialog):
         hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(hint)
 
-        QTimer.singleShot(1800, self.accept)
+        self._auto_close_timer = QTimer(self)
+        self._auto_close_timer.setSingleShot(True)
+        self._auto_close_timer.timeout.connect(self.accept)
+        self._auto_close_timer.start(1800)
+
+    def done(self, result: int) -> None:
+        # Manual dismissal or parent shutdown must cancel the delayed accept.
+        self._auto_close_timer.stop()
+        super().done(result)
