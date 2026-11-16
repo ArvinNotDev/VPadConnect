@@ -84,6 +84,8 @@ on:
       - "ui/pages/controllers.py"
       - "ui/themes/**"
       - "tests/test_profile_manager.py"
+      - "tests/test_ui_dialog_lifecycle.py"
+      - "ui/cursor_spotlight.py"
       - "ui/animations.py"
       - "ui/i18n.py"
       - "tests/test_web_remote.py"
