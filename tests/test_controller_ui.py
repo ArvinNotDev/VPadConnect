@@ -12,7 +12,9 @@ from unittest.mock import patch
 
 import pytest
 from PySide6.QtCore import QEvent
-from PySide6.QtWidgets import QApplication, QListWidget
+from PySide6.QtWidgets import QApplication, QListWidget, QWidget
+from ui.notifications import StatusToast
+from ui.pages.raw_hid_terminal import RawHidTerminalDialog
 
 from ui.pages.modal.add_controller import AddControllerDialog
 
@@ -108,6 +110,24 @@ def test_input_test_uses_light_palette_and_hides_web_only_fields(qapp):
         page.deleteLater()
 
         _flush_deferred_deletes(qapp)
+
+
+def test_raw_hid_terminal_and_notifications_use_light_palette(qapp):
+    terminal = RawHidTerminalDialog()
+    terminal.apply_theme("light")
+    assert "#f3f6fc" in terminal.styleSheet()
+    assert "#ffffff" in terminal.styleSheet()
+    terminal._metrics_timer.stop()
+    terminal.deleteLater()
+
+    parent = QWidget()
+    toast = StatusToast(parent)
+    toast.apply_theme("light")
+    assert "#ffffff" in toast.styleSheet()
+    assert "#263650" in toast.styleSheet()
+    toast.deleteLater()
+    parent.deleteLater()
+    _flush_deferred_deletes(qapp)
 
 
 def test_new_controller_mapping_starts_emulation_immediately(qapp):
