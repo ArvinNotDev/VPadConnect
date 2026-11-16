@@ -154,7 +154,7 @@ e.preventDefault();
 var now=performance.now();
 if(active.size===0){
 gesturePoints=[];gestureHadMultiple=false;twoFingerTapCandidate=false;scrollRemainder=0;draggingPointer=null;
-var recentTap=tapToClick&&lastTapAt>0&&now-lastTapAt<=450&&Math.hypot(e.clientX-lastTapX,e.clientY-lastTapY)<=36;
+var recentTap=tapToClick&&lastTapAt>0&&now-lastTapAt<=320&&Math.hypot(e.clientX-lastTapX,e.clientY-lastTapY)<=36;
 tapDragCandidate=recentTap?{pointerId:e.pointerId,lastX:e.clientX,lastY:e.clientY,active:false}:null;
 if(!recentTap)lastTapAt=0;
 }else{
@@ -167,7 +167,7 @@ var point={x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY,started:now
 active.set(e.pointerId,point);gesturePoints.push(point);
 if(tapDragCandidate&&active.size===1){
 var pointerId=e.pointerId;
-tapDragTimer=setTimeout(function(){startTapDrag(pointerId);},240);
+tapDragTimer=setTimeout(function(){startTapDrag(pointerId);},150);
 }
 try{pad.setPointerCapture(e.pointerId);}catch(_){}
 }
@@ -186,8 +186,11 @@ if(scrollSteps){scrollRemainder-=scrollSteps;var boundedSteps=Math.max(-20,Math.
 }else if(gestureHadMultiple){
 /* Do not convert the remaining finger of a multi-touch gesture into pointer movement. */
 }else if(tapDragCandidate&&tapDragCandidate.pointerId===e.pointerId){
-if(point.moved&&!tapDragCandidate.active)startTapDrag(e.pointerId);
-if(draggingPointer===e.pointerId&&tapDragCandidate.active&&!airMouseEnabled){
+if(point.moved&&!tapDragCandidate.active){
+clearTapDragTimer();tapDragCandidate=null;lastTapAt=0;
+if(!airMouseEnabled){state.mouse.dx+=Math.round(dx*mouseSensitivity);state.mouse.dy+=Math.round(dy*mouseSensitivity);}
+}
+if(draggingPointer===e.pointerId&&tapDragCandidate&&tapDragCandidate.active&&!airMouseEnabled){
 var dragDx=e.clientX-tapDragCandidate.lastX,dragDy=e.clientY-tapDragCandidate.lastY;
 state.mouse.dx+=Math.round(dragDx*mouseSensitivity);state.mouse.dy+=Math.round(dragDy*mouseSensitivity);
 tapDragCandidate.lastX=e.clientX;tapDragCandidate.lastY=e.clientY;
