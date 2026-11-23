@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 jobs:
-  analyze-and-test:
+  analyze-test-build:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -31,6 +31,9 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Generate Android runner
+        run: flutter create --platforms=android --project-name vpadconnect_mobile .
+
       - name: Install dependencies
         run: flutter pub get
 
@@ -39,3 +42,14 @@ jobs:
 
       - name: Run tests
         run: flutter test
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: vpadconnect-mobile-release-apk
+          path: mobile_app/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
