@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../services/pairing_service.dart';
 import '../services/remote_action_service.dart';
@@ -268,7 +268,7 @@ class _RemoteViewState extends State<RemoteView> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: _selectedShortcut,
+                      initialValue: _selectedShortcut,
                       decoration: const InputDecoration(labelText: 'Shortcut'),
                       items: const [
                         DropdownMenuItem(value: 'copy', child: Text('Copy')),
@@ -566,9 +566,9 @@ class _Notice extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(.09),
+        color: color.withValues(alpha: .09),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withOpacity(.25)),
+        border: Border.all(color: color.withValues(alpha: .25)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

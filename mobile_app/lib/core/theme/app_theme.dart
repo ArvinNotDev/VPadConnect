@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 abstract final class AppTheme {
   static const background = Color(0xFF080D18);
@@ -55,7 +55,7 @@ abstract final class AppTheme {
     navigationBarTheme: NavigationBarThemeData(
       height: 72,
       backgroundColor: const Color(0xFF0D1523),
-      indicatorColor: primary.withOpacity(0.18),
+      indicatorColor: primary.withValues(alpha: 0.18),
       labelTextStyle: WidgetStateProperty.resolveWith(
         (states) => TextStyle(
           fontSize: 11,

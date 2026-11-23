@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
 import '../models/pairing_target.dart';
@@ -400,7 +400,7 @@ class _ConnectionCard extends StatelessWidget {
                 height: 46,
                 decoration: BoxDecoration(
                   color: primary
-                      ? const Color(0xFF6B96FF).withOpacity(0.16)
+                      ? const Color(0xFF6B96FF).withValues(alpha: 0.16)
                       : const Color(0xFF22334D),
                   borderRadius: BorderRadius.circular(15),
                 ),

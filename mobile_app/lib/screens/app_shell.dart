@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../models/pairing_target.dart';
 import '../services/pairing_service.dart';
@@ -379,7 +379,7 @@ class _StatePill extends StatelessWidget {
     final color = positive ? const Color(0xFF58D7A3) : const Color(0xFFF0BA72);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-      decoration: BoxDecoration(color: color.withOpacity(.12), borderRadius: BorderRadius.circular(30)),
+      decoration: BoxDecoration(color: color.withValues(alpha: .12), borderRadius: BorderRadius.circular(30)),
       child: Text(label, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w900)),
     );
   }
@@ -411,7 +411,7 @@ class _ToolCard extends StatelessWidget {
                 Container(
                   width: 44,
                   height: 44,
-                  decoration: BoxDecoration(color: accent.withOpacity(.13), borderRadius: BorderRadius.circular(14)),
+                  decoration: BoxDecoration(color: accent.withValues(alpha: .13), borderRadius: BorderRadius.circular(14)),
                   child: Icon(icon, color: accent, size: 23),
                 ),
                 const SizedBox(width: 13),

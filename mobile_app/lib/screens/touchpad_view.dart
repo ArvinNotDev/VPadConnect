@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
 import '../services/remote_input_service.dart';
@@ -131,7 +131,7 @@ class _TouchpadViewState extends State<TouchpadView> {
       _airStatus = 'Move your phone gently to control the pointer.';
     });
     widget.input.setMode('mouse');
-    _gyroSubscription = gyroscopeEvents.listen(
+    _gyroSubscription = gyroscopeEventStream().listen(
       _onGyroscope,
       onError: (Object error) {
         if (!mounted) return;
@@ -313,7 +313,7 @@ class _TouchpadViewState extends State<TouchpadView> {
                 value: _tapToClick,
                 onChanged: (value) => setState(() => _tapToClick = value),
                 title: const Text('Tap to click', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                activeColor: const Color(0xFF6B96FF),
+                activeThumbColor: const Color(0xFF6B96FF),
               ),
             ],
           ),
@@ -417,7 +417,7 @@ class _TouchGridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF3D5878).withOpacity(.23)
+      ..color = const Color(0xFF3D5878).withValues(alpha: .23)
       ..strokeWidth = .6;
     const step = 28.0;
     for (double x = 0; x <= size.width; x += step) {

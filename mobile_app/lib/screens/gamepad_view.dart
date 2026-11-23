@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
 import '../services/remote_input_service.dart';
@@ -68,7 +68,7 @@ class _GamepadViewState extends State<GamepadView> {
       _tiltEnabled = true;
       _tiltStatus = 'Hold the phone still, then calibrate the center.';
     });
-    _tiltSubscription = accelerometerEvents.listen(
+    _tiltSubscription = accelerometerEventStream().listen(
       (event) {
         if (!mounted || !_tiltEnabled) return;
         final angle = math.atan2(event.x, math.sqrt(event.y * event.y + event.z * event.z));
@@ -445,7 +445,7 @@ class _TiltSteeringCard extends StatelessWidget {
               value: enabled,
               onChanged: onToggle,
               title: const Text('Tilt steering', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
-              activeColor: const Color(0xFF6B96FF),
+              activeThumbColor: const Color(0xFF6B96FF),
             ),
             Row(
               children: [
@@ -731,9 +731,9 @@ class _FaceButtonState extends State<_FaceButton> {
           duration: const Duration(milliseconds: 80),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: _pressed ? widget.color.withOpacity(.48) : widget.color.withOpacity(.15),
+            color: _pressed ? widget.color.withValues(alpha: .48) : widget.color.withValues(alpha: .15),
             border: Border.all(color: widget.color, width: _pressed ? 2.4 : 1.3),
-            boxShadow: _pressed ? [BoxShadow(color: widget.color.withOpacity(.3), blurRadius: 12)] : const [],
+            boxShadow: _pressed ? [BoxShadow(color: widget.color.withValues(alpha: .3), blurRadius: 12)] : const [],
           ),
           child: Center(
             child: Text(
@@ -767,9 +767,9 @@ class _Notice extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(.09),
+        color: color.withValues(alpha: .09),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withOpacity(.25)),
+        border: Border.all(color: color.withValues(alpha: .25)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
