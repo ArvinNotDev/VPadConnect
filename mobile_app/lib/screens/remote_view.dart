@@ -305,7 +305,7 @@ class _RemoteViewState extends State<RemoteView> {
             runSpacing: 8,
             children: [
               _ActionButton('Previous', Icons.skip_previous_rounded, !_allowed('media'), () => _run('media', {'command': 'previous_track'})),
-              _ActionButton('Play / pause', Icons.play_pause_rounded, !_allowed('media'), () => _run('media', {'command': 'play_pause'})),
+              _ActionButton('Play / pause', Icons.play_arrow_rounded, !_allowed('media'), () => _run('media', {'command': 'play_pause'})),
               _ActionButton('Next', Icons.skip_next_rounded, !_allowed('media'), () => _run('media', {'command': 'next_track'})),
               _ActionButton('Volume −', Icons.volume_down_rounded, !_allowed('media'), () => _run('media', {'command': 'volume_down'})),
               _ActionButton('Mute', Icons.volume_off_rounded, !_allowed('media'), () => _run('media', {'command': 'mute'})),

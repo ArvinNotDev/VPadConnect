@@ -124,7 +124,7 @@ class _GamepadViewState extends State<GamepadView> {
                   tooltip: 'Switch controller style',
                   onPressed: () => setState(() => _playStationLayout = !_playStationLayout),
                   icon: Icon(
-                    _playStationLayout ? Icons.sports_esports_rounded : Icons.gamepad_rounded,
+                    _playStationLayout ? Icons.sports_esports_rounded : Icons.sports_esports_rounded,
                     color: const Color(0xFF9AB7FF),
                   ),
                 ),
