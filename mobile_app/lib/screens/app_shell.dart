@@ -184,7 +184,7 @@ class HomeView extends StatelessWidget {
               const SizedBox(height: 16),
               Text(session.baseUri.host, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
               const SizedBox(height: 5),
-              Text('Paired phone: ${session.deviceName}, style: const TextStyle(color: Color(0xFF94A5BE), fontSize: 12)),
+              Text('Paired phone: ${session.deviceName}', style: const TextStyle(color: Color(0xFF94A5BE), fontSize: 12)),
               if (!session.gamepadAvailable) ...[
                 const SizedBox(height: 13),
                 const _InfoBanner(
