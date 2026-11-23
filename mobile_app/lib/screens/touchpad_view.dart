@@ -18,6 +18,8 @@ class _TouchpadViewState extends State<TouchpadView> {
   final Map<int, Offset> _active = {};
   final Map<int, Offset> _last = {};
   final Set<int> _moved = {};
+  bool _gestureMoved = false;
+  bool _twoFingerGesture = false;
   StreamSubscription<GyroscopeEvent>? _gyroSubscription;
 
   double _sensitivity = 1.7;
@@ -41,6 +43,12 @@ class _TouchpadViewState extends State<TouchpadView> {
   }
 
   void _pointerDown(PointerDownEvent event) {
+    if (_active.isEmpty) {
+      _gestureMoved = false;
+      _twoFingerGesture = false;
+    } else {
+      _twoFingerGesture = true;
+    }
     widget.input.setMode('mouse');
     _active[event.pointer] = event.localPosition;
     _last[event.pointer] = event.localPosition;
@@ -53,7 +61,10 @@ class _TouchpadViewState extends State<TouchpadView> {
     _last[event.pointer] = event.localPosition;
     _active[event.pointer] = event.localPosition;
 
-    if (delta.distance > 2) _moved.add(event.pointer);
+    if (delta.distance > 2) {
+      _moved.add(event.pointer);
+      _gestureMoved = true;
+    }
 
     if (_active.length == 1 && !_airMouseEnabled) {
       widget.input.moveMouse(
@@ -70,14 +81,25 @@ class _TouchpadViewState extends State<TouchpadView> {
   }
 
   void _pointerUp(PointerEvent event) {
-    final wasSinglePointer = _active.length == 1;
-    final wasTap = !_moved.contains(event.pointer);
     _active.remove(event.pointer);
     _last.remove(event.pointer);
     _moved.remove(event.pointer);
+    if (_active.isEmpty) {
+      if (_tapToClick && !_gestureMoved) {
+        _click(_twoFingerGesture ? 'right' : 'left');
+      }
+      _gestureMoved = false;
+      _twoFingerGesture = false;
+    }
+  }
 
-    if (_tapToClick && wasSinglePointer && wasTap) {
-      _click('left');
+  void _pointerCancel(PointerCancelEvent event) {
+    _active.remove(event.pointer);
+    _last.remove(event.pointer);
+    _moved.remove(event.pointer);
+    if (_active.isEmpty) {
+      _gestureMoved = false;
+      _twoFingerGesture = false;
     }
   }
 
@@ -134,7 +156,7 @@ class _TouchpadViewState extends State<TouchpadView> {
       return;
     }
 
-    final dx = (event.y - _gyroBiasY) * 24 * _airSensitivity;
+    final dx = (event.y - _gyroBiasY) * 4 * _airSensitivity;
     final dy = -(event.x - _gyroBiasX) * 24 * _airSensitivity;
     widget.input.moveMouse(dx, dy);
   }
@@ -178,7 +200,7 @@ class _TouchpadViewState extends State<TouchpadView> {
             onPointerDown: _pointerDown,
             onPointerMove: _pointerMove,
             onPointerUp: _pointerUp,
-            onPointerCancel: _pointerUp,
+            onPointerCancel: _pointerCancel,
             child: Stack(
               children: [
                 const Positioned.fill(child: CustomPaint(painter: _TouchGridPainter())),
