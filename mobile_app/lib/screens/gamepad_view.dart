@@ -510,12 +510,13 @@ class _AnalogStick extends StatefulWidget {
 }
 
 class _AnalogStickState extends State<_AnalogStick> {
+  final GlobalKey _stickSurfaceKey = GlobalKey();
   int? _pointer;
   double _x = 0;
   double _y = 0;
 
   void _update(PointerEvent event) {
-    final box = context.findRenderObject() as RenderBox?;
+    final box = _stickSurfaceKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null) return;
     final local = box.globalToLocal(event.position);
     final center = Offset(box.size.width / 2, box.size.height / 2);
@@ -560,6 +561,7 @@ class _AnalogStickState extends State<_AnalogStick> {
           width: widget.size,
           height: widget.size,
           child: Listener(
+            key: _stickSurfaceKey,
             behavior: HitTestBehavior.opaque,
             onPointerDown: (event) {
               if (_pointer != null) return;
