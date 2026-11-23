@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:sensors_plus/sensors_plus.dart';
 
 import '../services/remote_input_service.dart';
 
@@ -23,9 +25,17 @@ class _GamepadViewState extends State<GamepadView> {
   String _preset = 'Standard';
   double _leftTrigger = 0;
   double _rightTrigger = 0;
+  StreamSubscription<AccelerometerEvent>? _tiltSubscription;
+  bool _tiltEnabled = false;
+  double _tiltCenter = 0;
+  double _tiltAngle = 0;
+  double _filteredTiltAngle = 0;
+  double _tiltSensitivity = 1.0;
+  String _tiltStatus = 'Enable tilt steering while using Driving mode.';
 
   @override
   void dispose() {
+    _tiltSubscription?.cancel();
     widget.input.releaseAll();
     super.dispose();
   }
@@ -39,6 +49,54 @@ class _GamepadViewState extends State<GamepadView> {
       }
     });
     widget.input.setAnalog(key, value);
+  }
+
+  void _setTiltEnabled(bool enabled) {
+    if (enabled == _tiltEnabled) return;
+    if (!enabled) {
+      _tiltSubscription?.cancel();
+      _tiltSubscription = null;
+      setState(() {
+        _tiltEnabled = false;
+        _tiltStatus = 'Tilt steering is off.';
+      });
+      widget.input.setStick('left', 0, 0);
+      return;
+    }
+
+    setState(() {
+      _tiltEnabled = true;
+      _tiltStatus = 'Hold the phone still, then calibrate the center.';
+    });
+    _tiltSubscription = accelerometerEvents.listen(
+      (event) {
+        if (!mounted || !_tiltEnabled) return;
+        final angle = math.atan2(event.x, math.sqrt(event.y * event.y + event.z * event.z));
+        _tiltAngle = angle;
+        _filteredTiltAngle = (_filteredTiltAngle * .78) + (angle * .22);
+        final steering = ((_filteredTiltAngle - _tiltCenter) / .65 * _tiltSensitivity)
+            .clamp(-1.0, 1.0)
+            .toDouble();
+        widget.input.setStick('left', steering, 0);
+      },
+      onError: (Object error) {
+        if (!mounted) return;
+        _tiltSubscription?.cancel();
+        _tiltSubscription = null;
+        setState(() {
+          _tiltEnabled = false;
+          _tiltStatus = 'Motion sensor is unavailable on this device.';
+        });
+      },
+      cancelOnError: true,
+    );
+  }
+
+  void _calibrateTilt() {
+    if (!_tiltEnabled) return;
+    _tiltCenter = _tiltAngle;
+    setState(() => _tiltStatus = 'Steering center calibrated.');
+    widget.input.setStick('left', 0, 0);
   }
 
   @override
@@ -89,8 +147,24 @@ class _GamepadViewState extends State<GamepadView> {
               onChanged: (value) {
                 setState(() => _preset = value);
                 widget.input.setMode('gamepad');
+                if (value != 'Driving' && _tiltEnabled) _setTiltEnabled(false);
+                if (value != 'Driving') {
+                  _setTrigger('L2', 0);
+                  _setTrigger('R2', 0);
+                }
               },
             ),
+            if (_preset == 'Driving') ...[
+              const SizedBox(height: 12),
+              _TiltSteeringCard(
+                enabled: _tiltEnabled,
+                status: _tiltStatus,
+                sensitivity: _tiltSensitivity,
+                onToggle: _setTiltEnabled,
+                onCalibrate: _calibrateTilt,
+                onSensitivityChanged: (value) => setState(() => _tiltSensitivity = value),
+              ),
+            ],
             const SizedBox(height: 14),
             Container(
               padding: const EdgeInsets.fromLTRB(13, 14, 13, 12),
@@ -125,6 +199,7 @@ class _GamepadViewState extends State<GamepadView> {
                         child: _TriggerControl(
                           label: 'LEFT TRIGGER',
                           value: _leftTrigger,
+                          digital: _preset == 'Shooter',
                           onChanged: (value) => _setTrigger('L2', value),
                         ),
                       ),
@@ -133,6 +208,7 @@ class _GamepadViewState extends State<GamepadView> {
                         child: _TriggerControl(
                           label: 'RIGHT TRIGGER',
                           value: _rightTrigger,
+                          digital: _preset == 'Shooter',
                           onChanged: (value) => _setTrigger('R2', value),
                         ),
                       ),
@@ -337,33 +413,85 @@ class _HoldButtonState extends State<_HoldButton> {
   }
 }
 
+class _TiltSteeringCard extends StatelessWidget {
+  const _TiltSteeringCard({
+    required this.enabled,
+    required this.status,
+    required this.sensitivity,
+    required this.onToggle,
+    required this.onCalibrate,
+    required this.onSensitivityChanged,
+  });
+
+  final bool enabled;
+  final String status;
+  final double sensitivity;
+  final ValueChanged<bool> onToggle;
+  final VoidCallback onCalibrate;
+  final ValueChanged<double> onSensitivityChanged;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0xFF101A2A),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFF293B56)),
+        ),
+        child: Column(
+          children: [
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              value: enabled,
+              onChanged: onToggle,
+              title: const Text('Tilt steering', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
+              activeColor: const Color(0xFF6B96FF),
+            ),
+            Row(
+              children: [
+                Expanded(child: Text(status, style: const TextStyle(color: Color(0xFF94A5BE), fontSize: 10))),
+                TextButton(onPressed: enabled ? onCalibrate : null, child: const Text('Calibrate')),
+              ],
+            ),
+            Row(
+              children: [
+                const Expanded(child: Text('Sensitivity', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700))),
+                Text(sensitivity.toStringAsFixed(1) + '×', style: const TextStyle(color: Color(0xFF8AB0FF), fontSize: 10)),
+              ],
+            ),
+            Slider(min: .5, max: 2.5, value: sensitivity, onChanged: enabled ? onSensitivityChanged : null),
+          ],
+        ),
+      );
+}
+
 class _TriggerControl extends StatelessWidget {
   const _TriggerControl({
     required this.label,
     required this.value,
     required this.onChanged,
+    this.digital = false,
   });
 
   final String label;
   final double value;
   final ValueChanged<double> onChanged;
+  final bool digital;
 
   @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(color: Color(0xFF8196B5), fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: .7)),
-        Slider(
-          min: 0,
-          max: 255,
-          divisions: 255,
-          value: value,
-          onChanged: onChanged,
-        ),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(color: Color(0xFF8196B5), fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: .7)),
+          if (digital)
+            _HoldButton(
+              label: 'HOLD TRIGGER',
+              onChanged: (pressed) => onChanged(pressed ? 255 : 0),
+            )
+          else
+            Slider(min: 0, max: 255, divisions: 255, value: value, onChanged: onChanged),
+        ],
+      );
 }
 
 class _AnalogStick extends StatefulWidget {
