@@ -176,7 +176,7 @@ class PairingService {
   }
 
   Uri _endpoint(Uri baseUri, String path) {
-    return baseUri.replace(path: path, query: '', fragment: '');
+    return baseUri.replace(path: path, query: null, fragment: null);
   }
 
   Future<Map<String, dynamic>> _readInfo(HttpClient client, Uri baseUri) async {

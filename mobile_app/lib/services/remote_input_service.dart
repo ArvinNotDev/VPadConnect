@@ -59,8 +59,8 @@ class RemoteInputService {
       final wsUri = session.baseUri.replace(
         scheme: 'wss',
         path: '/api/stream',
-        query: '',
-        fragment: '',
+        query: null,
+        fragment: null,
       );
       final socket = await WebSocket.connect(
         wsUri.toString(),

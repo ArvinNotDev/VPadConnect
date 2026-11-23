@@ -43,7 +43,7 @@ class RemoteActionService {
       value.toLowerCase().replaceAll(RegExp(r'[:\s-]'), '');
 
   Uri _endpoint(String path) =>
-      session.baseUri.replace(path: path, query: '', fragment: '');
+      session.baseUri.replace(path: path, query: null, fragment: null);
 
   Future<void> _verifyIdentity() async {
     if (_identityVerified) return;

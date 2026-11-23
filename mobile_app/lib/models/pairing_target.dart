@@ -81,8 +81,8 @@ class PairingTarget {
     return uri.replace(
       port: uri.hasPort ? uri.port : 8765,
       path: '',
-      query: '',
-      fragment: '',
+      query: null,
+      fragment: null,
     );
   }
 }
