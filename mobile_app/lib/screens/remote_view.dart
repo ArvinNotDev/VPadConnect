@@ -213,6 +213,7 @@ class _RemoteViewState extends State<RemoteView> {
                 minLines: 2,
                 maxLines: 4,
                 maxLength: 4096,
+                onChanged: (_) => setState(() {}),
                 decoration: const InputDecoration(
                   hintText: 'Type text to send to your PC…',
                   counterText: '',
@@ -233,15 +234,15 @@ class _RemoteViewState extends State<RemoteView> {
               Wrap(
                 spacing: 7,
                 runSpacing: 7,
-                children: const [
-                  _RemoteActionChip(label: 'Enter', action: 'keyboard_key', payload: {'key': 'ENTER'}),
-                  _RemoteActionChip(label: 'Tab', action: 'keyboard_key', payload: {'key': 'TAB'}),
-                  _RemoteActionChip(label: 'Esc', action: 'keyboard_key', payload: {'key': 'ESCAPE'}),
-                  _RemoteActionChip(label: 'Backspace', action: 'keyboard_key', payload: {'key': 'BACKSPACE'}),
-                  _RemoteActionChip(label: '↑', action: 'keyboard_key', payload: {'key': 'UP'}),
-                  _RemoteActionChip(label: '↓', action: 'keyboard_key', payload: {'key': 'DOWN'}),
-                  _RemoteActionChip(label: '←', action: 'keyboard_key', payload: {'key': 'LEFT'}),
-                  _RemoteActionChip(label: '→', action: 'keyboard_key', payload: {'key': 'RIGHT'}),
+                children: [
+                  _ActionButton('Enter', Icons.keyboard_return_rounded, !_allowed('keyboard'), () => _run('keyboard_key', {'key': 'ENTER'})),
+                  _ActionButton('Tab', Icons.keyboard_tab_rounded, !_allowed('keyboard'), () => _run('keyboard_key', {'key': 'TAB'})),
+                  _ActionButton('Esc', Icons.cancel_outlined, !_allowed('keyboard'), () => _run('keyboard_key', {'key': 'ESCAPE'})),
+                  _ActionButton('Backspace', Icons.backspace_outlined, !_allowed('keyboard'), () => _run('keyboard_key', {'key': 'BACKSPACE'})),
+                  _ActionButton('↑', Icons.keyboard_arrow_up_rounded, !_allowed('keyboard'), () => _run('keyboard_key', {'key': 'UP'})),
+                  _ActionButton('↓', Icons.keyboard_arrow_down_rounded, !_allowed('keyboard'), () => _run('keyboard_key', {'key': 'DOWN'})),
+                  _ActionButton('←', Icons.keyboard_arrow_left_rounded, !_allowed('keyboard'), () => _run('keyboard_key', {'key': 'LEFT'})),
+                  _ActionButton('→', Icons.keyboard_arrow_right_rounded, !_allowed('keyboard'), () => _run('keyboard_key', {'key': 'RIGHT'})),
                 ],
               ),
               const SizedBox(height: 12),
@@ -309,6 +310,7 @@ class _RemoteViewState extends State<RemoteView> {
                 minLines: 2,
                 maxLines: 4,
                 maxLength: 4096,
+                onChanged: (_) => setState(() {}),
                 decoration: const InputDecoration(hintText: 'Clipboard text…', counterText: ''),
               ),
               const SizedBox(height: 8),
@@ -393,26 +395,6 @@ class _RemoteViewState extends State<RemoteView> {
       ],
     );
   }
-}
-
-class _RemoteActionChip extends StatelessWidget {
-  const _RemoteActionChip({
-    required this.label,
-    required this.action,
-    required this.payload,
-  });
-
-  final String label;
-  final String action;
-  final Map<String, dynamic> payload;
-
-  @override
-  Widget build(BuildContext context) => ActionChip(
-        label: Text(label),
-        onPressed: null,
-        backgroundColor: const Color(0xFF17243A),
-        side: const BorderSide(color: Color(0xFF344B68)),
-      );
 }
 
 class _RemoteCard extends StatelessWidget {

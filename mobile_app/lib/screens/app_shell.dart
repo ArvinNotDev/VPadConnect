@@ -5,6 +5,7 @@ import '../services/pairing_service.dart';
 import '../services/remote_input_service.dart';
 import 'gamepad_view.dart' show GamepadView;
 import 'touchpad_view.dart' show TouchpadView;
+import 'remote_view.dart' show RemoteView;
 
 class AppShell extends StatefulWidget {
   const AppShell({
@@ -62,7 +63,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       HomeView(session: widget.session, onOpenTab: _selectTab),
       GamepadView(input: _input, gamepadAvailable: widget.session.gamepadAvailable),
       TouchpadView(input: _input),
-      const RemoteView(),
+      RemoteView(session: widget.session),
       SettingsView(
         session: widget.session,
         disconnecting: _disconnecting,
@@ -224,36 +225,6 @@ class HomeView extends StatelessWidget {
         const _InfoBanner(
           icon: Icons.shield_outlined,
           text: 'Paired over HTTPS with a verified desktop certificate. Keep this connection on a trusted network.',
-        ),
-      ],
-    );
-  }
-}
-
-class RemoteView extends StatelessWidget {
-  const RemoteView({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-      children: [
-        const _PageEyebrow('DESKTOP TOOLS'),
-        const SizedBox(height: 5),
-        const Text('PC Remote', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 5),
-        const Text('Your essential desktop actions, in one place.', style: TextStyle(color: Color(0xFF94A5BE), fontSize: 12)),
-        const SizedBox(height: 18),
-        const _RemoteTile(icon: Icons.keyboard_alt_rounded, title: 'Keyboard & text', subtitle: 'Type, send keys and run shortcuts'),
-        const _RemoteTile(icon: Icons.content_paste_rounded, title: 'Clipboard', subtitle: 'Send text to the PC or read its clipboard'),
-        const _RemoteTile(icon: Icons.music_note_rounded, title: 'Media & volume', subtitle: 'Playback, mute and volume controls'),
-        const _RemoteTile(icon: Icons.apps_rounded, title: 'Quick launch', subtitle: 'Open supported desktop applications'),
-        const _RemoteTile(icon: Icons.slideshow_rounded, title: 'Presentation', subtitle: 'Navigate slides and control presentation mode'),
-        const _RemoteTile(icon: Icons.power_settings_new_rounded, title: 'Power actions', subtitle: 'Lock, sleep, restart or shut down'),
-        const SizedBox(height: 12),
-        const _InfoBanner(
-          icon: Icons.admin_panel_settings_outlined,
-          text: 'Remote actions follow the permissions configured on the Windows PC. Destructive power actions require confirmation.',
         ),
       ],
     );
@@ -608,37 +579,6 @@ class _FaceButtonsPreview extends StatelessWidget {
       ],
     );
   }
-}
-
-class _RemoteTile extends StatelessWidget {
-  const _RemoteTile({required this.icon, required this.title, required this.subtitle});
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: _SurfaceCard(
-          child: Row(
-            children: [
-              Icon(icon, color: const Color(0xFF9CB8F4), size: 22),
-              const SizedBox(width: 13),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
-                    const SizedBox(height: 3),
-                    Text(subtitle, style: const TextStyle(color: Color(0xFF879AB5), fontSize: 10)),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right_rounded, color: Color(0xFF7185A1)),
-            ],
-          ),
-        ),
-      );
 }
 
 class _SettingsGroup extends StatelessWidget {
