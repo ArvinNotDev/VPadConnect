@@ -162,6 +162,8 @@ class _RemoteViewState extends State<RemoteView> {
         ),
         const SizedBox(height: 16),
         _RemoteCard(
+          title: 'Connected PC',
+          subtitle: 'Desktop identity and permission status.',
           child: Row(
             children: [
               const Icon(Icons.computer_rounded, color: Color(0xFF8FB1FF), size: 24),
