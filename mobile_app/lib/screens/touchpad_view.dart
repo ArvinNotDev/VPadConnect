@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:sensors_plus/sensors_plus.dart';
@@ -17,7 +16,6 @@ class TouchpadView extends StatefulWidget {
 
 class _TouchpadViewState extends State<TouchpadView> {
   final Map<int, Offset> _active = {};
-  final Map<int, Offset> _starts = {};
   final Map<int, Offset> _last = {};
   final Set<int> _moved = {};
   StreamSubscription<GyroscopeEvent>? _gyroSubscription;
@@ -45,7 +43,6 @@ class _TouchpadViewState extends State<TouchpadView> {
   void _pointerDown(PointerDownEvent event) {
     widget.input.setMode('mouse');
     _active[event.pointer] = event.localPosition;
-    _starts[event.pointer] = event.localPosition;
     _last[event.pointer] = event.localPosition;
   }
 
@@ -76,7 +73,6 @@ class _TouchpadViewState extends State<TouchpadView> {
     final wasSinglePointer = _active.length == 1;
     final wasTap = !_moved.contains(event.pointer);
     _active.remove(event.pointer);
-    _starts.remove(event.pointer);
     _last.remove(event.pointer);
     _moved.remove(event.pointer);
 

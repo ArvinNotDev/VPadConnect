@@ -23,6 +23,7 @@ class RemoteInputService {
   bool _disposed = false;
   bool _connecting = false;
   bool _dirty = false;
+  bool _sessionEnded = false;
   DateTime _lastPong = DateTime.now();
   String _mode = 'gamepad';
 
@@ -41,7 +42,7 @@ class RemoteInputService {
   };
 
   Future<void> connect() async {
-    if (_disposed || _connecting || connected.value) return;
+    if (_disposed || _sessionEnded || _connecting || connected.value) return;
     _connecting = true;
     status.value = 'Connecting';
     final client = HttpClient()
@@ -128,7 +129,10 @@ class RemoteInputService {
     }
     if (packet['type'] == 'error') {
       final reason = packet['error']?.toString() ?? 'Remote session error';
-      status.value = reason == 'session_expired' ? 'Session expired' : reason;
+      if (reason == 'session_expired' || reason == 'server_shutdown') {
+        _sessionEnded = true;
+        status.value = reason == 'session_expired' ? 'Session expired' : 'Desktop stopped';
+      }
       if (!ready.isCompleted) {
         ready.completeError(StateError(reason));
       }
@@ -136,8 +140,9 @@ class RemoteInputService {
   }
 
   void _handleClosed(String reason) {
+    if (_disposed) return;
     connected.value = false;
-    if (!_disposed) status.value = 'Reconnecting';
+    status.value = _sessionEnded ? 'Session expired' : 'Reconnecting';
     _heartbeatTimer?.cancel();
     _heartbeatTimer = null;
     _flushTimer?.cancel();
@@ -147,11 +152,11 @@ class RemoteInputService {
     _client?.close(force: true);
     _client = null;
     _resetInput();
-    if (!_disposed) _scheduleReconnect();
+    if (!_sessionEnded) _scheduleReconnect();
   }
 
   void _scheduleReconnect() {
-    if (_disposed || _reconnectTimer != null) return;
+    if (_disposed || _sessionEnded || _reconnectTimer != null) return;
     status.value = 'Reconnecting';
     _reconnectTimer = Timer(const Duration(seconds: 5), () {
       _reconnectTimer = null;

@@ -11,6 +11,7 @@ The first milestone establishes the UX blueprint, Material 3 theme, secure QR/ma
 - Flutter SDK with Dart 3.8 or newer.
 - Android SDK / Android Studio toolchain.
 - Android 6.0 (API 23) or newer, required by the selected secure-storage package.
+- Android build tools compatible with `sensors_plus` 7.1.1 (Java 17, Kotlin 2.2, AGP 8.12.1, Gradle 8.13).
 
 ## Generate Android platform files
 
