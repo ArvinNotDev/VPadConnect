@@ -243,6 +243,22 @@ class _RemoteViewState extends State<RemoteView> {
                   _ActionButton('↓', Icons.keyboard_arrow_down_rounded, !_allowed('keyboard'), () => _run('keyboard_key', {'key': 'DOWN'})),
                   _ActionButton('←', Icons.keyboard_arrow_left_rounded, !_allowed('keyboard'), () => _run('keyboard_key', {'key': 'LEFT'})),
                   _ActionButton('→', Icons.keyboard_arrow_right_rounded, !_allowed('keyboard'), () => _run('keyboard_key', {'key': 'RIGHT'})),
+                  _ActionButton('Delete', Icons.delete_outline_rounded, !_allowed('keyboard'), () => _run('keyboard_key', {'key': 'DELETE'})),
+                  _ActionButton('Home', Icons.first_page_rounded, !_allowed('keyboard'), () => _run('keyboard_key', {'key': 'HOME'})),
+                  _ActionButton('End', Icons.last_page_rounded, !_allowed('keyboard'), () => _run('keyboard_key', {'key': 'END'})),
+                  _ActionButton('PgUp', Icons.keyboard_double_arrow_up_rounded, !_allowed('keyboard'), () => _run('keyboard_key', {'key': 'PAGE_UP'})),
+                  _ActionButton('PgDn', Icons.keyboard_double_arrow_down_rounded, !_allowed('keyboard'), () => _run('keyboard_key', {'key': 'PAGE_DOWN'})),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 7,
+                runSpacing: 7,
+                children: [
+                  _ModifierButton(label: 'CTRL', keyName: 'CTRL', onChanged: (pressed) => _run('keyboard_modifier', {'key': 'CTRL', 'pressed': pressed})),
+                  _ModifierButton(label: 'SHIFT', keyName: 'SHIFT', onChanged: (pressed) => _run('keyboard_modifier', {'key': 'SHIFT', 'pressed': pressed})),
+                  _ModifierButton(label: 'ALT', keyName: 'ALT', onChanged: (pressed) => _run('keyboard_modifier', {'key': 'ALT', 'pressed': pressed})),
+                  _ModifierButton(label: 'WIN', keyName: 'WIN', onChanged: (pressed) => _run('keyboard_modifier', {'key': 'WIN', 'pressed': pressed})),
                 ],
               ),
               const SizedBox(height: 12),
@@ -395,6 +411,69 @@ class _RemoteViewState extends State<RemoteView> {
       ],
     );
   }
+}
+
+class _ModifierButton extends StatefulWidget {
+  const _ModifierButton({
+    required this.label,
+    required this.keyName,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String keyName;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  State<_ModifierButton> createState() => _ModifierButtonState();
+}
+
+class _ModifierButtonState extends State<_ModifierButton> {
+  final Set<int> _pointers = {};
+  bool _pressed = false;
+
+  void _down(PointerEvent event) {
+    if (!_pointers.add(event.pointer) || _pressed) return;
+    setState(() => _pressed = true);
+    widget.onChanged(true);
+  }
+
+  void _up(PointerEvent event) {
+    if (!_pointers.remove(event.pointer) || _pointers.isNotEmpty) return;
+    setState(() => _pressed = false);
+    widget.onChanged(false);
+  }
+
+  @override
+  void dispose() {
+    if (_pressed) widget.onChanged(false);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Listener(
+        behavior: HitTestBehavior.opaque,
+        onPointerDown: _down,
+        onPointerUp: _up,
+        onPointerCancel: _up,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 80),
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
+          decoration: BoxDecoration(
+            color: _pressed ? const Color(0xFF355A86) : const Color(0xFF182840),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: _pressed ? const Color(0xFF8FB5FF) : const Color(0xFF344B68)),
+          ),
+          child: Text(
+            widget.label,
+            style: TextStyle(
+              color: _pressed ? Colors.white : const Color(0xFFCAD8EA),
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+      );
 }
 
 class _RemoteCard extends StatelessWidget {
