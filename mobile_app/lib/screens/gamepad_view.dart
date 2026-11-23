@@ -456,7 +456,7 @@ class _TiltSteeringCard extends StatelessWidget {
             Row(
               children: [
                 const Expanded(child: Text('Sensitivity', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700))),
-                Text(sensitivity.toStringAsFixed(1) + '×', style: const TextStyle(color: Color(0xFF8AB0FF), fontSize: 10)),
+                Text('${sensitivity.toStringAsFixed(1)}×', style: const TextStyle(color: Color(0xFF8AB0FF), fontSize: 10)),
               ],
             ),
             Slider(min: .5, max: 2.5, value: sensitivity, onChanged: enabled ? onSensitivityChanged : null),

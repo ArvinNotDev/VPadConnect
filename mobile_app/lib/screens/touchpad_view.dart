@@ -345,7 +345,7 @@ class _ValueSlider extends StatelessWidget {
           Row(
             children: [
               Expanded(child: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700))),
-              Text(value.toStringAsFixed(1) + '×', style: const TextStyle(color: Color(0xFF8AB0FF), fontSize: 11, fontWeight: FontWeight.w800)),
+              Text('${value.toStringAsFixed(1)}×', style: const TextStyle(color: Color(0xFF8AB0FF), fontSize: 11, fontWeight: FontWeight.w800)),
             ],
           ),
           Slider(min: min, max: max, value: value, onChanged: onChanged),

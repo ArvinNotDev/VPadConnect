@@ -72,7 +72,7 @@ class PairingService {
     } on FormatException {
       throw const PairingException('The PC returned an invalid server identity.');
     } catch (error) {
-      throw PairingException('Could not read the PC identity: ' + error.toString());
+      throw PairingException('Could not read the PC identity: $error');
     } finally {
       client.close(force: true);
     }
@@ -115,8 +115,7 @@ class PairingService {
       final data = _decodeObject(body);
       if (response.statusCode < 200 || response.statusCode >= 300 || data['ok'] != true) {
         throw PairingException(
-          (data['error'] ?? 'Pairing failed.').toString() +
-              ' (HTTP ' + response.statusCode.toString() + ')',
+          '${data['error'] ?? 'Pairing failed.'} (HTTP ${response.statusCode})',
         );
       }
 
@@ -143,7 +142,7 @@ class PairingService {
     } on FormatException {
       throw const PairingException('The PC returned an invalid pairing response.');
     } catch (error) {
-      throw PairingException('Pairing failed: ' + error.toString());
+      throw PairingException('Pairing failed: $error');
     } finally {
       client.close(force: true);
     }
@@ -159,7 +158,7 @@ class PairingService {
     try {
       final request = await client.postUrl(_endpoint(session.baseUri, '/api/disconnect'));
       request.headers.contentType = ContentType.json;
-      request.headers.set(HttpHeaders.authorizationHeader, 'Bearer ' + session.token);
+      request.headers.set(HttpHeaders.authorizationHeader, 'Bearer ${session.token}');
       request.add(utf8.encode('{}'));
       await request.close().timeout(const Duration(seconds: 5));
     } catch (_) {
@@ -186,7 +185,7 @@ class PairingService {
     final body = await response.transform(utf8.decoder).join();
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw PairingException(
-        'Could not read the PC identity (HTTP ' + response.statusCode.toString() + ').',
+        'Could not read the PC identity (HTTP ${response.statusCode}).',
       );
     }
     return _decodeObject(body);

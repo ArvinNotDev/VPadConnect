@@ -200,8 +200,8 @@ class RemoteInputService {
   void setStick(String stick, double x, double y) {
     if (stick != 'left' && stick != 'right') return;
     _mode = 'gamepad';
-    _joystick[stick + '_x'] = (128 + x.clamp(-1.0, 1.0) * 127).round().clamp(0, 255).toInt();
-    _joystick[stick + '_y'] = (128 + y.clamp(-1.0, 1.0) * 127).round().clamp(0, 255).toInt();
+    _joystick['${stick}_x'] = (128 + x.clamp(-1.0, 1.0) * 127).round().clamp(0, 255).toInt();
+    _joystick['${stick}_y'] = (128 + y.clamp(-1.0, 1.0) * 127).round().clamp(0, 255).toInt();
     _scheduleFlush();
   }
 

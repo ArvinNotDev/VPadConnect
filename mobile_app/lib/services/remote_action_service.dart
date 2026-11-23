@@ -72,12 +72,11 @@ class RemoteActionService {
       await _verifyIdentity();
       final request = await _getClient().postUrl(_endpoint('/api/action'));
       request.headers.contentType = ContentType.json;
-      request.headers.set(HttpHeaders.authorizationHeader, 'Bearer ' + session.token);
+      request.headers.set(HttpHeaders.authorizationHeader, 'Bearer ${session.token}');
       request.headers.set(HttpHeaders.cacheControlHeader, 'no-store');
-      final requestId = 'mobile_' +
-          List<int>.generate(12, (_) => _random.nextInt(16))
-              .map((value) => value.toRadixString(16))
-              .join();
+      final requestId = 'mobile_${List<int>.generate(12, (_) => _random.nextInt(16))
+          .map((value) => value.toRadixString(16))
+          .join()}';
       request.add(utf8.encode(jsonEncode({
         'request_id': requestId,
         'action': action,
@@ -110,7 +109,7 @@ class RemoteActionService {
     } on FormatException {
       throw const RemoteActionException('The PC returned an invalid response.');
     } catch (error) {
-      throw RemoteActionException('Remote action failed: ' + error.toString());
+      throw RemoteActionException('Remote action failed: $error');
     }
   }
 

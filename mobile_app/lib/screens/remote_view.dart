@@ -85,7 +85,7 @@ class _RemoteViewState extends State<RemoteView> {
       final result = await _actions.send(action, payload);
       if (!mounted) return;
       setState(() {
-        _lastAction = action.replaceAll('_', ' ') + ' completed';
+        _lastAction = '${action.replaceAll('_', ' ')} completed';
       });
       if (action == 'clipboard_get') {
         _clipboardController.text = (result['text'] ?? '').toString();
@@ -110,8 +110,8 @@ class _RemoteViewState extends State<RemoteView> {
       final confirmed = await showDialog<bool>(
             context: context,
             builder: (dialogContext) => AlertDialog(
-              title: Text(_powerTitle(command) + '?'),
-              content: Text('This action will be sent to ' + _pcName + '. Continue?'),
+              title: Text('${_powerTitle(command)}?'),
+              content: Text('This action will be sent to $_pcName. Continue?'),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(dialogContext, false),
