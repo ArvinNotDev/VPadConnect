@@ -188,22 +188,22 @@ class RemoteInputService {
   void setAnalog(String key, double value) {
     if (!_analog.containsKey(key)) return;
     _mode = 'gamepad';
-    _analog[key] = value.round().clamp(0, 255);
+    _analog[key] = value.round().clamp(0, 255).toInt();
     _scheduleFlush();
   }
 
   void setStick(String stick, double x, double y) {
     if (stick != 'left' && stick != 'right') return;
     _mode = 'gamepad';
-    _joystick[stick + '_x'] = (128 + x.clamp(-1.0, 1.0) * 127).round().clamp(0, 255);
-    _joystick[stick + '_y'] = (128 + y.clamp(-1.0, 1.0) * 127).round().clamp(0, 255);
+    _joystick[stick + '_x'] = (128 + x.clamp(-1.0, 1.0) * 127).round().clamp(0, 255).toInt();
+    _joystick[stick + '_y'] = (128 + y.clamp(-1.0, 1.0) * 127).round().clamp(0, 255).toInt();
     _scheduleFlush();
   }
 
   void moveMouse(double dx, double dy) {
     _mode = 'mouse';
-    _mouse['dx'] = (_mouse['dx']! + dx.round()).clamp(-2048, 2048);
-    _mouse['dy'] = (_mouse['dy']! + dy.round()).clamp(-2048, 2048);
+    _mouse['dx'] = (_mouse['dx']! + dx.round()).clamp(-2048, 2048).toInt();
+    _mouse['dy'] = (_mouse['dy']! + dy.round()).clamp(-2048, 2048).toInt();
     _scheduleFlush();
   }
 
@@ -216,7 +216,7 @@ class RemoteInputService {
 
   void scroll(int amount) {
     _mode = 'mouse';
-    _mouse['scroll'] = (_mouse['scroll']! + amount).clamp(-20, 20);
+    _mouse['scroll'] = (_mouse['scroll']! + amount).clamp(-20, 20).toInt();
     _scheduleFlush();
   }
 

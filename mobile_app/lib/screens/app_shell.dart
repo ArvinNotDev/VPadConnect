@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../models/pairing_target.dart';
 import '../services/pairing_service.dart';
+import '../services/remote_input_service.dart';
+import 'gamepad_view.dart' show GamepadView;
+import 'touchpad_view.dart' show TouchpadView;
 
 class AppShell extends StatefulWidget {
   const AppShell({
@@ -17,9 +20,34 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
+class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   int _selectedIndex = 0;
   bool _disconnecting = false;
+  late final RemoteInputService _input;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _input = RemoteInputService(widget.session);
+    _input.connect();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _input.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _input.connect();
+    } else {
+      _input.releaseAll();
+    }
+  }
 
   Future<void> _disconnect() async {
     if (_disconnecting) return;
@@ -32,8 +60,8 @@ class _AppShellState extends State<AppShell> {
   Widget build(BuildContext context) {
     final pages = [
       HomeView(session: widget.session, onOpenTab: _selectTab),
-      GamepadView(gamepadAvailable: widget.session.gamepadAvailable),
-      const TouchpadView(),
+      GamepadView(input: _input, gamepadAvailable: widget.session.gamepadAvailable),
+      TouchpadView(input: _input),
       const RemoteView(),
       SettingsView(
         session: widget.session,
@@ -47,7 +75,7 @@ class _AppShellState extends State<AppShell> {
         bottom: false,
         child: Column(
           children: [
-            _ConnectionHeader(),
+            _ConnectionHeader(input: _input),
             Expanded(
               child: IndexedStack(
                 index: _selectedIndex,
@@ -71,11 +99,16 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
-  void _selectTab(int index) => setState(() => _selectedIndex = index);
+  void _selectTab(int index) {
+    if (index != _selectedIndex) _input.releaseAll();
+    setState(() => _selectedIndex = index);
+  }
 }
 
 class _ConnectionHeader extends StatelessWidget {
-  const _ConnectionHeader();
+  const _ConnectionHeader({required this.input});
+
+  final RemoteInputService input;
 
   @override
   Widget build(BuildContext context) {
@@ -103,7 +136,13 @@ class _ConnectionHeader extends StatelessWidget {
               ],
             ),
           ),
-          const _StatePill(label: 'PAIRED', positive: true),
+          ValueListenableBuilder<String>(
+            valueListenable: input.status,
+            builder: (context, value, _) => _StatePill(
+              label: value.toUpperCase(),
+              positive: value == 'Connected',
+            ),
+          ),
         ],
       ),
     );
@@ -187,137 +226,6 @@ class HomeView extends StatelessWidget {
           text: 'Paired over HTTPS with a verified desktop certificate. Keep this connection on a trusted network.',
         ),
       ],
-    );
-  }
-}
-
-class GamepadView extends StatelessWidget {
-  const GamepadView({required this.gamepadAvailable, super.key});
-  final bool gamepadAvailable;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(18, 12, 18, 28),
-      children: [
-        const _PageEyebrow('GAMING'),
-        const SizedBox(height: 5),
-        const Text('Virtual controller', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 5),
-        const Text('Choose a layout and get ready to play.', style: TextStyle(color: Color(0xFF94A5BE), fontSize: 12)),
-        const SizedBox(height: 18),
-        const _SegmentPreview(labels: ['Standard', 'Driving', 'Shooter']),
-        const SizedBox(height: 14),
-        _SurfaceCard(
-          child: Column(
-            children: [
-              const Row(
-                children: [
-                  _MiniKey('LB'),
-                  Spacer(),
-                  _MiniKey('LT'),
-                  SizedBox(width: 8),
-                  _MiniKey('RT'),
-                  Spacer(),
-                  _MiniKey('RB'),
-                ],
-              ),
-              const SizedBox(height: 18),
-              const Row(
-                children: [
-                  Expanded(child: _StickPreview(label: 'LEFT STICK')),
-                  SizedBox(width: 8),
-                  Expanded(child: _DpadPreview()),
-                  SizedBox(width: 8),
-                  Expanded(child: _FaceButtonsPreview()),
-                  SizedBox(width: 8),
-                  Expanded(child: _StickPreview(label: 'RIGHT STICK')),
-                ],
-              ),
-              const SizedBox(height: 16),
-              const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _MiniKey('VIEW'),
-                  SizedBox(width: 8),
-                  _MiniKey('GUIDE'),
-                  SizedBox(width: 8),
-                  _MiniKey('MENU'),
-                ],
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
-        _InfoBanner(
-          icon: Icons.construction_rounded,
-          text: gamepadAvailable
-              ? 'This is the controller layout preview. Live multi-touch input and WebSocket streaming are the next implementation phase.'
-              : 'The PC does not currently expose virtual XInput output. Install ViGEmBus on Windows, then pair again to enable Gaming.',
-        ),
-      ],
-    );
-  }
-}
-
-class TouchpadView extends StatelessWidget {
-  const TouchpadView({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _PageEyebrow('POINTER CONTROL'),
-          const SizedBox(height: 5),
-          const Text('Touchpad', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 5),
-          const Text('A precise surface for your desktop pointer.', style: TextStyle(color: Color(0xFF94A5BE), fontSize: 12)),
-          const SizedBox(height: 16),
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: const Color(0xFF0C1625),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: const Color(0xFF2B405D)),
-              ),
-              child: Stack(
-                children: [
-                  Positioned.fill(child: CustomPaint(painter: _TouchGridPainter())),
-                  const Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.touch_app_rounded, color: Color(0xFF6F8DAD), size: 42),
-                        SizedBox(height: 10),
-                        Text('TOUCH SURFACE', style: TextStyle(color: Color(0xFF7188A7), fontWeight: FontWeight.w900, letterSpacing: 1.6, fontSize: 10)),
-                        SizedBox(height: 5),
-                        Text('Drag to move the pointer', style: TextStyle(color: Color(0xFF7188A7), fontSize: 11)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-          const Row(
-            children: [
-              Expanded(child: _MouseButton(icon: Icons.mouse_rounded, label: 'Left click')),
-              SizedBox(width: 9),
-              Expanded(child: _MouseButton(icon: Icons.more_horiz_rounded, label: 'Right click')),
-            ],
-          ),
-          const SizedBox(height: 10),
-          const _InfoBanner(
-            icon: Icons.sensors_rounded,
-            text: 'Air Mouse, two-finger scrolling, and pointer sensitivity controls are part of the Touchpad phase.',
-          ),
-        ],
-      ),
     );
   }
 }
@@ -702,19 +610,6 @@ class _FaceButtonsPreview extends StatelessWidget {
   }
 }
 
-class _MouseButton extends StatelessWidget {
-  const _MouseButton({required this.icon, required this.label});
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) => OutlinedButton.icon(
-        onPressed: null,
-        icon: Icon(icon),
-        label: Text(label),
-      );
-}
-
 class _RemoteTile extends StatelessWidget {
   const _RemoteTile({required this.icon, required this.title, required this.subtitle});
   final IconData icon;
@@ -780,21 +675,3 @@ class _SettingRowData {
   final String subtitle;
 }
 
-class _TouchGridPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFF3D5878).withOpacity(.23)
-      ..strokeWidth = .6;
-    const step = 28.0;
-    for (double x = 0; x <= size.width; x += step) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }
-    for (double y = 0; y <= size.height; y += step) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
