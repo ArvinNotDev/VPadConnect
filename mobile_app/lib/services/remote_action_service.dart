@@ -25,13 +25,18 @@ class RemoteActionService {
   final Random _random = Random.secure();
 
   HttpClient _getClient() {
-    return _client ??= HttpClient()
+    final existing = _client;
+    if (existing != null) return existing;
+
+    final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 6)
       ..idleTimeout = const Duration(seconds: 20)
       ..badCertificateCallback = (certificate, host, port) {
         final actual = sha256.convert(certificate.der).toString();
         return _normalize(actual) == _normalize(session.fingerprint);
       };
+    _client = client;
+    return client;
   }
 
   String _normalize(String value) =>
