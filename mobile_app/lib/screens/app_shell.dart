@@ -184,7 +184,7 @@ class HomeView extends StatelessWidget {
               const SizedBox(height: 16),
               Text(session.baseUri.host, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
               const SizedBox(height: 5),
-              Text(session.deviceName, style: const TextStyle(color: Color(0xFF94A5BE), fontSize: 12)),
+              Text('Paired phone: ' + session.deviceName, style: const TextStyle(color: Color(0xFF94A5BE), fontSize: 12)),
               if (!session.gamepadAvailable) ...[
                 const SizedBox(height: 13),
                 const _InfoBanner(
@@ -600,7 +600,7 @@ class _SettingsGroup extends StatelessWidget {
                       Expanded(child: Text(row.title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700))),
                       Text(row.subtitle, style: const TextStyle(fontSize: 10, color: Color(0xFF8194B0))),
                       const SizedBox(width: 4),
-                      const Icon(Icons.chevron_right_rounded, size: 15, color: Color(0xFF7185A1)),
+
                     ],
                   ),
                 )),

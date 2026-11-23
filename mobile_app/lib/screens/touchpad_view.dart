@@ -23,6 +23,7 @@ class _TouchpadViewState extends State<TouchpadView> {
   StreamSubscription<GyroscopeEvent>? _gyroSubscription;
 
   double _sensitivity = 1.7;
+  double _scrollAccumulator = 0;
   double _scrollSensitivity = 1.0;
   double _airSensitivity = 1.0;
   double _gyroBiasX = 0;
@@ -75,8 +76,12 @@ class _TouchpadViewState extends State<TouchpadView> {
     }
 
     if (_active.length >= 2) {
-      final scrollAmount = (-delta.dy * _scrollSensitivity / 18).round();
-      if (scrollAmount != 0) widget.input.scroll(scrollAmount);
+      _scrollAccumulator += -delta.dy * _scrollSensitivity;
+      final scrollAmount = (_scrollAccumulator / 18).truncate();
+      if (scrollAmount != 0) {
+        _scrollAccumulator -= scrollAmount * 18;
+        widget.input.scroll(scrollAmount);
+      }
     }
   }
 
