@@ -9,7 +9,6 @@ import '../models/pairing_target.dart';
 
 class PairingException implements Exception {
   const PairingException(this.message);
-
   final String message;
 
   @override
@@ -42,8 +41,7 @@ class PairingService {
     final client = _newClient();
     String? observedFingerprint;
 
-    // This one public GET request sends no pairing credentials. It is used
-    // only to discover the fingerprint for explicit manual confirmation.
+    // This public identity request contains no pairing credentials.
     client.badCertificateCallback = (certificate, host, port) {
       observedFingerprint = sha256.convert(certificate.der).toString();
       return true;
@@ -51,7 +49,7 @@ class PairingService {
 
     try {
       final info = await _readInfo(client, baseUri);
-      final reported = normalizeFingerprint('\${info['fingerprint'] ?? ''}');
+      final reported = normalizeFingerprint((info['fingerprint'] ?? '').toString());
       if (!RegExp(r'^[a-f0-9]{64}$').hasMatch(reported)) {
         throw const PairingException('The PC did not provide a valid TLS fingerprint.');
       }
@@ -74,7 +72,7 @@ class PairingService {
     } on FormatException {
       throw const PairingException('The PC returned an invalid server identity.');
     } catch (error) {
-      throw PairingException('Could not read the PC identity: $error');
+      throw PairingException('Could not read the PC identity: ' + error.toString());
     } finally {
       client.close(force: true);
     }
@@ -97,7 +95,7 @@ class PairingService {
 
     try {
       final info = await _readInfo(client, target.baseUri);
-      final reported = normalizeFingerprint('\${info['fingerprint'] ?? ''}');
+      final reported = normalizeFingerprint((info['fingerprint'] ?? '').toString());
       if (reported != fingerprint || info['secure'] != true) {
         throw const PairingException('TLS fingerprint verification failed. Pairing was stopped.');
       }
@@ -117,7 +115,8 @@ class PairingService {
       final data = _decodeObject(body);
       if (response.statusCode < 200 || response.statusCode >= 300 || data['ok'] != true) {
         throw PairingException(
-          '\${data['error'] ?? 'Pairing failed.'} (HTTP \${response.statusCode})',
+          (data['error'] ?? 'Pairing failed.').toString() +
+              ' (HTTP ' + response.statusCode.toString() + ')',
         );
       }
 
@@ -129,7 +128,7 @@ class PairingService {
       return PairedSession(
         baseUri: target.baseUri,
         token: token,
-        deviceName: '\${data['name'] ?? deviceName}',
+        deviceName: (data['name'] ?? deviceName).toString(),
         fingerprint: fingerprint,
         gamepadAvailable: data['gamepad_available'] != false,
       );
@@ -144,7 +143,7 @@ class PairingService {
     } on FormatException {
       throw const PairingException('The PC returned an invalid pairing response.');
     } catch (error) {
-      throw PairingException('Pairing failed: $error');
+      throw PairingException('Pairing failed: ' + error.toString());
     } finally {
       client.close(force: true);
     }
@@ -154,14 +153,13 @@ class PairingService {
     final client = _newClient();
     final fingerprint = normalizeFingerprint(session.fingerprint);
     client.badCertificateCallback = (certificate, host, port) {
-      return normalizeFingerprint(sha256.convert(certificate.der).toString()) ==
-          fingerprint;
+      return normalizeFingerprint(sha256.convert(certificate.der).toString()) == fingerprint;
     };
 
     try {
       final request = await client.postUrl(_endpoint(session.baseUri, '/api/disconnect'));
       request.headers.contentType = ContentType.json;
-      request.headers.set(HttpHeaders.authorizationHeader, 'Bearer \${session.token}');
+      request.headers.set(HttpHeaders.authorizationHeader, 'Bearer ' + session.token);
       request.add(utf8.encode('{}'));
       await request.close().timeout(const Duration(seconds: 5));
     } catch (_) {
@@ -187,7 +185,9 @@ class PairingService {
     final response = await request.close().timeout(const Duration(seconds: 10));
     final body = await response.transform(utf8.decoder).join();
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw PairingException('Could not read the PC identity (HTTP \${response.statusCode}).');
+      throw PairingException(
+        'Could not read the PC identity (HTTP ' + response.statusCode.toString() + ').',
+      );
     }
     return _decodeObject(body);
   }
