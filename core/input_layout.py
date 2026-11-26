@@ -142,6 +142,32 @@ def merge_legacy_joystick_inversion(
     return result
 
 
+def apply_stick_inversion(
+    left_stick: tuple[int, int],
+    right_stick: tuple[int, int],
+    layout: Any,
+) -> tuple[tuple[int, int], tuple[int, int]]:
+    """Invert selected physical stick axes while preserving XInput limits."""
+    settings = normalize_analog_layout(layout)
+
+    def invert(value: int) -> int:
+        return max(-32768, min(32767, -int(value)))
+
+    left_x, left_y = left_stick
+    right_x, right_y = right_stick
+
+    if settings["left_stick_invert_x"]:
+        left_x = invert(left_x)
+    if settings["left_stick_invert_y"]:
+        left_y = invert(left_y)
+    if settings["right_stick_invert_x"]:
+        right_x = invert(right_x)
+    if settings["right_stick_invert_y"]:
+        right_y = invert(right_y)
+
+    return (left_x, left_y), (right_x, right_y)
+
+
 def apply_analog_layout(
     left_stick: tuple[int, int],
     right_stick: tuple[int, int],
