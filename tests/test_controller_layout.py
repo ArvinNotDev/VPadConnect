@@ -14,6 +14,7 @@ from core.input_layout import (
     load_controller_profile,
     merge_legacy_joystick_inversion,
     normalize_controller_layout,
+    resolve_stick_inversion_settings,
     resolve_digital_source_states,
     resolve_x360_button_states,
 )
@@ -61,6 +62,40 @@ def test_default_analog_layout_preserves_existing_stick_and_trigger_behavior():
     assert left_stick == (1200, -2400)
     assert right_stick == (3400, -4600)
     assert (lt, rt) == (80, 190)
+
+
+def test_saved_stick_inversion_overrides_legacy_global_defaults():
+    saved = {
+        "stick_inversion_overrides": True,
+        "left_stick_invert_x": False,
+        "left_stick_invert_y": True,
+        "right_stick_invert_x": False,
+        "right_stick_invert_y": False,
+    }
+    resolved = resolve_stick_inversion_settings(
+        saved, ((True, False), (True, True))
+    )
+
+    assert resolved == {
+        "left_stick_invert_x": False,
+        "left_stick_invert_y": True,
+        "right_stick_invert_x": False,
+        "right_stick_invert_y": False,
+    }
+
+
+def test_unsaved_stick_inversion_uses_legacy_global_defaults():
+    resolved = resolve_stick_inversion_settings(
+        {"stick_inversion_overrides": False},
+        ((True, False), (False, True)),
+    )
+
+    assert resolved == {
+        "left_stick_invert_x": True,
+        "left_stick_invert_y": False,
+        "right_stick_invert_x": False,
+        "right_stick_invert_y": True,
+    }
 
 
 def test_stick_axes_can_be_inverted_independently_before_stick_swap():
