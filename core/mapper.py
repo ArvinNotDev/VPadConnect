@@ -14,6 +14,7 @@ from core.emulator import media_functions, custom_commands
 from core.controller import resolve_sony_input_report_index, interpret_dualshock4_battery
 from core.input_layout import (
     apply_analog_layout,
+    merge_legacy_joystick_inversion,
     decode_button_polarity,
     normalize_controller_layout,
     resolve_digital_source_states,
@@ -132,6 +133,13 @@ class Mapper:
             )
         except (AttributeError, TypeError):
             saved_layout = {}
+        try:
+            legacy_joystick_inversion = settings.get_joystick_invertion()
+        except (AttributeError, TypeError):
+            legacy_joystick_inversion = ((False, False), (False, False))
+        saved_layout = merge_legacy_joystick_inversion(
+            saved_layout, legacy_joystick_inversion
+        )
         self.controller_layout = normalize_controller_layout(
             saved_layout, self.controller_config
         )
@@ -445,6 +453,13 @@ class Mapper:
 
     def configure_layout(self, layout: dict) -> None:
         """Apply a newly saved layout without restarting HID polling."""
+        try:
+            legacy_joystick_inversion = self.settings.get_joystick_invertion()
+        except (AttributeError, TypeError):
+            legacy_joystick_inversion = ((False, False), (False, False))
+        layout = merge_legacy_joystick_inversion(
+            layout, legacy_joystick_inversion
+        )
         updated = normalize_controller_layout(layout, self.controller_config)
         self.input_action_dispatcher.release_all()
         self.controller_layout = updated
@@ -498,7 +513,15 @@ class Mapper:
 
 
         left_deadzone, right_deadzone = self.settings.get_deadzones()
-        left_inv, right_inv = self.settings.get_joystick_invertion()
+        axis_layout = self.controller_layout.get("axes", {})
+        left_inv = (
+            axis_layout.get("left_stick_invert_x", False),
+            axis_layout.get("left_stick_invert_y", False),
+        )
+        right_inv = (
+            axis_layout.get("right_stick_invert_x", False),
+            axis_layout.get("right_stick_invert_y", False),
+        )
         button_inv = self.settings.get_button_invertion()
 
         ljx, ljy = self._apply_deadzone(raw_ljx, raw_ljy, left_deadzone, left_inv)
