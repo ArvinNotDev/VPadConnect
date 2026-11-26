@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from core.input_actions import InputActionDispatcher
 from core.input_layout import (
     decode_button_polarity,
@@ -110,6 +112,54 @@ def test_controller_layout_settings_are_isolated_and_persisted(tmp_path):
     reloaded = SettingsManager(path=settings_path)
     assert reloaded.get_controller_layout_settings("unojoy-unit-a") == expected
     assert reloaded.get_controller_layout_settings("unojoy-unit-b") == {}
+
+
+def test_active_profile_stores_layout_and_missing_profile_layout_is_cleared(
+    tmp_path, monkeypatch
+):
+    settings = SettingsManager(path=tmp_path / "settings.conf")
+    monkeypatch.setattr(
+        "core.profile_manager.config_path",
+        lambda *parts: tmp_path.joinpath(*parts),
+    )
+    manager = ProfileManager(settings)
+    section = settings._controller_layout_section("unojoy-unit-a")
+    saved_layout = {
+        "version": 1,
+        "buttons": {
+            "cross": {
+                "target": "keyboard",
+                "key": "space",
+                "normally": "closed",
+            }
+        },
+    }
+
+    settings.set_controller_layout_settings("unojoy-unit-a", saved_layout)
+    assert manager.save_profile("UnoJoy Game")
+    assert manager.activate_profile("UnoJoy Game")
+
+    changed_layout = {
+        "version": 1,
+        "buttons": {
+            "cross": {
+                "target": "mouse:left",
+                "key": "",
+                "normally": "open",
+            }
+        },
+    }
+    assert manager.save_controller_layout(
+        "unojoy-unit-a", changed_layout, profile_name="UnoJoy Game"
+    )
+    profile = manager.get_profile("UnoJoy Game")
+    assert json.loads(profile[section]["layout"]) == changed_layout
+
+    settings.config.remove_section(section)
+    assert manager.save_profile("Clean Profile")
+    settings.set_controller_layout_settings("unojoy-unit-a", changed_layout)
+    assert manager.activate_profile("Clean Profile")
+    assert settings.get_controller_layout_settings("unojoy-unit-a") == {}
 
 
 def test_controller_layout_is_included_in_named_profiles(tmp_path, monkeypatch):

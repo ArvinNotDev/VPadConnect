@@ -423,6 +423,44 @@ class ProfileManager:
         self.settings.save()
         return True
 
+    def save_controller_layout(
+        self,
+        controller_id: str,
+        layout: dict,
+        profile_name: str | None = None,
+    ) -> bool:
+        """Update only one controller's layout inside a saved user profile."""
+        name = (profile_name or self.get_active_profile_name()).strip()
+        if not name:
+            return False
+
+        path = self._profile_path(name)
+        data = self.get_profile(name)
+        section_builder = getattr(self.settings, "_controller_layout_section", None)
+        if path is None or data is None or section_builder is None:
+            return False
+
+        try:
+            payload = json.dumps(
+                layout, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+            )
+        except (TypeError, ValueError):
+            return False
+        if len(payload) > 65536:
+            return False
+
+        section = section_builder(controller_id)
+        data[section] = {"layout": payload}
+        metadata = data.get("_meta")
+        if isinstance(metadata, dict):
+            metadata["modified"] = self._now_iso()
+
+        try:
+            self._write_json(path, data)
+        except OSError:
+            return False
+        return True
+
     def get_active_profile_name(self) -> str:
         """Return the name of the currently active profile, or ``""``."""
         try:
@@ -551,6 +589,21 @@ class ProfileManager:
         Write a profile's data back into the SettingsManager's config.
         """
         cfg = self.settings.config
+
+        # Controller layouts are profile-scoped. Remove layouts absent from
+        # the selected profile so one game's mapping cannot leak into another.
+        saved_layout_sections = {
+            section
+            for section in data
+            if section.startswith("controller_layout_")
+        }
+        for section in cfg.sections():
+            if (
+                section.startswith("controller_layout_")
+                and section not in saved_layout_sections
+            ):
+                cfg.remove_section(section)
+
         for section, values in data.items():
             if section.startswith("_") or section == "profile":
                 continue

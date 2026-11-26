@@ -1659,6 +1659,29 @@ class ControllerEmulation(QWidget):
             color, enabled = resolve_lightbar_color(updated, battery_state)
             output.set_color(color, enabled=enabled)
 
+    def reload_controller_layouts(self) -> None:
+        """Apply the newly activated profile's layout to connected controllers."""
+        for record in list(self._mapping_records.values()):
+            if record.get("waiting"):
+                continue
+            device = record.get("last_device") or {}
+            path = record.get("path")
+            mapper = self.mappers.get(path)
+            if mapper is None or not device:
+                continue
+
+            stable_id = stable_controller_id(
+                device.get("vendor_id"),
+                device.get("product_id"),
+                device.get("path"),
+                device.get("serial_number"),
+            )
+            try:
+                layout = self.settings.get_controller_layout_settings(stable_id)
+            except (AttributeError, TypeError):
+                layout = {}
+            mapper.configure_layout(layout)
+
     def _on_layout_requested(self, widget: EmuListItemWidget) -> None:
         """Edit, persist, and apply the layout for one physical controller."""
         item = self._find_item_by_widget(widget)
@@ -1712,6 +1735,29 @@ class ControllerEmulation(QWidget):
         mapper = self.mappers.get(path)
         if mapper is not None:
             mapper.configure_layout(updated)
+
+        profile_saved = True
+        profile_manager = getattr(self.window(), "profile_manager", None)
+        if profile_manager is not None:
+            try:
+                active_profile = profile_manager.get_active_profile_name()
+                if active_profile:
+                    profile_saved = profile_manager.save_controller_layout(
+                        stable_id, updated, profile_name=active_profile
+                    )
+            except Exception:
+                logger.exception(
+                    "Could not save controller layout into the active profile"
+                )
+                profile_saved = False
+
+        if not profile_saved:
+            QMessageBox.warning(
+                self,
+                "Profile update failed",
+                "The layout was saved to application settings, but could not be "
+                "saved to the active profile.",
+            )
 
         self.notification_requested.emit(
             "Controller layout saved",

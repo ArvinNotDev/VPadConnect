@@ -716,6 +716,7 @@ class MainWindow(QMainWindow):
     def _on_profile_loaded(self, profile_name: str) -> None:
         """Called when a profile is activated from the Profiles page."""
         self._refresh_profile_selector()
+        self.controller_emulation_page.reload_controller_layouts()
         self.settings_page.reload_from_settings()
         # Reload theme in case it changed
         try:
