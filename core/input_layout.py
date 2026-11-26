@@ -52,6 +52,7 @@ DEFAULT_ANALOG_LAYOUT = {
     "left_stick_invert_y": False,
     "right_stick_invert_x": False,
     "right_stick_invert_y": False,
+    "stick_inversion_overrides": False,
     "swap_sticks": False,
     "left_trigger_enabled": True,
     "right_trigger_enabled": True,
