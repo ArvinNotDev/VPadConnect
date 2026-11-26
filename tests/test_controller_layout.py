@@ -47,6 +47,7 @@ def test_legacy_global_joystick_inversion_is_migrated_per_controller():
     assert axes["left_stick_invert_y"] is True
     assert axes["right_stick_invert_x"] is True
     assert axes["right_stick_invert_y"] is False
+    assert axes["stick_inversion_overrides"] is False
 
 
 def test_default_analog_layout_preserves_existing_stick_and_trigger_behavior():
@@ -458,6 +459,7 @@ def test_controller_layout_dialog_builds_and_returns_editable_rows():
         assert layout["axes"]["left_stick_invert_y"] is False
         assert layout["axes"]["right_stick_invert_x"] is False
         assert layout["axes"]["right_stick_invert_y"] is True
+        assert layout["axes"]["stick_inversion_overrides"] is True
         assert layout["axes"]["swap_triggers"] is True
         assert layout["axes"]["left_trigger_enabled"] is False
         assert layout["axes"]["invert_left_trigger"] is True
