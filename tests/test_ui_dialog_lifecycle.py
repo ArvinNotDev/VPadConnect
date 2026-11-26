@@ -8,16 +8,43 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
 from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QApplication, QDialog, QDialogButtonBox
+from PySide6.QtWidgets import (
+    QApplication, QDialog, QDialogButtonBox, QTabBar, QWidget
+)
 
 from ui.pages.modal.add_controller import AddControllerDialog
 from ui.pages.modal.mobile_pairing import MobilePairingDialog
+from ui.notifications import StatusToast
 
 
 @pytest.fixture(scope="module")
 def qapp():
     app = QApplication.instance() or QApplication([])
     yield app
+
+
+def test_status_toast_is_centered_at_top_below_navigation(qapp):
+    parent = QWidget()
+    parent.resize(1000, 700)
+
+    navigation = QTabBar(parent)
+    navigation.setObjectName("top_navigation")
+    navigation.setGeometry(80, 84, 840, 40)
+
+    toast = StatusToast(parent)
+    toast._title.setText("Controller connected")
+    toast._message.setText("The controller is ready.")
+
+    toast.reposition()
+
+    assert toast.x() == (parent.width() - toast.width()) // 2
+    expected_top = navigation.mapTo(
+        parent, navigation.rect().bottomLeft()
+    ).y() + 16
+    assert toast.y() == expected_top
+
+    toast.deleteLater()
+    parent.deleteLater()
 
 
 def test_add_controller_cancel_during_entrance_returns_rejected(qapp):
