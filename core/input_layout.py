@@ -51,6 +51,8 @@ DEFAULT_ANALOG_LAYOUT = {
     "swap_sticks": False,
     "left_trigger_enabled": True,
     "right_trigger_enabled": True,
+    "invert_left_trigger": False,
+    "invert_right_trigger": False,
     "swap_triggers": False,
 }
 DEFAULT_DIGITAL_LAYOUT = {
@@ -133,6 +135,13 @@ def apply_analog_layout(
         max(0, min(255, int(right_trigger)))
         if settings["right_trigger_enabled"] else 0
     )
+
+    # Invert only enabled physical triggers so a disabled trigger remains
+    # neutral instead of becoming fully pressed (255).
+    if settings["left_trigger_enabled"] and settings["invert_left_trigger"]:
+        physical_left_trigger = 255 - physical_left_trigger
+    if settings["right_trigger_enabled"] and settings["invert_right_trigger"]:
+        physical_right_trigger = 255 - physical_right_trigger
 
     if settings["swap_sticks"]:
         physical_left, physical_right = physical_right, physical_left
