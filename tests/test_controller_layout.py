@@ -11,6 +11,7 @@ from core.input_layout import (
     decode_button_polarity,
     default_controller_layout,
     load_controller_profile,
+    merge_legacy_joystick_inversion,
     normalize_controller_layout,
     resolve_digital_source_states,
     resolve_x360_button_states,
@@ -28,6 +29,23 @@ def test_unojoy_default_layout_preserves_existing_x360_mapping():
     assert layout["buttons"]["l1"]["target"] == "x360:lb"
     assert layout["buttons"]["dpad_up"]["target"] == "x360:dpad_up"
     assert layout["buttons"]["r3"]["normally"] == "open"
+
+
+def test_legacy_global_joystick_inversion_is_migrated_per_controller():
+    migrated = merge_legacy_joystick_inversion(
+        {"buttons": {}, "axes": {"left_stick_invert_x": True}},
+        ((False, True), (True, False)),
+    )
+    axes = normalize_controller_layout(
+        migrated, load_controller_profile("Unojoy")
+    )["axes"]
+
+    # Explicit per-controller values take precedence; missing values inherit
+    # the user's previous global inversion settings.
+    assert axes["left_stick_invert_x"] is True
+    assert axes["left_stick_invert_y"] is True
+    assert axes["right_stick_invert_x"] is True
+    assert axes["right_stick_invert_y"] is False
 
 
 def test_default_analog_layout_preserves_existing_stick_and_trigger_behavior():
@@ -384,6 +402,10 @@ def test_controller_layout_dialog_builds_and_returns_editable_rows():
         polarity_combo.setCurrentIndex(polarity_combo.findData("closed"))
         dialog._axis_controls["swap_sticks"].setChecked(True)
         dialog._axis_controls["left_stick_enabled"].setChecked(False)
+        dialog._axis_controls["left_stick_invert_x"].setChecked(True)
+        dialog._axis_controls["left_stick_invert_y"].setChecked(False)
+        dialog._axis_controls["right_stick_invert_x"].setChecked(False)
+        dialog._axis_controls["right_stick_invert_y"].setChecked(True)
         dialog._axis_controls["swap_triggers"].setChecked(True)
         dialog._axis_controls["left_trigger_enabled"].setChecked(False)
         dialog._axis_controls["invert_left_trigger"].setChecked(True)
@@ -400,6 +422,10 @@ def test_controller_layout_dialog_builds_and_returns_editable_rows():
         assert layout["buttons"]["dpad_up"]["normally"] == "open"
         assert layout["axes"]["swap_sticks"] is True
         assert layout["axes"]["left_stick_enabled"] is False
+        assert layout["axes"]["left_stick_invert_x"] is True
+        assert layout["axes"]["left_stick_invert_y"] is False
+        assert layout["axes"]["right_stick_invert_x"] is False
+        assert layout["axes"]["right_stick_invert_y"] is True
         assert layout["axes"]["swap_triggers"] is True
         assert layout["axes"]["left_trigger_enabled"] is False
         assert layout["axes"]["invert_left_trigger"] is True
