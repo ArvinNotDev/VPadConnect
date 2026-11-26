@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
     QFrame,
     QGridLayout,
+    QGroupBox,
     QLabel,
     QLineEdit,
     QMessageBox,
@@ -114,6 +116,60 @@ class ControllerLayoutDialog(QDialog):
         polarity_help.setWordWrap(True)
         polarity_help.setStyleSheet("color: #8fa4bf; font-size: 11px;")
         root.addWidget(polarity_help)
+
+        analog_group = QGroupBox(tr("Analog Controls", language), self)
+        analog_grid = QGridLayout(analog_group)
+        analog_grid.setContentsMargins(12, 10, 12, 10)
+        analog_grid.setHorizontalSpacing(18)
+        analog_grid.setVerticalSpacing(8)
+        self._axis_controls: dict[str, QCheckBox] = {}
+
+        analog_options = (
+            ("left_stick_enabled", "Enable Left Stick"),
+            ("right_stick_enabled", "Enable Right Stick"),
+            ("swap_sticks", "Swap Left / Right Sticks"),
+            ("left_trigger_enabled", "Enable LT"),
+            ("right_trigger_enabled", "Enable RT"),
+            ("swap_triggers", "Swap LT / RT"),
+        )
+        axis_settings = self._layout["axes"]
+        for index, (key, label_text) in enumerate(analog_options):
+            checkbox = QCheckBox(tr(label_text, language))
+            checkbox.setChecked(bool(axis_settings[key]))
+            checkbox.setToolTip(
+                tr(
+                    "These options affect the physical analog inputs before "
+                    "they are sent to the virtual Xbox 360 controller.",
+                    language,
+                )
+            )
+            analog_grid.addWidget(checkbox, index // 3, index % 3)
+            self._axis_controls[key] = checkbox
+
+        root.addWidget(analog_group)
+
+        digital_group = QGroupBox(tr("Digital Controls", language), self)
+        digital_grid = QGridLayout(digital_group)
+        digital_grid.setContentsMargins(12, 8, 12, 8)
+        digital_grid.setHorizontalSpacing(18)
+        self._digital_controls: dict[str, QCheckBox] = {}
+        digital_options = (
+            ("buttons_enabled", "Enable Physical Buttons"),
+            ("dpad_enabled", "Enable D-Pad"),
+        )
+        digital_settings = self._layout["digital"]
+        for column, (key, label_text) in enumerate(digital_options):
+            checkbox = QCheckBox(tr(label_text, language))
+            checkbox.setChecked(bool(digital_settings[key]))
+            checkbox.setToolTip(
+                tr(
+                    "Disable a whole input group while keeping the controller connected.",
+                    language,
+                )
+            )
+            digital_grid.addWidget(checkbox, 0, column)
+            self._digital_controls[key] = checkbox
+        root.addWidget(digital_group)
 
         scroll = QScrollArea(self)
         scroll.setWidgetResizable(True)
@@ -221,7 +277,20 @@ class ControllerLayoutDialog(QDialog):
                 "key": key_edit.text().strip(),
                 "normally": polarity_combo.currentData(),
             }
+        axes = {
+            key: checkbox.isChecked()
+            for key, checkbox in self._axis_controls.items()
+        }
+        digital = {
+            key: checkbox.isChecked()
+            for key, checkbox in self._digital_controls.items()
+        }
         return normalize_controller_layout(
-            {"version": 1, "buttons": buttons},
+            {
+                "version": 3,
+                "buttons": buttons,
+                "axes": axes,
+                "digital": digital,
+            },
             self._profile,
         )

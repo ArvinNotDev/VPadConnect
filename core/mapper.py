@@ -13,8 +13,10 @@ from core.emulator import EmulateX360, EmulateKeyboard
 from core.emulator import media_functions, custom_commands
 from core.controller import resolve_sony_input_report_index, interpret_dualshock4_battery
 from core.input_layout import (
+    apply_analog_layout,
     decode_button_polarity,
     normalize_controller_layout,
+    resolve_digital_source_states,
     resolve_x360_button_states,
 )
 from core.input_actions import InputActionDispatcher
@@ -501,12 +503,19 @@ class Mapper:
 
         ljx, ljy = self._apply_deadzone(raw_ljx, raw_ljy, left_deadzone, left_inv)
         rjx, rjy = self._apply_deadzone(raw_rjx, raw_rjy, right_deadzone, right_inv)
-        # Only the left horizontal axis changes; vertical stick and all other
-        # controls continue through the original mapping path.
+        # Gyro steering remains associated with the physical left stick. The
+        # per-controller layout is applied afterwards so swapped output sticks
+        # carry the complete physical source (including gyro steering).
         ljx = self._steering_x_input(ljx, data)
 
-        lt = int(raw_lt)
-        rt = int(raw_rt)
+        left_stick, right_stick, lt, rt = apply_analog_layout(
+            (ljx, ljy),
+            (rjx, rjy),
+            int(raw_lt),
+            int(raw_rt),
+            self.controller_layout.get("axes", {}),
+        )
+        (ljx, ljy), (rjx, rjy) = left_stick, right_stick
 
         source_states: dict[str, bool] = {}
         for source, button_config in buttons_cfg.items():
@@ -520,12 +529,16 @@ class Mapper:
             )
 
         dpu, dpd, dpl, dpr = self._get_dpad_from_hat(report, dpad_cfg)
-        source_states.update({
-            "dpad_up": dpu,
-            "dpad_down": dpd,
-            "dpad_left": dpl,
-            "dpad_right": dpr,
-        })
+        source_states = resolve_digital_source_states(
+            source_states,
+            {
+                "dpad_up": dpu,
+                "dpad_down": dpd,
+                "dpad_left": dpl,
+                "dpad_right": dpr,
+            },
+            self.controller_layout.get("digital", {}),
+        )
 
         # Keyboard and mouse routes are independent from the virtual XInput
         # routes and remain active while the controller's mouse mode is enabled.

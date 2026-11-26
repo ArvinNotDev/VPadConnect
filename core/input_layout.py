@@ -45,6 +45,110 @@ _ALLOWED_TARGETS = {
 _DPAD_SOURCES = {"dpad_up", "dpad_down", "dpad_left", "dpad_right"}
 
 
+DEFAULT_ANALOG_LAYOUT = {
+    "left_stick_enabled": True,
+    "right_stick_enabled": True,
+    "swap_sticks": False,
+    "left_trigger_enabled": True,
+    "right_trigger_enabled": True,
+    "swap_triggers": False,
+}
+DEFAULT_DIGITAL_LAYOUT = {
+    "buttons_enabled": True,
+    "dpad_enabled": True,
+}
+
+
+def _as_bool(value: Any, default: bool) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "1", "yes", "on"}:
+            return True
+        if normalized in {"false", "0", "no", "off"}:
+            return False
+    return bool(default)
+
+
+def normalize_digital_layout(value: Any) -> dict[str, bool]:
+    """Validate the master enable switches for digital controller inputs."""
+    stored = value if isinstance(value, dict) else {}
+    return {
+        name: _as_bool(stored.get(name, default), default)
+        for name, default in DEFAULT_DIGITAL_LAYOUT.items()
+    }
+
+
+def resolve_digital_source_states(
+    button_states: dict[str, bool],
+    dpad_states: dict[str, bool],
+    layout: Any,
+) -> dict[str, bool]:
+    """Apply global physical-button and D-Pad enable switches."""
+    settings = normalize_digital_layout(layout)
+    result = {
+        name: bool(value) if settings["buttons_enabled"] else False
+        for name, value in button_states.items()
+    }
+    result.update({
+        name: bool(value) if settings["dpad_enabled"] else False
+        for name, value in dpad_states.items()
+    })
+    return result
+
+
+def normalize_analog_layout(value: Any) -> dict[str, bool]:
+    """Validate per-controller stick/trigger enables and source swaps."""
+    stored = value if isinstance(value, dict) else {}
+    return {
+        name: _as_bool(stored.get(name, default), default)
+        for name, default in DEFAULT_ANALOG_LAYOUT.items()
+    }
+
+
+def apply_analog_layout(
+    left_stick: tuple[int, int],
+    right_stick: tuple[int, int],
+    left_trigger: int,
+    right_trigger: int,
+    layout: Any,
+) -> tuple[tuple[int, int], tuple[int, int], int, int]:
+    """Apply physical stick/trigger enables and source-to-output swaps."""
+    settings = normalize_analog_layout(layout)
+
+    physical_left = (
+        tuple(left_stick) if settings["left_stick_enabled"] else (0, 0)
+    )
+    physical_right = (
+        tuple(right_stick) if settings["right_stick_enabled"] else (0, 0)
+    )
+    physical_left_trigger = (
+        max(0, min(255, int(left_trigger)))
+        if settings["left_trigger_enabled"] else 0
+    )
+    physical_right_trigger = (
+        max(0, min(255, int(right_trigger)))
+        if settings["right_trigger_enabled"] else 0
+    )
+
+    if settings["swap_sticks"]:
+        physical_left, physical_right = physical_right, physical_left
+    if settings["swap_triggers"]:
+        physical_left_trigger, physical_right_trigger = (
+            physical_right_trigger, physical_left_trigger
+        )
+
+    return (
+        physical_left,
+        physical_right,
+        physical_left_trigger,
+        physical_right_trigger,
+    )
+
+
 def load_controller_profile(controller_type: str) -> dict[str, Any]:
     """Load a built-in HID profile without exposing mutable shared state."""
     try:
@@ -83,7 +187,12 @@ def default_controller_layout(profile: dict[str, Any]) -> dict[str, Any]:
             "key": "",
             "normally": "open",
         }
-    return {"version": 1, "buttons": buttons}
+    return {
+        "version": 3,
+        "buttons": buttons,
+        "axes": dict(DEFAULT_ANALOG_LAYOUT),
+        "digital": dict(DEFAULT_DIGITAL_LAYOUT),
+    }
 
 
 def is_valid_keyboard_key(value: Any) -> bool:
@@ -135,7 +244,14 @@ def normalize_controller_layout(
             "normally": polarity,
         }
 
-    return {"version": 1, "buttons": normalized}
+    stored_axes = layout.get("axes", {}) if isinstance(layout, dict) else {}
+    stored_digital = layout.get("digital", {}) if isinstance(layout, dict) else {}
+    return {
+        "version": 3,
+        "buttons": normalized,
+        "axes": normalize_analog_layout(stored_axes),
+        "digital": normalize_digital_layout(stored_digital),
+    }
 
 
 def resolve_x360_button_states(

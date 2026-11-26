@@ -7,10 +7,12 @@ import os
 
 from core.input_actions import InputActionDispatcher
 from core.input_layout import (
+    apply_analog_layout,
     decode_button_polarity,
     default_controller_layout,
     load_controller_profile,
     normalize_controller_layout,
+    resolve_digital_source_states,
     resolve_x360_button_states,
 )
 from core.profile_manager import ProfileManager
@@ -26,6 +28,79 @@ def test_unojoy_default_layout_preserves_existing_x360_mapping():
     assert layout["buttons"]["l1"]["target"] == "x360:lb"
     assert layout["buttons"]["dpad_up"]["target"] == "x360:dpad_up"
     assert layout["buttons"]["r3"]["normally"] == "open"
+
+
+def test_default_analog_layout_preserves_existing_stick_and_trigger_behavior():
+    profile = load_controller_profile("Unojoy")
+    layout = default_controller_layout(profile)
+
+    left_stick, right_stick, lt, rt = apply_analog_layout(
+        (1200, -2400), (3400, -4600), 80, 190, layout["axes"]
+    )
+
+    assert left_stick == (1200, -2400)
+    assert right_stick == (3400, -4600)
+    assert (lt, rt) == (80, 190)
+
+
+def test_analog_layout_disables_physical_sticks_and_swaps_remaining_sources():
+    axes = {
+        "left_stick_enabled": False,
+        "right_stick_enabled": True,
+        "swap_sticks": True,
+        "left_trigger_enabled": True,
+        "right_trigger_enabled": True,
+        "swap_triggers": False,
+    }
+
+    left, right, lt, rt = apply_analog_layout(
+        (1200, -2400), (3400, -4600), 80, 190, axes
+    )
+
+    assert left == (3400, -4600)
+    assert right == (0, 0)
+    assert (lt, rt) == (80, 190)
+
+
+def test_analog_layout_can_disable_and_swap_triggers_independently():
+    axes = {
+        "left_stick_enabled": True,
+        "right_stick_enabled": False,
+        "swap_sticks": False,
+        "left_trigger_enabled": False,
+        "right_trigger_enabled": True,
+        "swap_triggers": True,
+    }
+
+    left, right, lt, rt = apply_analog_layout(
+        (1, 2), (3, 4), 100, 220, axes
+    )
+
+    assert left == (1, 2)
+    assert right == (0, 0)
+    assert (lt, rt) == (220, 0)
+
+
+def test_digital_groups_can_be_disabled_independently():
+    states = resolve_digital_source_states(
+        {"cross": True, "circle": True},
+        {"dpad_up": True, "dpad_left": False},
+        {"buttons_enabled": False, "dpad_enabled": True},
+    )
+
+    assert states == {
+        "cross": False,
+        "circle": False,
+        "dpad_up": True,
+        "dpad_left": False,
+    }
+
+    disabled = resolve_digital_source_states(
+        {"cross": True},
+        {"dpad_up": True},
+        {"buttons_enabled": True, "dpad_enabled": False},
+    )
+    assert disabled == {"cross": True, "dpad_up": False}
 
 
 def test_normally_open_and_closed_polarity_are_independent():
@@ -274,6 +349,12 @@ def test_controller_layout_dialog_builds_and_returns_editable_rows():
         output_combo.setCurrentIndex(output_combo.findData("keyboard"))
         key_edit.setText("space")
         polarity_combo.setCurrentIndex(polarity_combo.findData("closed"))
+        dialog._axis_controls["swap_sticks"].setChecked(True)
+        dialog._axis_controls["left_stick_enabled"].setChecked(False)
+        dialog._axis_controls["swap_triggers"].setChecked(True)
+        dialog._axis_controls["left_trigger_enabled"].setChecked(False)
+        dialog._digital_controls["buttons_enabled"].setChecked(False)
+        dialog._digital_controls["dpad_enabled"].setChecked(True)
 
         layout = dialog.get_layout()
         assert layout["buttons"]["cross"] == {
@@ -282,6 +363,12 @@ def test_controller_layout_dialog_builds_and_returns_editable_rows():
             "normally": "closed",
         }
         assert layout["buttons"]["dpad_up"]["normally"] == "open"
+        assert layout["axes"]["swap_sticks"] is True
+        assert layout["axes"]["left_stick_enabled"] is False
+        assert layout["axes"]["swap_triggers"] is True
+        assert layout["axes"]["left_trigger_enabled"] is False
+        assert layout["digital"]["buttons_enabled"] is False
+        assert layout["digital"]["dpad_enabled"] is True
     finally:
         dialog.close()
         app.processEvents()
