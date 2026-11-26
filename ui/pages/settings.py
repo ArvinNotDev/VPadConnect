@@ -240,8 +240,13 @@ class SettingsPage(QWidget):
         deadzone_container.setLayout(deadzone_layout)
         device_form.addRow(deadzone_container)
 
-        # Axis inversion group
-        inv_group = QGroupBox("Axis inversion")
+        # Global defaults remain available for remote input and for physical
+        # controllers that have not saved a per-controller inversion layout.
+        inv_group = QGroupBox("Default axis inversion")
+        inv_group.setToolTip(
+            "These are global defaults. Physical controllers with a saved "
+            "Edit Layout inversion configuration use their per-controller settings."
+        )
         inv_layout = QGridLayout()
         inv_layout.setHorizontalSpacing(18)
         inv_layout.setVerticalSpacing(8)
