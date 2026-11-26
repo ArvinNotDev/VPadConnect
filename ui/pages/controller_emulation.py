@@ -1745,6 +1745,8 @@ class ControllerEmulation(QWidget):
                     profile_saved = profile_manager.save_controller_layout(
                         stable_id, updated, profile_name=active_profile
                     )
+                else:
+                    profile_saved = False
             except Exception:
                 logger.exception(
                     "Could not save controller layout into the active profile"
@@ -1759,11 +1761,18 @@ class ControllerEmulation(QWidget):
                 "saved to the active profile.",
             )
 
-        self.notification_requested.emit(
-            "Controller layout saved",
-            f"The input layout for {widget.hid} has been saved.",
-            "success",
-        )
+        if profile_saved:
+            self.notification_requested.emit(
+                "Controller layout saved",
+                f"The input layout for {widget.hid} has been saved to the active profile.",
+                "success",
+            )
+        else:
+            self.notification_requested.emit(
+                "Layout saved to settings",
+                f"The input layout for {widget.hid} was saved to application settings only.",
+                "warning",
+            )
 
     @Slot(bool)
     def set_raw_hid_monitor_active(self, active: bool) -> None:

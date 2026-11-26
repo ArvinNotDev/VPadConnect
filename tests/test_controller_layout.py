@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 
 from core.input_actions import InputActionDispatcher
 from core.input_layout import (
@@ -257,3 +258,30 @@ def test_shared_keyboard_key_is_not_released_until_last_controller_releases():
 
     second.release_all()
     assert keyboard.events == [("press", "f1"), ("release", "f1")]
+
+
+
+def test_controller_layout_dialog_builds_and_returns_editable_rows():
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication
+
+    from ui.pages.modal.controller_layout import ControllerLayoutDialog
+
+    app = QApplication.instance() or QApplication([])
+    dialog = ControllerLayoutDialog("UnoJoy", "Unojoy", {}, language="eng")
+    try:
+        output_combo, key_edit, polarity_combo = dialog._rows["cross"]
+        output_combo.setCurrentIndex(output_combo.findData("keyboard"))
+        key_edit.setText("space")
+        polarity_combo.setCurrentIndex(polarity_combo.findData("closed"))
+
+        layout = dialog.get_layout()
+        assert layout["buttons"]["cross"] == {
+            "target": "keyboard",
+            "key": "space",
+            "normally": "closed",
+        }
+        assert layout["buttons"]["dpad_up"]["normally"] == "open"
+    finally:
+        dialog.close()
+        app.processEvents()
