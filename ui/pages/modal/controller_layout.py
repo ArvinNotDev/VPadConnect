@@ -62,7 +62,7 @@ _OUTPUT_OPTIONS = [
     ("Mouse Left", "mouse:left"),
     ("Mouse Right", "mouse:right"),
     ("Mouse Middle", "mouse:middle"),
-}
+]
 
 
 class ControllerLayoutDialog(QDialog):
