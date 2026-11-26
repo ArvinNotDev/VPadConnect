@@ -81,6 +81,39 @@ def test_analog_layout_can_disable_and_swap_triggers_independently():
     assert (lt, rt) == (220, 0)
 
 
+def test_analog_triggers_can_be_inverted_independently_across_the_full_range():
+    axes = {
+        "invert_left_trigger": True,
+        "invert_right_trigger": False,
+    }
+
+    _, _, lt, rt = apply_analog_layout((0, 0), (0, 0), 0, 64, axes)
+    assert (lt, rt) == (255, 64)
+
+    axes["invert_left_trigger"] = False
+    axes["invert_right_trigger"] = True
+    _, _, lt, rt = apply_analog_layout((0, 0), (0, 0), 0, 64, axes)
+    assert (lt, rt) == (0, 191)
+
+    axes["invert_left_trigger"] = True
+    axes["invert_right_trigger"] = True
+    _, _, lt, rt = apply_analog_layout((0, 0), (0, 0), 255, 255, axes)
+    assert (lt, rt) == (0, 0)
+
+
+def test_disabled_trigger_stays_neutral_when_inversion_and_swap_are_enabled():
+    axes = {
+        "left_trigger_enabled": False,
+        "right_trigger_enabled": True,
+        "invert_left_trigger": True,
+        "invert_right_trigger": True,
+        "swap_triggers": True,
+    }
+
+    _, _, lt, rt = apply_analog_layout((0, 0), (0, 0), 128, 64, axes)
+    assert (lt, rt) == (191, 0)
+
+
 def test_digital_groups_can_be_disabled_independently():
     states = resolve_digital_source_states(
         {"cross": True, "circle": True},
@@ -353,6 +386,8 @@ def test_controller_layout_dialog_builds_and_returns_editable_rows():
         dialog._axis_controls["left_stick_enabled"].setChecked(False)
         dialog._axis_controls["swap_triggers"].setChecked(True)
         dialog._axis_controls["left_trigger_enabled"].setChecked(False)
+        dialog._axis_controls["invert_left_trigger"].setChecked(True)
+        dialog._axis_controls["invert_right_trigger"].setChecked(True)
         dialog._digital_controls["buttons_enabled"].setChecked(False)
         dialog._digital_controls["dpad_enabled"].setChecked(True)
 
@@ -367,6 +402,8 @@ def test_controller_layout_dialog_builds_and_returns_editable_rows():
         assert layout["axes"]["left_stick_enabled"] is False
         assert layout["axes"]["swap_triggers"] is True
         assert layout["axes"]["left_trigger_enabled"] is False
+        assert layout["axes"]["invert_left_trigger"] is True
+        assert layout["axes"]["invert_right_trigger"] is True
         assert layout["digital"]["buttons_enabled"] is False
         assert layout["digital"]["dpad_enabled"] is True
     finally:
