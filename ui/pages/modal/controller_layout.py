@@ -299,6 +299,7 @@ class ControllerLayoutDialog(QDialog):
             key: checkbox.isChecked()
             for key, checkbox in self._axis_controls.items()
         }
+        axes["stick_inversion_overrides"] = True
         digital = {
             key: checkbox.isChecked()
             for key, checkbox in self._digital_controls.items()
