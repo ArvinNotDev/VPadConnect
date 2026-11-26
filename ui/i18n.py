@@ -199,6 +199,9 @@ _TRANSLATIONS = {
         "Enable LT": "فعال‌سازی LT",
         "Enable RT": "فعال‌سازی RT",
         "Swap LT / RT": "جابه‌جایی LT و RT",
+        "Invert LT": "معکوس‌کردن LT",
+        "Invert RT": "معکوس‌کردن RT",
+        "Reverse the analog trigger range independently: 0 becomes 255, and 255 becomes 0.": "بازهٔ آنالوگ تریگر را مستقل معکوس می‌کند: مقدار ۰ به ۲۵۵ و مقدار ۲۵۵ به ۰ تبدیل می‌شود.",
         "These options affect the physical analog inputs before they are sent to the virtual Xbox 360 controller.": "این گزینه‌ها ورودی‌های آنالوگ فیزیکی را پیش از ارسال به دستهٔ مجازی Xbox 360 تغییر می‌دهند.",
 
         "Physical Input": "ورودی فیزیکی",
@@ -414,6 +417,9 @@ _TRANSLATIONS = {
         "Enable LT": "Activar LT",
         "Enable RT": "Activar RT",
         "Swap LT / RT": "Intercambiar LT / RT",
+        "Invert LT": "Invertir LT",
+        "Invert RT": "Invertir RT",
+        "Reverse the analog trigger range independently: 0 becomes 255, and 255 becomes 0.": "Invierte por separado el rango analógico del gatillo: 0 pasa a 255 y 255 pasa a 0.",
         "These options affect the physical analog inputs before they are sent to the virtual Xbox 360 controller.": "Estas opciones modifican las entradas analógicas físicas antes de enviarlas al mando virtual Xbox 360.",
 
         "Physical Input": "Entrada física",
