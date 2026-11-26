@@ -18,6 +18,7 @@ from ui.pages.modal.add_controller import AddControllerDialog
 from ui.pages.modal.controller_layout import ControllerLayoutDialog
 from ui.pages.modal.mobile_pairing import MobilePairingDialog, MobileConnectedDialog
 from core.mapper import Mapper
+from core.input_layout import merge_legacy_joystick_inversion
 from core.settings import SettingsManager
 from core.hid import HIDManager
 from core import hid
@@ -1708,6 +1709,13 @@ class ControllerEmulation(QWidget):
             current_layout = self.settings.get_controller_layout_settings(stable_id)
         except (AttributeError, TypeError):
             current_layout = {}
+        try:
+            legacy_joystick_inversion = self.settings.get_joystick_invertion()
+        except (AttributeError, TypeError):
+            legacy_joystick_inversion = ((False, False), (False, False))
+        current_layout = merge_legacy_joystick_inversion(
+            current_layout, legacy_joystick_inversion
+        )
 
         dialog = ControllerLayoutDialog(
             widget.hid,
