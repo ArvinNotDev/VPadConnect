@@ -16,6 +16,7 @@ from core.input_layout import (
     apply_analog_layout,
     apply_stick_inversion,
     merge_legacy_joystick_inversion,
+    resolve_stick_inversion_settings,
     decode_button_polarity,
     normalize_controller_layout,
     resolve_digital_source_states,
@@ -515,19 +516,13 @@ class Mapper:
 
         left_deadzone, right_deadzone = self.settings.get_deadzones()
         axis_layout = dict(self.controller_layout.get("axes", {}))
-        if not axis_layout.get("stick_inversion_overrides", False):
-            # Preserve the legacy global setting until this controller has an
-            # explicitly saved per-controller inversion configuration.
-            try:
-                left_inv, right_inv = self.settings.get_joystick_invertion()
-            except (AttributeError, TypeError):
-                left_inv, right_inv = (False, False), (False, False)
-            axis_layout.update({
-                "left_stick_invert_x": bool(left_inv[0]),
-                "left_stick_invert_y": bool(left_inv[1]),
-                "right_stick_invert_x": bool(right_inv[0]),
-                "right_stick_invert_y": bool(right_inv[1]),
-            })
+        try:
+            legacy_inversion = self.settings.get_joystick_invertion()
+        except (AttributeError, TypeError):
+            legacy_inversion = ((False, False), (False, False))
+        axis_layout.update(
+            resolve_stick_inversion_settings(axis_layout, legacy_inversion)
+        )
         button_inv = self.settings.get_button_invertion()
 
         # Keep deadzone processing separate from inversion. Applying inversion
