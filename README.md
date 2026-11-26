@@ -104,7 +104,7 @@ overwriting existing AppData files or deleting the legacy copies.
 - Discover physical HID devices and select the interface that provides the controller's input reports.
 - Configure per-controller button layouts and route each physical button independently to Xbox 360 / XInput, a keyboard key, a mouse button, or no output.
 - Configure active-high (Normally Open) or active-low (Normally Closed) polarity separately for every discrete physical button. Encoded D-Pad hat-switch positions retain their native position decoding.
-- Enable or disable physical buttons, D-Pad, either analog stick, and either trigger independently; invert the 0–255 response of LT and RT separately (255 - value), and swap left/right stick pairs or LT/RT sources per controller.
+- Enable or disable physical buttons, D-Pad, either analog stick, and either trigger independently; invert X and Y axes separately for each stick, invert LT and RT independently (255 - value), and swap left/right stick pairs or LT/RT sources per controller.
 - Save per-controller layouts with application profiles; profile export/import carries the layout data with it.
 - Use the built-in UnoJoy profile for supported Arduino UnoJoy HID devices, with per-device HidHide visibility controls.
 - Create virtual Xbox 360 / XInput output using ViGEmBus.
