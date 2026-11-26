@@ -143,6 +143,38 @@ def merge_legacy_joystick_inversion(
     return result
 
 
+def resolve_stick_inversion_settings(
+    layout: Any,
+    legacy_inversion: Any,
+) -> dict[str, bool]:
+    """Resolve per-controller overrides or fall back to legacy global defaults."""
+    settings = normalize_analog_layout(layout)
+    keys = (
+        "left_stick_invert_x",
+        "left_stick_invert_y",
+        "right_stick_invert_x",
+        "right_stick_invert_y",
+    )
+    if settings["stick_inversion_overrides"]:
+        return {key: settings[key] for key in keys}
+
+    try:
+        left, right = legacy_inversion
+        values = {
+            "left_stick_invert_x": left[0],
+            "left_stick_invert_y": left[1],
+            "right_stick_invert_x": right[0],
+            "right_stick_invert_y": right[1],
+        }
+    except (TypeError, IndexError, KeyError):
+        values = {}
+
+    return {
+        key: _as_bool(values.get(key, settings[key]), settings[key])
+        for key in keys
+    }
+
+
 def apply_stick_inversion(
     left_stick: tuple[int, int],
     right_stick: tuple[int, int],
