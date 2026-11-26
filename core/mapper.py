@@ -514,7 +514,20 @@ class Mapper:
 
 
         left_deadzone, right_deadzone = self.settings.get_deadzones()
-        axis_layout = self.controller_layout.get("axes", {})
+        axis_layout = dict(self.controller_layout.get("axes", {}))
+        if not axis_layout.get("stick_inversion_overrides", False):
+            # Preserve the legacy global setting until this controller has an
+            # explicitly saved per-controller inversion configuration.
+            try:
+                left_inv, right_inv = self.settings.get_joystick_invertion()
+            except (AttributeError, TypeError):
+                left_inv, right_inv = (False, False), (False, False)
+            axis_layout.update({
+                "left_stick_invert_x": bool(left_inv[0]),
+                "left_stick_invert_y": bool(left_inv[1]),
+                "right_stick_invert_x": bool(right_inv[0]),
+                "right_stick_invert_y": bool(right_inv[1]),
+            })
         button_inv = self.settings.get_button_invertion()
 
         # Keep deadzone processing separate from inversion. Applying inversion
