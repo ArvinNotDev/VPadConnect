@@ -14,6 +14,7 @@ from core.emulator import media_functions, custom_commands
 from core.controller import resolve_sony_input_report_index, interpret_dualshock4_battery
 from core.input_layout import (
     apply_analog_layout,
+    apply_stick_inversion,
     merge_legacy_joystick_inversion,
     decode_button_polarity,
     normalize_controller_layout,
@@ -514,29 +515,30 @@ class Mapper:
 
         left_deadzone, right_deadzone = self.settings.get_deadzones()
         axis_layout = self.controller_layout.get("axes", {})
-        left_inv = (
-            axis_layout.get("left_stick_invert_x", False),
-            axis_layout.get("left_stick_invert_y", False),
-        )
-        right_inv = (
-            axis_layout.get("right_stick_invert_x", False),
-            axis_layout.get("right_stick_invert_y", False),
-        )
         button_inv = self.settings.get_button_invertion()
 
-        ljx, ljy = self._apply_deadzone(raw_ljx, raw_ljy, left_deadzone, left_inv)
-        rjx, rjy = self._apply_deadzone(raw_rjx, raw_rjy, right_deadzone, right_inv)
+        # Keep deadzone processing separate from inversion. Applying inversion
+        # afterwards also reverses gyro-steered left X when that option is set.
+        ljx, ljy = self._apply_deadzone(
+            raw_ljx, raw_ljy, left_deadzone, (False, False)
+        )
+        rjx, rjy = self._apply_deadzone(
+            raw_rjx, raw_rjy, right_deadzone, (False, False)
+        )
         # Gyro steering remains associated with the physical left stick. The
         # per-controller layout is applied afterwards so swapped output sticks
         # carry the complete physical source (including gyro steering).
         ljx = self._steering_x_input(ljx, data)
 
+        left_stick, right_stick = apply_stick_inversion(
+            (ljx, ljy), (rjx, rjy), axis_layout
+        )
         left_stick, right_stick, lt, rt = apply_analog_layout(
-            (ljx, ljy),
-            (rjx, rjy),
+            left_stick,
+            right_stick,
             int(raw_lt),
             int(raw_rt),
-            self.controller_layout.get("axes", {}),
+            axis_layout,
         )
         (ljx, ljy), (rjx, rjy) = left_stick, right_stick
 
