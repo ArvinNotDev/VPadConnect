@@ -127,6 +127,10 @@ class ControllerLayoutDialog(QDialog):
         analog_options = (
             ("left_stick_enabled", "Enable Left Stick"),
             ("right_stick_enabled", "Enable Right Stick"),
+            ("left_stick_invert_x", "Invert Left X"),
+            ("left_stick_invert_y", "Invert Left Y"),
+            ("right_stick_invert_x", "Invert Right X"),
+            ("right_stick_invert_y", "Invert Right Y"),
             ("swap_sticks", "Swap Left / Right Sticks"),
             ("left_trigger_enabled", "Enable LT"),
             ("right_trigger_enabled", "Enable RT"),
@@ -138,15 +142,24 @@ class ControllerLayoutDialog(QDialog):
         for index, (key, label_text) in enumerate(analog_options):
             checkbox = QCheckBox(tr(label_text, language))
             checkbox.setChecked(bool(axis_settings[key]))
-            tooltip = (
-                "Reverse the analog trigger range independently: "
-                "0 becomes 255, and 255 becomes 0."
-                if key in {"invert_left_trigger", "invert_right_trigger"}
-                else (
+            if key in {
+                "left_stick_invert_x", "left_stick_invert_y",
+                "right_stick_invert_x", "right_stick_invert_y",
+            }:
+                tooltip = (
+                    "Reverse the selected stick axis independently. "
+                    "The inversion stays attached to its physical stick when sticks are swapped."
+                )
+            elif key in {"invert_left_trigger", "invert_right_trigger"}:
+                tooltip = (
+                    "Reverse the analog trigger range independently: "
+                    "0 becomes 255, and 255 becomes 0."
+                )
+            else:
+                tooltip = (
                     "These options affect the physical analog inputs before "
                     "they are sent to the virtual Xbox 360 controller."
                 )
-            )
             checkbox.setToolTip(tr(tooltip, language))
             analog_grid.addWidget(checkbox, index // 3, index % 3)
             self._axis_controls[key] = checkbox
