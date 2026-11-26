@@ -130,19 +130,24 @@ class ControllerLayoutDialog(QDialog):
             ("swap_sticks", "Swap Left / Right Sticks"),
             ("left_trigger_enabled", "Enable LT"),
             ("right_trigger_enabled", "Enable RT"),
+            ("invert_left_trigger", "Invert LT"),
+            ("invert_right_trigger", "Invert RT"),
             ("swap_triggers", "Swap LT / RT"),
         )
         axis_settings = self._layout["axes"]
         for index, (key, label_text) in enumerate(analog_options):
             checkbox = QCheckBox(tr(label_text, language))
             checkbox.setChecked(bool(axis_settings[key]))
-            checkbox.setToolTip(
-                tr(
+            tooltip = (
+                "Reverse the analog trigger range independently: "
+                "0 becomes 255, and 255 becomes 0."
+                if key in {"invert_left_trigger", "invert_right_trigger"}
+                else (
                     "These options affect the physical analog inputs before "
-                    "they are sent to the virtual Xbox 360 controller.",
-                    language,
+                    "they are sent to the virtual Xbox 360 controller."
                 )
             )
+            checkbox.setToolTip(tr(tooltip, language))
             analog_grid.addWidget(checkbox, index // 3, index % 3)
             self._axis_controls[key] = checkbox
 
