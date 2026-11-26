@@ -195,6 +195,10 @@ _TRANSLATIONS = {
 
         "Enable Left Stick": "فعال‌سازی جوی‌استیک چپ",
         "Enable Right Stick": "فعال‌سازی جوی‌استیک راست",
+        "Invert Left X": "معکوس‌کردن محور X جوی‌استیک چپ",
+        "Invert Left Y": "معکوس‌کردن محور Y جوی‌استیک چپ",
+        "Invert Right X": "معکوس‌کردن محور X جوی‌استیک راست",
+        "Invert Right Y": "معکوس‌کردن محور Y جوی‌استیک راست",
         "Swap Left / Right Sticks": "جابه‌جایی جوی‌استیک چپ و راست",
         "Enable LT": "فعال‌سازی LT",
         "Enable RT": "فعال‌سازی RT",
@@ -202,6 +206,7 @@ _TRANSLATIONS = {
         "Invert LT": "معکوس‌کردن LT",
         "Invert RT": "معکوس‌کردن RT",
         "Reverse the analog trigger range independently: 0 becomes 255, and 255 becomes 0.": "بازهٔ آنالوگ تریگر را مستقل معکوس می‌کند: مقدار ۰ به ۲۵۵ و مقدار ۲۵۵ به ۰ تبدیل می‌شود.",
+        "Reverse the selected stick axis independently. The inversion stays attached to its physical stick when sticks are swapped.": "محور انتخاب‌شدهٔ جوی‌استیک را مستقل معکوس می‌کند. با جابه‌جایی استیک‌ها، معکوس‌سازی همچنان به استیک فیزیکی خودش متصل می‌ماند.",
         "These options affect the physical analog inputs before they are sent to the virtual Xbox 360 controller.": "این گزینه‌ها ورودی‌های آنالوگ فیزیکی را پیش از ارسال به دستهٔ مجازی Xbox 360 تغییر می‌دهند.",
 
         "Physical Input": "ورودی فیزیکی",
@@ -413,6 +418,10 @@ _TRANSLATIONS = {
 
         "Enable Left Stick": "Activar stick izquierdo",
         "Enable Right Stick": "Activar stick derecho",
+        "Invert Left X": "Invertir X izquierdo",
+        "Invert Left Y": "Invertir Y izquierdo",
+        "Invert Right X": "Invertir X derecho",
+        "Invert Right Y": "Invertir Y derecho",
         "Swap Left / Right Sticks": "Intercambiar sticks izquierdo y derecho",
         "Enable LT": "Activar LT",
         "Enable RT": "Activar RT",
@@ -420,6 +429,7 @@ _TRANSLATIONS = {
         "Invert LT": "Invertir LT",
         "Invert RT": "Invertir RT",
         "Reverse the analog trigger range independently: 0 becomes 255, and 255 becomes 0.": "Invierte por separado el rango analógico del gatillo: 0 pasa a 255 y 255 pasa a 0.",
+        "Reverse the selected stick axis independently. The inversion stays attached to its physical stick when sticks are swapped.": "Invierte por separado el eje seleccionado. La inversión sigue vinculada al stick físico al intercambiar los sticks.",
         "These options affect the physical analog inputs before they are sent to the virtual Xbox 360 controller.": "Estas opciones modifican las entradas analógicas físicas antes de enviarlas al mando virtual Xbox 360.",
 
         "Physical Input": "Entrada física",
