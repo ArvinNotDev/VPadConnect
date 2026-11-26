@@ -1,5 +1,6 @@
 import configparser
 import hashlib
+import json
 import os
 import re
 import tempfile
@@ -236,6 +237,44 @@ class SettingsManager:
             "charging_indication",
             str(bool(settings.get("charging_indication", False))).lower(),
         )
+
+    # -------- per-controller physical button layouts --------
+    @staticmethod
+    def _controller_layout_section(controller_id: str) -> str:
+        digest = hashlib.sha256(str(controller_id).encode("utf-8")).hexdigest()[:20]
+        return f"controller_layout_{digest}"
+
+    def get_controller_layout_settings(self, controller_id: str) -> dict:
+        """Return the persisted physical input layout for one controller."""
+        section = self._controller_layout_section(controller_id)
+        raw = self.config.get(section, "layout", fallback="")
+        if not raw or len(raw) > 65536:
+            return {}
+        try:
+            value = json.loads(raw)
+        except (TypeError, ValueError):
+            return {}
+        return value if isinstance(value, dict) else {}
+
+    def set_controller_layout_settings(
+        self, controller_id: str, layout: dict
+    ) -> None:
+        """Persist one controller's physical button layout in the settings file."""
+        if not isinstance(layout, dict):
+            raise TypeError("Controller layout must be a dictionary.")
+        try:
+            payload = json.dumps(
+                layout, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+            )
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Controller layout is not valid JSON data.") from exc
+        if len(payload) > 65536:
+            raise ValueError("Controller layout exceeds the 64 KiB limit.")
+
+        section = self._controller_layout_section(controller_id)
+        if not self.config.has_section(section):
+            self.config.add_section(section)
+        self.config.set(section, "layout", payload)
 
     # -------- per-controller DualSense Gyro Steering --------
     @staticmethod

@@ -102,7 +102,10 @@ overwriting existing AppData files or deleting the legacy copies.
 ### Desktop controller emulation
 
 - Discover physical HID devices and select the interface that provides the controller's input reports.
-- Configure controller mappings through the desktop interface.
+- Configure per-controller button layouts and route each physical button independently to Xbox 360 / XInput, a keyboard key, a mouse button, or no output.
+- Configure active-high (Normally Open) or active-low (Normally Closed) polarity separately for every discrete physical button. Encoded D-Pad hat-switch positions retain their native position decoding.
+- Save per-controller layouts with application profiles; profile export/import carries the layout data with it.
+- Use the built-in UnoJoy profile for supported Arduino UnoJoy HID devices, with per-device HidHide visibility controls.
 - Create virtual Xbox 360 / XInput output using ViGEmBus.
 - Use controller input for mouse movement with adjustable sensitivity and deadzone.
 - Configure controller-triggered hotkeys.
@@ -383,7 +386,7 @@ The Web Companion uses a local self-signed certificate. Verify its SHA-256 finge
 - Generic HID support depends on the device's report format. Not every controller can be expected to work automatically.
 - DualShock 4 gyro steering and rumble were added in Beta 3 but have not yet been physically validated with a DualShock 4 controller.
 - ViGEmBus is retired; virtual XInput compatibility with future Windows releases is not guaranteed.
-- Physical-controller-to-keyboard mapping is not currently available as a general mapping output. Keyboard actions in Web Companion are a separate, permission-controlled PC Remote feature.
+- Keyboard and mouse output from physical-controller layouts uses the local Windows input backends; keyboard injection behavior may depend on Windows permissions and the target game's input handling.
 - A failed ViGEmBus installation prevents virtual XInput output, but does not by itself disable mouse control or Web Companion PC Remote features.
 
 ## Contributing and reporting issues

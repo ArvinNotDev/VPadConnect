@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - "core/mouse.py"
+      - "core/input_layout.py"
+      - "core/input_actions.py"
+      - "tests/test_controller_layout.py"
       - "core/mapper.py"
       - "core/dualshock4_rumble.py"
       - "core/hid_manager.py"
@@ -58,6 +61,9 @@ on:
   pull_request:
     paths:
       - "core/mouse.py"
+      - "core/input_layout.py"
+      - "core/input_actions.py"
+      - "tests/test_controller_layout.py"
       - "core/mapper.py"
       - "core/dualshock4_rumble.py"
       - "core/hid_manager.py"
@@ -137,7 +143,7 @@ jobs:
 
       - name: Compile changed Python modules
         run: |
-          python -m compileall -q core/controller.py core/dualsense_gyro.py core/dualshock4_rumble.py core/hid_manager.py core/mapper.py core/emulator.py tests/test_controller_report_layout.py tests/test_dualshock4_features.py tests/test_dualshock4_rumble.py core/mouse.py core/mapper.py core/dualsense_gyro.py core/dualsense_lightbar.py tests/test_dualsense_lightbar_startup.py core/hid.py core/raw_hid.py core/settings.py core/dev_logging.py core/vigem.py tests/test_mouse_failsafe.py tests/test_dev_logging.py tests/test_settings_runtime.py tests/test_raw_hid_format.py core/web_remote.py core/remote_protocol.py ui/animations.py ui/cursor_spotlight.py ui/icons.py ui/notifications.py ui/pages/profiles.py ui/vigem_gate.py ui/pages/settings.py ui/pages/raw_hid_terminal.py ui/theme_manager.py ui/pages/controller_emulation.py ui/pages/controllers.py ui/pages/hotkey.py ui/pages/modal/add_controller.py ui/pages/modal/mobile_pairing.py ui/pages/web_remote.py ui/main_window.py tests/test_web_remote.py tests/test_remote_protocol.py tests/test_ui_dialog_lifecycle.py tests/test_controller_ui.py
+          python -m compileall -q core/input_layout.py core/input_actions.py ui/pages/modal/controller_layout.py tests/test_controller_layout.py core/controller.py core/dualsense_gyro.py core/dualshock4_rumble.py core/hid_manager.py core/mapper.py core/emulator.py tests/test_controller_report_layout.py tests/test_dualshock4_features.py tests/test_dualshock4_rumble.py core/mouse.py core/mapper.py core/dualsense_gyro.py core/dualsense_lightbar.py tests/test_dualsense_lightbar_startup.py core/hid.py core/raw_hid.py core/settings.py core/dev_logging.py core/vigem.py tests/test_mouse_failsafe.py tests/test_dev_logging.py tests/test_settings_runtime.py tests/test_raw_hid_format.py core/web_remote.py core/remote_protocol.py ui/animations.py ui/cursor_spotlight.py ui/icons.py ui/notifications.py ui/pages/profiles.py ui/vigem_gate.py ui/pages/settings.py ui/pages/raw_hid_terminal.py ui/theme_manager.py ui/pages/controller_emulation.py ui/pages/controllers.py ui/pages/hotkey.py ui/pages/modal/add_controller.py ui/pages/modal/mobile_pairing.py ui/pages/web_remote.py ui/main_window.py tests/test_web_remote.py tests/test_remote_protocol.py tests/test_ui_dialog_lifecycle.py tests/test_controller_ui.py
 
       - name: Run wired Sony HID report-layout tests
         run: python -m pytest -q tests/test_controller_report_layout.py
@@ -165,6 +171,9 @@ jobs:
 
       - name: Run web protocol, session, and security-header tests
         run: python -m pytest -q tests/test_web_remote.py tests/test_remote_protocol.py tests/test_remote_security.py
+
+      - name: Test physical controller layouts, polarity, and keyboard/mouse routing
+        run: python -m pytest -q tests/test_controller_layout.py
 
       - name: Test profile management operations
         run: python -m pytest -q tests/test_profile_manager.py

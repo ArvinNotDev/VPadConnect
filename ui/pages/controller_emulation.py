@@ -15,6 +15,7 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QDesktopServices, QColor
 
 from ui.pages.modal.add_controller import AddControllerDialog
+from ui.pages.modal.controller_layout import ControllerLayoutDialog
 from ui.pages.modal.mobile_pairing import MobilePairingDialog, MobileConnectedDialog
 from core.mapper import Mapper
 from core.settings import SettingsManager
@@ -795,6 +796,7 @@ class EmuListItemWidget(QWidget):
     emulate_requested = Signal(str, str, object)
     delete_requested = Signal(object)
     lightbar_requested = Signal(object)
+    layout_requested = Signal(object)
 
     def __init__(self, hid: str, emu: str, device=None, parent=None):
         super().__init__(parent)
@@ -857,6 +859,13 @@ class EmuListItemWidget(QWidget):
         self.btn_lightbar.setToolTip("Configure this controller's Lightbar")
         self.btn_lightbar.clicked.connect(lambda: self.lightbar_requested.emit(self))
         layout.addWidget(self.btn_lightbar)
+
+        self.btn_layout = QPushButton("Edit Layout")
+        self.btn_layout.setToolTip(
+            "Configure where each physical button is routed for this controller"
+        )
+        self.btn_layout.clicked.connect(lambda: self.layout_requested.emit(self))
+        layout.addWidget(self.btn_layout)
         self.set_device(device)
 
         self.btn_emulate = QPushButton("Emulate")
@@ -1520,6 +1529,9 @@ class ControllerEmulation(QWidget):
         widget.emulate_requested.connect(self._on_emulate_requested)
         widget.delete_requested.connect(lambda w=widget, i=item: self._on_delete_requested(w, i))
         widget.lightbar_requested.connect(self._on_lightbar_requested)
+        layout_handler = getattr(self, "_on_layout_requested", None)
+        if callable(layout_handler):
+            widget.layout_requested.connect(layout_handler)
 
         # A newly configured, already-detected controller is immediately ready
         # for use. The same button then becomes Stop if the user wants to pause it.
@@ -1646,6 +1658,66 @@ class ControllerEmulation(QWidget):
             battery_state = getattr(self.controllers_page, "battery_states", {}).get(path)
             color, enabled = resolve_lightbar_color(updated, battery_state)
             output.set_color(color, enabled=enabled)
+
+    def _on_layout_requested(self, widget: EmuListItemWidget) -> None:
+        """Edit, persist, and apply the layout for one physical controller."""
+        item = self._find_item_by_widget(widget)
+        stored = item.data(Qt.UserRole) if item is not None else None
+        device = (stored or (None,))[0]
+        if not device:
+            record = self._mapping_records.get(id(item)) if item is not None else None
+            device = (record or {}).get("last_device")
+        if not device:
+            QMessageBox.warning(
+                self, "Controller unavailable",
+                "Connect this controller before editing its input layout.",
+            )
+            return
+
+        stable_id = stable_controller_id(
+            device.get("vendor_id"),
+            device.get("product_id"),
+            device.get("path"),
+            device.get("serial_number"),
+        )
+        controller_type = self._controller_type(device)
+        try:
+            current_layout = self.settings.get_controller_layout_settings(stable_id)
+        except (AttributeError, TypeError):
+            current_layout = {}
+
+        dialog = ControllerLayoutDialog(
+            widget.hid,
+            controller_type,
+            current_layout,
+            language=self.settings.get_ui_language(),
+            parent=self,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        updated = dialog.get_layout()
+        try:
+            self.settings.set_controller_layout_settings(stable_id, updated)
+            self.settings.save()
+        except Exception as exc:
+            logger.exception("Could not save controller layout")
+            QMessageBox.critical(
+                self, "Layout save failed",
+                f"The controller layout could not be saved.\n{exc}",
+            )
+            return
+
+        path = device.get("path")
+        mapper = self.mappers.get(path)
+        if mapper is not None:
+            mapper.configure_layout(updated)
+
+        self.notification_requested.emit(
+            "Controller layout saved",
+            f"The input layout for {widget.hid} has been saved.",
+            "success",
+        )
 
     @Slot(bool)
     def set_raw_hid_monitor_active(self, active: bool) -> None:

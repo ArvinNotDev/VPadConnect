@@ -12,6 +12,12 @@ except Exception:
 from core.emulator import EmulateX360, EmulateKeyboard
 from core.emulator import media_functions, custom_commands
 from core.controller import resolve_sony_input_report_index, interpret_dualshock4_battery
+from core.input_layout import (
+    decode_button_polarity,
+    normalize_controller_layout,
+    resolve_x360_button_states,
+)
+from core.input_actions import InputActionDispatcher
 from core.dualsense_lightbar import resolve_lightbar_color
 from core.dualsense_gyro import (
     DualSenseGyroSteering, DualShock4GyroSteering,
@@ -118,6 +124,16 @@ class Mapper:
             raise ValueError(f"Invalid emulate_to target: {emulate_to}")
 
         self.controller_config = self._load_json(f"{controller_type}.json")
+        try:
+            saved_layout = settings.get_controller_layout_settings(
+                controller.stable_id
+            )
+        except (AttributeError, TypeError):
+            saved_layout = {}
+        self.controller_layout = normalize_controller_layout(
+            saved_layout, self.controller_config
+        )
+        self.input_action_dispatcher = InputActionDispatcher()
         if self.lightbar_output is not None:
             self._apply_lightbar()
 
@@ -155,6 +171,10 @@ class Mapper:
             logger.info("Stopped mapping for %s", self.controller.name)
         self._connected = False
         self._mouse_motion.reset()
+        try:
+            self.input_action_dispatcher.release_all()
+        except Exception:
+            logger.debug("Could not release mapped keyboard/mouse inputs", exc_info=True)
         if self.gyro_steering is not None:
             self.gyro_steering.reset()
 
@@ -421,6 +441,19 @@ class Mapper:
         )
         self.lightbar_output.set_color(color, enabled=enabled)
 
+    def configure_layout(self, layout: dict) -> None:
+        """Apply a newly saved layout without restarting HID polling."""
+        updated = normalize_controller_layout(layout, self.controller_config)
+        self.input_action_dispatcher.release_all()
+        self.controller_layout = updated
+
+    def _resolve_x360_button_states(
+        self, source_states: dict[str, bool]
+    ) -> dict[str, bool]:
+        return resolve_x360_button_states(
+            source_states, self.controller_layout
+        )
+
     def _handle_x360_input(self, data: bytes) -> None:
         """
         Decode a HID report and forward it to the X360 emulator.
@@ -475,18 +508,50 @@ class Mapper:
         lt = int(raw_lt)
         rt = int(raw_rt)
 
-        a = self._get_button_from_cfg(report, buttons_cfg.get("cross"))
-        b = self._get_button_from_cfg(report, buttons_cfg.get("circle"))
-        x_ = self._get_button_from_cfg(report, buttons_cfg.get("square"))
-        y_ = self._get_button_from_cfg(report, buttons_cfg.get("triangle"))
-        lb = self._get_button_from_cfg(report, buttons_cfg.get("l1"))
-        rb = self._get_button_from_cfg(report, buttons_cfg.get("r1"))
-        back = self._get_button_from_cfg(report, buttons_cfg.get("share"))
-        start = self._get_button_from_cfg(report, buttons_cfg.get("option"))
-        l3 = self._get_button_from_cfg(report, buttons_cfg.get("l3"))
-        r3 = self._get_button_from_cfg(report, buttons_cfg.get("r3"))
+        source_states: dict[str, bool] = {}
+        for source, button_config in buttons_cfg.items():
+            raw_pressed = self._get_button_from_cfg(report, button_config)
+            polarity = self.controller_layout["buttons"].get(source, {}).get(
+                "normally", "open"
+            )
+            pressed = decode_button_polarity(raw_pressed, polarity)
+            source_states[source] = self._apply_button_invertion(
+                pressed, button_inv
+            )
 
         dpu, dpd, dpl, dpr = self._get_dpad_from_hat(report, dpad_cfg)
+        source_states.update({
+            "dpad_up": dpu,
+            "dpad_down": dpd,
+            "dpad_left": dpl,
+            "dpad_right": dpr,
+        })
+
+        # Keyboard and mouse routes are independent from the virtual XInput
+        # routes and remain active while the controller's mouse mode is enabled.
+        self.input_action_dispatcher.update(
+            source_states, self.controller_layout
+        )
+        mapped_buttons = self._resolve_x360_button_states(source_states)
+        a = mapped_buttons["a"]
+        b = mapped_buttons["b"]
+        x_ = mapped_buttons["x"]
+        y_ = mapped_buttons["y"]
+        lb = mapped_buttons["lb"]
+        rb = mapped_buttons["rb"]
+        back = mapped_buttons["back"]
+        start = mapped_buttons["start"]
+        l3 = mapped_buttons["l3"]
+        r3 = mapped_buttons["r3"]
+        dpu = mapped_buttons["dpad_up"]
+        dpd = mapped_buttons["dpad_down"]
+        dpl = mapped_buttons["dpad_left"]
+        dpr = mapped_buttons["dpad_right"]
+
+        # Preserve the existing mouse-mode toggle even when Back or R3 is
+        # redirected to a keyboard or mouse output in the custom layout.
+        mode_back = source_states.get("share", False)
+        mode_r3 = source_states.get("r3", False)
 
         # Keep detailed decoded-state diagnostics useful without writing one
         # record for every HID report; full raw reports have their own toggle.
@@ -508,18 +573,7 @@ class Mapper:
                     raw_lt, raw_rt, ",".join(pressed) or "none",
                 )
 
-        a = self._apply_button_invertion(a, button_inv)
-        b = self._apply_button_invertion(b, button_inv)
-        x_ = self._apply_button_invertion(x_, button_inv)
-        y_ = self._apply_button_invertion(y_, button_inv)
-        lb = self._apply_button_invertion(lb, button_inv)
-        rb = self._apply_button_invertion(rb, button_inv)
-        back = self._apply_button_invertion(back, button_inv)
-        start = self._apply_button_invertion(start, button_inv)
-        l3 = self._apply_button_invertion(l3, button_inv)
-        r3 = self._apply_button_invertion(r3, button_inv)
-
-        if back and r3 and not (self._prev_back and self._prev_r3):
+        if mode_back and mode_r3 and not (self._prev_back and self._prev_r3):
             self.mouse_mode_hotkey = not self.mouse_mode_hotkey
 
         self.mouse_mode = self.settings.get_mouse_mode()
@@ -589,8 +643,8 @@ class Mapper:
                 back, start, l3, r3,
             )
 
-        self._prev_back = back
-        self._prev_r3 = r3
+        self._prev_back = mode_back
+        self._prev_r3 = mode_r3
 
     def _publish_battery(self, percent: int, is_charging: bool) -> None:
         """Publish battery changes without touching Qt widgets from HID threads."""
