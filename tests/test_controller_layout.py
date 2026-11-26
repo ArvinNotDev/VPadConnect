@@ -8,6 +8,7 @@ import os
 from core.input_actions import InputActionDispatcher
 from core.input_layout import (
     apply_analog_layout,
+    apply_stick_inversion,
     decode_button_polarity,
     default_controller_layout,
     load_controller_profile,
@@ -59,6 +60,37 @@ def test_default_analog_layout_preserves_existing_stick_and_trigger_behavior():
     assert left_stick == (1200, -2400)
     assert right_stick == (3400, -4600)
     assert (lt, rt) == (80, 190)
+
+
+def test_stick_axes_can_be_inverted_independently_before_stick_swap():
+    layout = {
+        "left_stick_invert_x": True,
+        "left_stick_invert_y": False,
+        "right_stick_invert_x": False,
+        "right_stick_invert_y": True,
+    }
+
+    left, right = apply_stick_inversion(
+        (12000, -6000), (-2000, 8000), layout
+    )
+
+    assert left == (-12000, -6000)
+    assert right == (-2000, -8000)
+
+
+def test_stick_inversion_respects_signed_xinput_axis_limits():
+    left, right = apply_stick_inversion(
+        (-32768, 32767), (32767, -32768),
+        {
+            "left_stick_invert_x": True,
+            "left_stick_invert_y": True,
+            "right_stick_invert_x": True,
+            "right_stick_invert_y": True,
+        },
+    )
+
+    assert left == (32767, -32767)
+    assert right == (-32767, 32767)
 
 
 def test_analog_layout_disables_physical_sticks_and_swaps_remaining_sources():
