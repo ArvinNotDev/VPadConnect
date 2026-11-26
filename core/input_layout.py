@@ -48,6 +48,10 @@ _DPAD_SOURCES = {"dpad_up", "dpad_down", "dpad_left", "dpad_right"}
 DEFAULT_ANALOG_LAYOUT = {
     "left_stick_enabled": True,
     "right_stick_enabled": True,
+    "left_stick_invert_x": False,
+    "left_stick_invert_y": False,
+    "right_stick_invert_x": False,
+    "right_stick_invert_y": False,
     "swap_sticks": False,
     "left_trigger_enabled": True,
     "right_trigger_enabled": True,
@@ -103,12 +107,39 @@ def resolve_digital_source_states(
 
 
 def normalize_analog_layout(value: Any) -> dict[str, bool]:
-    """Validate per-controller stick/trigger enables and source swaps."""
+    """Validate per-controller stick/trigger enables, inversions, and swaps."""
     stored = value if isinstance(value, dict) else {}
     return {
         name: _as_bool(stored.get(name, default), default)
         for name, default in DEFAULT_ANALOG_LAYOUT.items()
     }
+
+
+def merge_legacy_joystick_inversion(
+    layout: Any,
+    legacy_inversion: Any,
+) -> dict[str, Any]:
+    """Seed missing per-stick inversion flags from legacy global settings."""
+    result = dict(layout) if isinstance(layout, dict) else {}
+    stored_axes = result.get("axes", {})
+    axes = dict(stored_axes) if isinstance(stored_axes, dict) else {}
+
+    try:
+        left, right = legacy_inversion
+        legacy_values = {
+            "left_stick_invert_x": left[0],
+            "left_stick_invert_y": left[1],
+            "right_stick_invert_x": right[0],
+            "right_stick_invert_y": right[1],
+        }
+    except (TypeError, IndexError, KeyError):
+        legacy_values = {}
+
+    for key, value in legacy_values.items():
+        axes.setdefault(key, _as_bool(value, False))
+
+    result["axes"] = axes
+    return result
 
 
 def apply_analog_layout(
