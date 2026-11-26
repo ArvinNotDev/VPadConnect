@@ -78,9 +78,24 @@ class StatusToast(QFrame):
         width = max(220, min(self.MAX_WIDTH, parent.width() - 32))
         self.setFixedWidth(width)
         self.adjustSize()
-        x = max(16, parent.width() - self.width() - 18)
-        y = max(16, parent.height() - self.height() - 28)
-        self.move(x, y)
+        x = max(16, (parent.width() - self.width()) // 2)
+
+        # Keep notifications centered below the app navigation so they do not
+        # cover the draggable title bar, profile selector, or window controls.
+        navigation = parent.findChild(QWidget, "top_navigation")
+        if navigation is not None:
+            navigation_bottom = navigation.mapTo(
+                parent, navigation.rect().bottomLeft()
+            ).y()
+            y = navigation_bottom + 16
+        else:
+            header = parent.findChild(QWidget, "app_header")
+            y = (
+                header.mapTo(parent, header.rect().bottomLeft()).y() + 16
+                if header is not None else 16
+            )
+
+        self.move(x, max(16, y))
 
     def apply_theme(self, theme_name: str | None = None) -> None:
         app = QApplication.instance()
