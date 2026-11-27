@@ -229,7 +229,7 @@ class MobilePairingDialog(AnimatedDialog):
         instructions = QLabel(
             "1. Open your phone camera and scan the QR code.\n"
             "2. Open the link in your browser.\n"
-            "3. Verify the certificate fingerprint if prompted, then finish pairing."
+            "3. If the browser says the connection is not private, compare its certificate fingerprint with the SHA-256 value below before continuing."
         )
         instructions.setObjectName("pairMuted")
         instructions.setWordWrap(True)
@@ -294,7 +294,7 @@ class MobilePairingDialog(AnimatedDialog):
         fingerprint_layout.setContentsMargins(13, 11, 13, 11)
         fingerprint_layout.setSpacing(7)
 
-        fingerprint_heading = QLabel("TLS CERTIFICATE FINGERPRINT · SHA-256")
+        fingerprint_heading = QLabel("VERIFY THIS SHA-256 CERTIFICATE FINGERPRINT IN YOUR BROWSER")
         fingerprint_heading.setObjectName("pairEyebrow")
         fingerprint_heading.setWordWrap(True)
         fingerprint_layout.addWidget(fingerprint_heading)

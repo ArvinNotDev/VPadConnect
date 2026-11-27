@@ -185,7 +185,7 @@ Start emulation when the mapping is ready.
 3. Start the Web Companion server.
 4. Open the displayed HTTPS address on a phone or tablet connected to the same trusted local network.
 5. Scan the QR code or enter the six-digit pairing code shown by the desktop app.
-6. Verify the displayed certificate fingerprint when your browser warns about the local self-signed certificate.
+6. If the browser says the connection is not private, compare its certificate fingerprint with the SHA-256 fingerprint shown by VPadConnect before continuing.
 7. Complete pairing and choose the Gamepad, Mouse, or PC Remote controls you need.
 
 The default Web Companion port is <code>8765</code>. The server can request a narrowly scoped Windows Firewall rule for the Private network profile.
@@ -367,7 +367,7 @@ The final setup installer is self-contained. The one-file executable is an inter
 <details>
 <summary><strong>The browser shows a certificate warning</strong></summary>
 
-The Web Companion uses a local self-signed certificate. Verify its SHA-256 fingerprint against the fingerprint shown in the desktop app before proceeding. Do not accept a certificate you cannot verify.
+The Web Companion uses a local self-signed certificate, which browsers do not trust automatically. Before continuing past the browser warning, compare its certificate fingerprint with the SHA-256 fingerprint shown in VPadConnect on the PC. If they do not match, close the page.
 
 </details>
 
